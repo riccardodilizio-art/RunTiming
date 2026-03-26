@@ -1,55 +1,46 @@
 import { Link } from 'react-router-dom';
-import { Timer, Globe, Send, Share2 } from 'lucide-react';
+import { Timer } from 'lucide-react';
+
+const links = [
+    { label: 'Home', href: '/' },
+    { label: 'Eventi', href: '/events' },
+    { label: 'Risultati', href: '/results' },
+];
 
 export default function Footer() {
     return (
-        <footer className="bg-dark-800 border-t border-white/5 mt-24">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-
-                    <div className="col-span-1 md:col-span-2">
-                        <Link to="/" className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
+        <footer className="bg-dark-800 border-t border-white/5 mt-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div>
+                        <Link to="/" className="flex items-center gap-2 mb-2">
+                            <div className="w-7 h-7 bg-brand-500 rounded-md flex items-center justify-center">
                                 <Timer className="w-4 h-4 text-white" />
                             </div>
-                            <span className="font-display font-800 text-xl tracking-wider">
-                RACE<span className="text-gradient">HUB</span>
-              </span>
+                            <span className="font-display font-700 text-lg text-white">
+                                Run<span className="text-brand-400">Timing</span>
+                            </span>
                         </Link>
-                        <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
-                            La piattaforma italiana per la gestione e il cronometraggio di eventi sportivi amatoriali e professionistici.
+                        <p className="text-gray-500 text-sm max-w-xs">
+                            La piattaforma italiana per il cronometraggio di eventi sportivi.
                         </p>
-                        <div className="flex gap-4 mt-5">
-                            {[Globe, Send, Share2].map((Icon, i) => (
-                                <a key={i} href="#" className="text-gray-600 hover:text-brand-400 transition-colors">
-                                    <Icon className="w-5 h-5" />
-                                </a>
-                            ))}
-                        </div>
                     </div>
 
-                    <div>
-                        <h4 className="font-display font-700 text-sm tracking-widest text-gray-300 uppercase mb-4">Piattaforma</h4>
-                        <ul className="space-y-2.5">
-                            {['Gare', 'Classifiche', 'Atleti', 'Organizzatori'].map(item => (
-                                <li key={item}><a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">{item}</a></li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="font-display font-700 text-sm tracking-widest text-gray-300 uppercase mb-4">Supporto</h4>
-                        <ul className="space-y-2.5">
-                            {['Come funziona', 'FAQ', 'Contatti', 'Privacy Policy'].map(item => (
-                                <li key={item}><a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">{item}</a></li>
-                            ))}
-                        </ul>
-                    </div>
+                    <nav className="flex flex-wrap gap-x-6 gap-y-2">
+                        {links.map(link => (
+                            <Link
+                                key={link.href}
+                                to={link.href}
+                                className="text-gray-500 hover:text-white text-sm transition-colors"
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
+                    </nav>
                 </div>
 
-                <div className="border-t border-white/5 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3">
-                    <p className="text-gray-600 text-xs">© 2025 RaceHub. Tutti i diritti riservati.</p>
-                    <p className="text-gray-700 text-xs font-mono">v1.0.0-alpha</p>
+                <div className="border-t border-white/5 mt-6 pt-5">
+                    <p className="text-gray-600 text-xs">© 2025 RunTiming. Tutti i diritti riservati.</p>
                 </div>
             </div>
         </footer>
