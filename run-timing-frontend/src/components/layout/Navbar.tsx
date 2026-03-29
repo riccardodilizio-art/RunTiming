@@ -6,6 +6,7 @@ const navLinks = [
     { label: 'Home', href: '/' },
     { label: 'Eventi', href: '/events' },
     { label: 'Risultati', href: '/results' },
+    { label: 'Contatti', href: '/contacts' },
 ];
 
 export default function Navbar() {

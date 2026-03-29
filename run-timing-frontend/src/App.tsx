@@ -4,6 +4,8 @@ import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
+import ResultsPage from './pages/ResultsPage';
+import ContactsPage from './pages/ContactsPage';
 
 function PlaceholderPage({ title }: { title: string }) {
     return (
@@ -24,7 +26,8 @@ export default function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/events/:slug" element={<EventDetailPage />} />
-                <Route path="/results" element={<PlaceholderPage title="Classifiche" />} />
+                <Route path="/results" element={<ResultsPage />} />
+                <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/athletes" element={<PlaceholderPage title="Atleti" />} />
                 <Route path="/login" element={<PlaceholderPage title="Accedi" />} />
                 <Route path="/register" element={<PlaceholderPage title="Registrati" />} />
