@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
-import { mockEvents } from '../data/mockEvents';
+import { Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { mockEvents, categoryLabels } from '../data/mockEvents';
 import type { SportCategory } from '../types';
 import EventRow from '../components/ui/EventRow';
+import EventGridCard from '../components/ui/EventGridCard';
 
-type Tab = 'all' | 'upcoming' | 'past';
+type Tab  = 'upcoming' | 'all' | 'past';
+type Sort = 'date-asc' | 'date-desc' | 'price-asc' | 'price-desc' | 'popular';
+type View = 'list' | 'grid';
 
-const categories: Array<{ value: SportCategory | 'all'; label: string }> = [
+const CATEGORIES: Array<{ value: SportCategory | 'all'; label: string }> = [
     { value: 'all',       label: 'Tutti' },
     { value: 'running',   label: 'Running' },
     { value: 'cycling',   label: 'Ciclismo' },
@@ -15,36 +18,84 @@ const categories: Array<{ value: SportCategory | 'all'; label: string }> = [
     { value: 'swimming',  label: 'Nuoto' },
 ];
 
+const SORT_OPTIONS: Array<{ value: Sort; label: string }> = [
+    { value: 'date-asc',   label: 'Data (più vicina)' },
+    { value: 'date-desc',  label: 'Data (più lontana)' },
+    { value: 'price-asc',  label: 'Prezzo (crescente)' },
+    { value: 'price-desc', label: 'Prezzo (decrescente)' },
+    { value: 'popular',    label: 'Più popolari' },
+];
+
+const TABS: Array<{ value: Tab; label: string }> = [
+    { value: 'upcoming', label: 'Prossimi' },
+    { value: 'all',      label: 'Tutti' },
+    { value: 'past',     label: 'Passati' },
+];
+
+function minPrice(event: (typeof mockEvents)[number]) {
+    return Math.min(...event.races.map(r => r.price));
+}
+
+function totalParticipants(event: (typeof mockEvents)[number]) {
+    return event.races.reduce((s, r) => s + r.participants, 0);
+}
+
 export default function EventsPage() {
-    const [query, setQuery]       = useState('');
-    const [category, setCategory] = useState<SportCategory | 'all'>('all');
-    const [tab, setTab]           = useState<Tab>('upcoming');
+    const [query,     setQuery]     = useState('');
+    const [category,  setCategory]  = useState<SportCategory | 'all'>('all');
+    const [tab,       setTab]       = useState<Tab>('upcoming');
+    const [sort,      setSort]      = useState<Sort>('date-asc');
+    const [onlyOpen,  setOnlyOpen]  = useState(false);
+    const [view,      setView]      = useState<View>('list');
+
     const now = new Date();
 
-    const filtered = mockEvents.filter(e => {
-        const matchesQuery    = e.title.toLowerCase().includes(query.toLowerCase()) ||
-                                e.city.toLowerCase().includes(query.toLowerCase());
-        const matchesCategory = category === 'all' || e.category === category;
-        const matchesTab      = tab === 'all'
-            ? true
-            : tab === 'upcoming'
-            ? new Date(e.date) >= now
-            : new Date(e.date) < now;
-        return matchesQuery && matchesCategory && matchesTab;
-    }).sort((a, b) =>
-        tab === 'past'
-            ? new Date(b.date).getTime() - new Date(a.date).getTime()
-            : new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    // Count events per category (for the current tab, ignoring category filter)
+    const countFor = (cat: SportCategory | 'all') =>
+        mockEvents.filter(e => {
+            const matchesTab = tab === 'all' ? true : tab === 'upcoming'
+                ? new Date(e.date) >= now : new Date(e.date) < now;
+            const matchesCat = cat === 'all' || e.category === cat;
+            return matchesTab && matchesCat;
+        }).length;
+
+    const filtered = mockEvents
+        .filter(e => {
+            const q = query.toLowerCase();
+            const matchesQuery    = !q ||
+                e.title.toLowerCase().includes(q) ||
+                e.city.toLowerCase().includes(q) ||
+                e.organizer.toLowerCase().includes(q);
+            const matchesCategory = category === 'all' || e.category === category;
+            const matchesTab      = tab === 'all' ? true : tab === 'upcoming'
+                ? new Date(e.date) >= now : new Date(e.date) < now;
+            const matchesOpen     = !onlyOpen || e.races.some(r => r.isOpen);
+            return matchesQuery && matchesCategory && matchesTab && matchesOpen;
+        })
+        .sort((a, b) => {
+            switch (sort) {
+                case 'date-asc':   return new Date(a.date).getTime() - new Date(b.date).getTime();
+                case 'date-desc':  return new Date(b.date).getTime() - new Date(a.date).getTime();
+                case 'price-asc':  return minPrice(a) - minPrice(b);
+                case 'price-desc': return minPrice(b) - minPrice(a);
+                case 'popular':    return totalParticipants(b) - totalParticipants(a);
+            }
+        });
+
+    const hasActiveFilters = category !== 'all' || onlyOpen || sort !== 'date-asc';
+
+    function resetFilters() {
+        setQuery('');
+        setCategory('all');
+        setOnlyOpen(false);
+        setSort('date-asc');
+    }
 
     return (
         <main className="min-h-screen bg-slate-50">
 
-            {/* Page header */}
-            <div
-                className="py-8 px-4 text-center"
-                style={{ background: 'linear-gradient(135deg, #0a3c6e 0%, #0168c8 100%)' }}
-            >
+            {/* Header */}
+            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #0a3c6e 0%, #0168c8 100%)' }}>
                 <h1 className="font-display font-800 text-3xl md:text-4xl text-white mb-1">
                     Tutti gli eventi
                 </h1>
@@ -53,68 +104,188 @@ export default function EventsPage() {
                 </p>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 py-8">
+            <div className="max-w-5xl mx-auto px-4 py-6">
 
-                {/* Search + category filters */}
-                <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 space-y-3"
-                     style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
-                    <div className="relative">
+                {/* Search + sort + view toggle */}
+                <div className="flex gap-2 mb-4">
+                    <div className="relative flex-1">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Cerca per nome o città..."
+                            placeholder="Cerca per nome, città o organizzatore..."
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            className="w-full border border-slate-300 focus:border-ocean-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
+                            className="w-full bg-white border border-slate-300 focus:border-ocean-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
                         />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {categories.map(c => (
+                        {query && (
                             <button
-                                key={c.value}
-                                onClick={() => setCategory(c.value)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                    category === c.value
-                                        ? 'bg-ocean-600 text-white'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                }`}
+                                onClick={() => setQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
                             >
-                                {c.label}
+                                <X className="w-3.5 h-3.5" />
                             </button>
-                        ))}
+                        )}
+                    </div>
+
+                    {/* Sort */}
+                    <div className="relative">
+                        <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                        <select
+                            value={sort}
+                            onChange={e => setSort(e.target.value as Sort)}
+                            className="appearance-none bg-white border border-slate-300 rounded-lg pl-8 pr-8 py-2.5 text-sm text-slate-600 focus:outline-none focus:border-ocean-400 cursor-pointer"
+                        >
+                            {SORT_OPTIONS.map(o => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* View toggle */}
+                    <div className="flex bg-white border border-slate-300 rounded-lg overflow-hidden">
+                        <button
+                            onClick={() => setView('list')}
+                            className={`px-3 py-2.5 transition-colors ${view === 'list' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            aria-label="Vista lista"
+                        >
+                            <LayoutList className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setView('grid')}
+                            className={`px-3 py-2.5 transition-colors ${view === 'grid' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            aria-label="Vista griglia"
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
 
-                {/* Upcoming / All / Past tabs */}
-                <div className="flex border-b border-slate-200 mb-6">
-                    {([
-                        { value: 'upcoming', label: 'Prossimi' },
-                        { value: 'all',      label: 'Tutti' },
-                        { value: 'past',     label: 'Passati' },
-                    ] as { value: Tab; label: string }[]).map(t => (
-                        <button
-                            key={t.value}
-                            onClick={() => setTab(t.value)}
-                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                                tab === t.value
-                                    ? 'border-ocean-600 text-ocean-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                            }`}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
+                {/* Category pills with counts */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {CATEGORIES.map(c => {
+                        const count = countFor(c.value);
+                        return (
+                            <button
+                                key={c.value}
+                                onClick={() => setCategory(c.value)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                    category === c.value
+                                        ? 'bg-ocean-600 text-white'
+                                        : 'bg-white border border-slate-200 text-slate-600 hover:border-ocean-300 hover:text-ocean-600'
+                                }`}
+                            >
+                                {c.label}
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                    category === c.value
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Tabs + quick filter "solo aperte" */}
+                <div className="flex items-center justify-between border-b border-slate-200 mb-5">
+                    <div className="flex">
+                        {TABS.map(t => (
+                            <button
+                                key={t.value}
+                                onClick={() => setTab(t.value)}
+                                className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    tab === t.value
+                                        ? 'border-ocean-600 text-ocean-600'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => setOnlyOpen(v => !v)}
+                        className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors mb-1 ${
+                            onlyOpen
+                                ? 'bg-ocean-600 text-white border-ocean-600'
+                                : 'bg-white border-slate-300 text-slate-500 hover:border-ocean-300 hover:text-ocean-600'
+                        }`}
+                    >
+                        {onlyOpen && <X className="w-3 h-3" />}
+                        Solo iscrizioni aperte
+                    </button>
+                </div>
+
+                {/* Active filter chips + results count */}
+                <div className="flex items-center justify-between mb-4 min-h-[24px]">
+                    <div className="flex flex-wrap gap-1.5">
+                        {category !== 'all' && (
+                            <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                {categoryLabels[category]}
+                                <button onClick={() => setCategory('all')} className="hover:text-ocean-900">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </span>
+                        )}
+                        {onlyOpen && (
+                            <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                Solo aperte
+                                <button onClick={() => setOnlyOpen(false)} className="hover:text-ocean-900">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </span>
+                        )}
+                        {sort !== 'date-asc' && (
+                            <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                {SORT_OPTIONS.find(o => o.value === sort)?.label}
+                                <button onClick={() => setSort('date-asc')} className="hover:text-ocean-900">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </span>
+                        )}
+                        {hasActiveFilters && (
+                            <button
+                                onClick={resetFilters}
+                                className="text-xs text-slate-400 hover:text-slate-600 underline px-1"
+                            >
+                                Azzera filtri
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-400 flex-shrink-0">
+                        {filtered.length} {filtered.length === 1 ? 'evento' : 'eventi'} trovati
+                    </p>
                 </div>
 
                 {/* Results */}
                 {filtered.length > 0 ? (
-                    <div className="space-y-3">
-                        {filtered.map(e => <EventRow key={e.id} event={e} />)}
-                    </div>
+                    view === 'list' ? (
+                        <div className="space-y-3">
+                            {filtered.map(e => <EventRow key={e.id} event={e} />)}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filtered.map(e => <EventGridCard key={e.id} event={e} />)}
+                        </div>
+                    )
                 ) : (
-                    <div className="text-center py-16 text-slate-400">
-                        <p className="text-base">Nessun evento trovato.</p>
-                        <p className="text-sm mt-1">Prova a modificare i filtri di ricerca.</p>
+                    <div className="text-center py-20 bg-white border border-slate-200 rounded-xl"
+                         style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                        <Search className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                        <p className="text-slate-600 font-medium mb-1">Nessun evento trovato</p>
+                        <p className="text-slate-400 text-sm mb-5">
+                            {query
+                                ? `Nessun risultato per "${query}"`
+                                : 'Prova a modificare i filtri di ricerca'}
+                        </p>
+                        <button
+                            onClick={resetFilters}
+                            className="bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+                        >
+                            Azzera filtri
+                        </button>
                     </div>
                 )}
 
