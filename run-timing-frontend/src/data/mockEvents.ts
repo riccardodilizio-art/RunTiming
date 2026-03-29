@@ -4,9 +4,9 @@ export const mockEvents: Event[] = [
     {
         id: '1',
         title: 'Milano City Run',
-        slug: 'milano-city-run-2025',
+        slug: 'milano-city-run-2026',
         category: 'running',
-        date: '2025-04-12T08:00:00',
+        date: '2026-04-12T08:00:00',
         location: 'Piazza Duomo',
         city: 'Milano',
         province: 'MI',
@@ -22,9 +22,9 @@ export const mockEvents: Event[] = [
     {
         id: '2',
         title: 'Granfondo delle Dolomiti',
-        slug: 'granfondo-dolomiti-2025',
+        slug: 'granfondo-dolomiti-2026',
         category: 'cycling',
-        date: '2025-05-03T07:00:00',
+        date: '2026-05-03T07:00:00',
         location: 'Belluno',
         city: 'Belluno',
         province: 'BL',
@@ -40,9 +40,9 @@ export const mockEvents: Event[] = [
     {
         id: '3',
         title: 'Triathlon di Rimini',
-        slug: 'triathlon-rimini-2025',
+        slug: 'triathlon-rimini-2026',
         category: 'triathlon',
-        date: '2025-06-21T06:30:00',
+        date: '2026-06-21T06:30:00',
         location: 'Spiaggia di Rimini',
         city: 'Rimini',
         province: 'RN',
@@ -52,7 +52,7 @@ export const mockEvents: Event[] = [
         distances: ['Sprint', 'Olimpico'],
         price: 60,
         isFeatured: true,
-        isLive: true,
+        isLive: false,
         organizer: 'Triathlon Romagna',
     },
     {
@@ -112,19 +112,19 @@ export const mockEvents: Event[] = [
 ];
 
 export const categoryLabels: Record<string, string> = {
-    running: 'Running',
-    cycling: 'Ciclismo',
+    running:   'Running',
+    cycling:   'Ciclismo',
     triathlon: 'Triathlon',
-    swimming: 'Nuoto',
-    trail: 'Trail',
-    other: 'Altro',
+    swimming:  'Nuoto',
+    trail:     'Trail',
+    other:     'Altro',
 };
 
 export const categoryColors: Record<string, string> = {
-    running:   'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    cycling:   'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    triathlon: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    swimming:  'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-    trail:     'bg-green-500/20 text-green-400 border-green-500/30',
-    other:     'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    running:   'bg-sky-50 text-sky-700 border-sky-200',
+    cycling:   'bg-indigo-50 text-indigo-700 border-indigo-200',
+    triathlon: 'bg-violet-50 text-violet-700 border-violet-200',
+    swimming:  'bg-cyan-50 text-cyan-700 border-cyan-200',
+    trail:     'bg-teal-50 text-teal-700 border-teal-200',
+    other:     'bg-slate-50 text-slate-600 border-slate-200',
 };
