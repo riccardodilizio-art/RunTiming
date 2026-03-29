@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ChevronLeft, Search, Trophy, Medal, Award, Users, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
 import { mockEvents, categoryLabels, categoryColors } from '../data/mockEvents';
 import { mockResults, raceClassifications } from '../data/mockResults';
-import type { Event, Race, Result } from '../types';
+import type { Event, Race, Result, LapSplit } from '../types';
 import CertificateModal from '../components/results/CertificateModal';
+import LapDetail from '../components/results/LapDetail';
+import ImportLapsModal from '../components/results/ImportLapsModal';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -38,18 +40,25 @@ type ClassTab = 'overall' | 'category' | 'team' | 'specials';
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
-function ResultRow({ r, race, onCertificate, catPosition }: {
+function ResultRow({ r, race, onCertificate, catPosition, hasLaps, expanded, onToggle }: {
     r: Result;
     race: Race;
     onCertificate: (r: Result, catPos?: number) => void;
     catPosition?: number;
+    hasLaps?: boolean;
+    expanded?: boolean;
+    onToggle?: () => void;
 }) {
     const isLap = race.raceType !== 'linear';
     const isFinisher = r.status === 'finisher';
 
+    const gridCols = isLap
+        ? '40px 56px 1fr 80px 70px 60px 32px 48px'
+        : '40px 56px 1fr 80px 80px 70px 48px';
+
     return (
         <div className={`grid items-center gap-2 px-4 py-3 hover:bg-slate-50 transition-colors text-sm ${rowBg(r.position)}`}
-             style={{ gridTemplateColumns: isLap ? '40px 56px 1fr 80px 70px 60px 48px' : '40px 56px 1fr 80px 80px 70px 48px' }}>
+             style={{ gridTemplateColumns: gridCols }}>
 
             <div className="flex items-center justify-center">
                 {isFinisher
@@ -81,6 +90,19 @@ function ResultRow({ r, race, onCertificate, catPosition }: {
                 {r.gap ?? (isFinisher ? '—' : '')}
             </span>
 
+            {/* Expand toggle — only for lap races */}
+            {isLap && (
+                hasLaps && onToggle ? (
+                    <button
+                        onClick={onToggle}
+                        title="Dettaglio giri"
+                        className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${expanded ? 'text-ocean-600 bg-ocean-50' : 'text-slate-300 hover:text-ocean-600 hover:bg-ocean-50'}`}
+                    >
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    </button>
+                ) : <div />
+            )}
+
             {isFinisher ? (
                 <button
                     onClick={() => onCertificate(r, catPosition)}
@@ -105,12 +127,20 @@ export default function ResultsPage() {
     const [catFilter,  setCatFilter]  = useState('Tutti');
     const [classTab,   setClassTab]   = useState<ClassTab>('overall');
     const [certificate, setCertificate] = useState<{ result: Result; catPos?: number } | null>(null);
+    const [importedLaps, setImportedLaps] = useState<Record<string, LapSplit[]>>({});
+    const [showImport,   setShowImport]   = useState(false);
+    const [expandedBib,  setExpandedBib]  = useState<string | null>(null);
 
     const results = selectedRace ? (mockResults[selectedRace.id] ?? []) : [];
     const finishers = results.filter(r => r.status === 'finisher');
     const specials  = selectedRace ? raceClassifications[selectedRace.id]?.specials : undefined;
 
     const isLapRace = selectedRace?.raceType !== 'linear';
+
+    // Merge imported laps with mock lapSplits (imported takes priority)
+    function getLapSplits(r: Result): LapSplit[] {
+        return importedLaps[r.bib] ?? r.lapSplits ?? [];
+    }
 
     // Filter for overall/search
     const filtered = results.filter(r => {
@@ -153,16 +183,30 @@ export default function ResultsPage() {
         setQuery('');
         setCatFilter('Tutti');
         setClassTab('overall');
+        setImportedLaps({});
+        setExpandedBib(null);
     }
 
     function back() {
-        if (selectedRace) { setSelectedRace(null); setQuery(''); setCatFilter('Tutti'); setClassTab('overall'); }
-        else setSelectedEvent(null);
+        if (selectedRace) {
+            setSelectedRace(null);
+            setQuery('');
+            setCatFilter('Tutti');
+            setClassTab('overall');
+            setImportedLaps({});
+            setExpandedBib(null);
+        } else {
+            setSelectedEvent(null);
+        }
     }
 
     const colHeaders = isLapRace
-        ? ['#', 'Pet.', 'Atleta', 'Cat.', 'Giri', 'Distacco', '']
+        ? ['#', 'Pet.', 'Atleta', 'Cat.', 'Giri', 'Distacco', '', '']
         : ['#', 'Pet.', 'Atleta', 'Cat.', 'Tempo', 'Distacco', ''];
+
+    const headerGridCols = isLapRace
+        ? '40px 56px 1fr 80px 70px 60px 32px 48px'
+        : '40px 56px 1fr 80px 80px 70px 48px';
 
     return (
         <main className="min-h-screen bg-slate-50">
@@ -270,17 +314,34 @@ export default function ResultsPage() {
                                 </div>
                                 <p className="text-slate-400 text-sm">{selectedEvent.title} · {formatDate(selectedEvent.date)}</p>
                             </div>
-                            <div className="text-right flex-shrink-0 grid grid-cols-3 gap-3">
-                                {[
-                                    { label: 'Classificati', val: finishers.length },
-                                    { label: 'DNF/DSQ', val: results.filter(r => r.status !== 'finisher' && r.status !== 'dns').length },
-                                    { label: 'DNS', val: results.filter(r => r.status === 'dns').length },
-                                ].map(s => (
-                                    <div key={s.label} className="text-center">
-                                        <p className="text-xs text-slate-400">{s.label}</p>
-                                        <p className="font-display font-700 text-xl text-ocean-700">{s.val}</p>
-                                    </div>
-                                ))}
+                            <div className="flex-shrink-0 flex flex-col items-end gap-3">
+                                {/* Import button — only for lap races */}
+                                {isLapRace && (
+                                    <button
+                                        onClick={() => setShowImport(true)}
+                                        className="flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-700 border border-ocean-200 hover:bg-ocean-50 px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Importa tempi giro
+                                        {Object.keys(importedLaps).length > 0 && (
+                                            <span className="ml-1 text-xs bg-ocean-100 text-ocean-700 px-1.5 py-0.5 rounded-full font-semibold">
+                                                {Object.keys(importedLaps).length}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+                                <div className="grid grid-cols-3 gap-3 text-right">
+                                    {[
+                                        { label: 'Classificati', val: finishers.length },
+                                        { label: 'DNF/DSQ', val: results.filter(r => r.status !== 'finisher' && r.status !== 'dns').length },
+                                        { label: 'DNS', val: results.filter(r => r.status === 'dns').length },
+                                    ].map(s => (
+                                        <div key={s.label} className="text-center">
+                                            <p className="text-xs text-slate-400">{s.label}</p>
+                                            <p className="font-display font-700 text-xl text-ocean-700">{s.val}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
@@ -322,15 +383,29 @@ export default function ResultsPage() {
 
                                 <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
                                     <div className="grid gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-400 uppercase tracking-wide"
-                                         style={{ gridTemplateColumns: isLapRace ? '40px 56px 1fr 80px 70px 60px 48px' : '40px 56px 1fr 80px 80px 70px 48px' }}>
+                                         style={{ gridTemplateColumns: headerGridCols }}>
                                         {colHeaders.map((h, i) => <span key={i} className={i > 3 ? 'text-right' : ''}>{h}</span>)}
                                     </div>
                                     {filtered.length > 0
-                                        ? filtered.map(r => (
-                                            <ResultRow key={r.bib} r={r} race={selectedRace}
-                                                catPosition={catPositionFor(r)}
-                                                onCertificate={(res, cp) => openCert(res, cp)} />
-                                        ))
+                                        ? filtered.map(r => {
+                                            const laps = getLapSplits(r);
+                                            const isExpanded = expandedBib === r.bib;
+                                            return (
+                                                <div key={r.bib}>
+                                                    <ResultRow
+                                                        r={r} race={selectedRace}
+                                                        catPosition={catPositionFor(r)}
+                                                        onCertificate={(res, cp) => openCert(res, cp)}
+                                                        hasLaps={laps.length > 0}
+                                                        expanded={isExpanded}
+                                                        onToggle={() => setExpandedBib(isExpanded ? null : r.bib)}
+                                                    />
+                                                    {isExpanded && laps.length > 0 && (
+                                                        <LapDetail lapSplits={laps} athleteName={r.athleteName} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })
                                         : <p className="text-center text-slate-400 text-sm py-10">Nessun atleta trovato.</p>
                                     }
                                 </div>
@@ -428,6 +503,17 @@ export default function ResultsPage() {
                     race={selectedRace}
                     catPosition={certificate.catPos}
                     onClose={() => setCertificate(null)}
+                />
+            )}
+
+            {/* Import laps modal */}
+            {showImport && (
+                <ImportLapsModal
+                    onImport={(data) => {
+                        setImportedLaps(prev => ({ ...prev, ...data }));
+                        setExpandedBib(null);
+                    }}
+                    onClose={() => setShowImport(false)}
                 />
             )}
 
