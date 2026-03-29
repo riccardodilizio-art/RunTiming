@@ -1,5 +1,18 @@
 export type SportCategory = 'running' | 'cycling' | 'triathlon' | 'swimming' | 'trail' | 'other';
 
+export interface Race {
+    id: string;
+    name: string;
+    distance: string;
+    minAge?: number;             // undefined = nessun limite inferiore
+    maxAge?: number;             // undefined = nessun limite superiore
+    requiresMedicalCert: boolean; // certificato medico agonistico
+    price: number;
+    maxParticipants: number;
+    participants: number;
+    isOpen: boolean;             // l'admin può aprire/chiudere
+}
+
 export interface Event {
     id: string;
     title: string;
@@ -10,10 +23,7 @@ export interface Event {
     city: string;
     province: string;
     coverImage: string;
-    participants: number;
-    maxParticipants: number;
-    distances: string[];
-    price: number;
+    races: Race[];
     isFeatured: boolean;
     isLive: boolean;
     organizer: string;

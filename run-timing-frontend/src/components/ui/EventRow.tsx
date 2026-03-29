@@ -9,7 +9,20 @@ function formatDate(iso: string) {
     });
 }
 
+function priceRange(event: Event): string {
+    const prices = event.races.map(r => r.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? `€${min}` : `€${min} – €${max}`;
+}
+
+function totalParticipants(event: Event) {
+    return event.races.reduce((sum, r) => sum + r.participants, 0);
+}
+
 export default function EventRow({ event }: { event: Event }) {
+    const distances = event.races.map(r => r.distance).join(' · ');
+
     return (
         <Link
             to={`/events/${event.slug}`}
@@ -48,14 +61,14 @@ export default function EventRow({ event }: { event: Event }) {
                     <span className={`text-xs px-2 py-0.5 rounded border ${categoryColors[event.category]}`}>
                         {categoryLabels[event.category]}
                     </span>
-                    <span className="text-slate-400 text-xs">{event.distances.join(' · ')}</span>
+                    <span className="text-slate-400 text-xs">{distances}</span>
                 </div>
             </div>
 
             <div className="flex-shrink-0 text-right">
-                <span className="font-semibold text-ocean-700 text-sm">€{event.price}</span>
+                <span className="font-semibold text-ocean-700 text-sm">{priceRange(event)}</span>
                 <div className="text-slate-400 text-xs mt-0.5">
-                    {event.participants.toLocaleString('it-IT')} iscritti
+                    {totalParticipants(event).toLocaleString('it-IT')} iscritti
                 </div>
             </div>
         </Link>
