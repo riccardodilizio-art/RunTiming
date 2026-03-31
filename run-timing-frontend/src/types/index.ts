@@ -1,5 +1,52 @@
 export type SportCategory = 'running' | 'cycling' | 'triathlon' | 'swimming' | 'trail' | 'other';
 
+// ─── Form builder types ───────────────────────────────────────────────────────
+
+export type CatalogKey =
+    | 'nome' | 'cognome' | 'data_nascita' | 'anno_nascita' | 'sesso'
+    | 'email' | 'telefono'
+    | 'societa' | 'codice_societa'
+    | 'tessera_fidal' | 'tessera_runcard' | 'tessera_fci'
+    | 'tessera_csi' | 'tessera_uisp' | 'tessera_fitri' | 'tessera_fin'
+    | 'tipo_certificato' | 'num_certificato' | 'scadenza_certificato' | 'gruppo_sanguigno'
+    | 'taglia_maglia' | 'note'
+    | 'privacy' | 'regolamento' | 'liberatoria' | 'marketing';
+
+export type FieldType = 'text' | 'email' | 'tel' | 'date' | 'number' | 'select' | 'checkbox' | 'textarea';
+
+export interface FieldOption {
+    value: string;
+    label: string;
+}
+
+export interface FormField {
+    id: string;
+    catalogKey?: CatalogKey;
+    type: FieldType;
+    label: string;
+    placeholder?: string;
+    required: boolean;
+    options?: FieldOption[];
+    helperText?: string;
+    readOnly?: boolean; // e.g. anno_nascita (auto-derived)
+}
+
+export interface PriceStep {
+    id: string;
+    label: string;    // "Early Bird", "Standard", "Iscrizione tardiva"
+    price: number;
+    deadline: string; // ISO date "YYYY-MM-DD"
+}
+
+export interface RegistrationSubmission {
+    id: string;
+    eventId: string;
+    raceId: string;
+    submittedAt: string;
+    formData: Record<string, string | boolean>;
+    pricePaid: number;
+}
+
 export type RaceType =
     | 'linear'       // gara su percorso (default)
     | 'laps_fixed'   // gara a giri fissi (criterium, pista)
@@ -26,6 +73,8 @@ export interface Race {
     maxParticipants: number;
     participants: number;
     isOpen: boolean;
+    formSchema?: FormField[];
+    priceSteps?: PriceStep[];
 }
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';

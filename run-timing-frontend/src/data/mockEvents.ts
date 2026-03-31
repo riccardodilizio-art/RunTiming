@@ -1,4 +1,56 @@
-import type { Event } from '../types';
+import type { Event, FormField, PriceStep } from '../types';
+
+// ─── Reusable schema fragments ───────────────────────────────────────────────
+
+const optSesso: FormField['options'] = [
+    { value: 'M', label: 'Maschile' },
+    { value: 'F', label: 'Femminile' },
+    { value: 'NS', label: 'Non specificato' },
+];
+const optCert: FormField['options'] = [
+    { value: 'agonistico', label: 'Agonistico' },
+    { value: 'non_agonistico', label: 'Non agonistico' },
+];
+const optMaglia: FormField['options'] = ['XS','S','M','L','XL','XXL'].map(v => ({ value: v, label: v }));
+
+const fNome:       FormField = { id: 'nome',        catalogKey: 'nome',        type: 'text',     label: 'Nome',           required: true };
+const fCognome:    FormField = { id: 'cognome',     catalogKey: 'cognome',     type: 'text',     label: 'Cognome',        required: true };
+const fNascita:    FormField = { id: 'data_nascita',catalogKey: 'data_nascita',type: 'date',     label: 'Data di nascita',required: true };
+const fAnno:       FormField = { id: 'anno_nascita',catalogKey: 'anno_nascita',type: 'number',   label: 'Anno di nascita',required: false, readOnly: true, helperText: 'Calcolato automaticamente' };
+const fSesso:      FormField = { id: 'sesso',       catalogKey: 'sesso',       type: 'select',   label: 'Sesso',          required: true, options: optSesso };
+const fEmail:      FormField = { id: 'email',       catalogKey: 'email',       type: 'email',    label: 'Email',          required: true };
+const fTelefono:   FormField = { id: 'telefono',    catalogKey: 'telefono',    type: 'tel',      label: 'Telefono',       required: false };
+const fSocieta:    FormField = { id: 'societa',     catalogKey: 'societa',     type: 'text',     label: 'Società sportiva',required: false };
+const fCodSoc:     FormField = { id: 'codice_societa',catalogKey:'codice_societa',type:'text',   label: 'Codice società', required: false };
+const fFidal:      FormField = { id: 'tessera_fidal',catalogKey:'tessera_fidal',type: 'text',    label: 'N° Tessera FIDAL',required: false };
+const fRuncard:    FormField = { id: 'tessera_runcard',catalogKey:'tessera_runcard',type:'text', label: 'N° RunCard',     required: false };
+const fFci:        FormField = { id: 'tessera_fci', catalogKey: 'tessera_fci', type: 'text',     label: 'N° Tessera FCI', required: false };
+const fFitri:      FormField = { id: 'tessera_fitri',catalogKey:'tessera_fitri',type:'text',     label: 'N° Tessera FITRI',required: false };
+const fFin:        FormField = { id: 'tessera_fin', catalogKey: 'tessera_fin', type: 'text',     label: 'N° Tessera FIN', required: false };
+const fTipoCert:   FormField = { id: 'tipo_certificato',catalogKey:'tipo_certificato',type:'select',label:'Tipo certificato medico',required: false, options: optCert };
+const fNumCert:    FormField = { id: 'num_certificato',catalogKey:'num_certificato',type:'text', label: 'N° certificato medico',required: false };
+const fScadCert:   FormField = { id: 'scadenza_certificato',catalogKey:'scadenza_certificato',type:'date',label:'Scadenza certificato',required: false };
+const fMaglia:     FormField = { id: 'taglia_maglia',catalogKey:'taglia_maglia',type:'select',   label: 'Taglia t-shirt',  required: false, options: optMaglia };
+const fNote:       FormField = { id: 'note',        catalogKey: 'note',        type: 'textarea', label: 'Note / allergie / esigenze speciali',required: false };
+const fPrivacy:    FormField = { id: 'privacy',     catalogKey: 'privacy',     type: 'checkbox', label: 'Accetto il trattamento dei dati personali (GDPR)',required: true };
+const fRegolamento:FormField = { id: 'regolamento', catalogKey: 'regolamento', type: 'checkbox', label: 'Ho letto e accetto il regolamento della gara',required: true };
+const fLiberatoria:FormField = { id: 'liberatoria', catalogKey: 'liberatoria', type: 'checkbox', label: 'Firmo la liberatoria di responsabilità',required: true };
+const fMarketing:  FormField = { id: 'marketing',   catalogKey: 'marketing',   type: 'checkbox', label: 'Accetto di ricevere comunicazioni promozionali (opzionale)',required: false };
+
+// ─── Common schema compositions ──────────────────────────────────────────────
+
+const baseCompetitiva: FormField[] = [fNome, fCognome, fNascita, fAnno, fSesso, fEmail, fTelefono];
+const baseNonComp:     FormField[] = [fNome, fCognome, fNascita, fAnno, fSesso, fEmail, fTelefono];
+const consensiBase:    FormField[] = [fPrivacy, fRegolamento, fLiberatoria, fMarketing];
+const consensiLight:   FormField[] = [fPrivacy, fRegolamento];
+
+// ─── Price step helpers ───────────────────────────────────────────────────────
+
+function ps(id: string, label: string, price: number, deadline: string): PriceStep {
+    return { id, label, price, deadline };
+}
+
+// ─── Events ──────────────────────────────────────────────────────────────────
 
 export const mockEvents: Event[] = [
     {
@@ -17,16 +69,53 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'ASD Milano Sport',
         races: [
-            { id: '1-a', raceType: 'linear', name: 'Competitiva 21km', distance: '21.1km', minAge: 18, requiresMedicalCert: true, price: 35, maxParticipants: 800, participants: 612, isOpen: true },
-            { id: '1-b', raceType: 'linear', name: 'Competitiva 10km', distance: '10km', minAge: 16, requiresMedicalCert: true, price: 25, maxParticipants: 1000, participants: 870, isOpen: true },
-            { id: '1-c', raceType: 'linear', name: 'Non Competitiva 5km', distance: '5km', requiresMedicalCert: false, price: 15, maxParticipants: 500, participants: 310, isOpen: true },
-            { id: '1-d', raceType: 'linear', name: 'Gara Ragazzi 1km', distance: '1km', minAge: 6, maxAge: 15, requiresMedicalCert: false, price: 10, maxParticipants: 150, participants: 50, isOpen: true },
+            {
+                id: '1-a', raceType: 'linear', name: 'Competitiva 21km', distance: '21.1km',
+                minAge: 18, requiresMedicalCert: true, price: 35, maxParticipants: 800, participants: 612, isOpen: true,
+                priceSteps: [
+                    ps('ps-1a-1', 'Early Bird',          28, '2026-03-15'),
+                    ps('ps-1a-2', 'Standard',            35, '2026-04-07'),
+                    ps('ps-1a-3', 'Iscrizione tardiva',  42, '2026-04-11'),
+                ],
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fCodSoc,
+                    { ...fFidal, required: true },
+                    { ...fTipoCert, required: true }, fNumCert, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '1-b', raceType: 'linear', name: 'Competitiva 10km', distance: '10km',
+                minAge: 16, requiresMedicalCert: true, price: 25, maxParticipants: 1000, participants: 870, isOpen: true,
+                priceSteps: [
+                    ps('ps-1b-1', 'Early Bird',         18, '2026-03-15'),
+                    ps('ps-1b-2', 'Standard',           25, '2026-04-07'),
+                    ps('ps-1b-3', 'Iscrizione tardiva', 30, '2026-04-11'),
+                ],
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFidal, fRuncard,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '1-c', raceType: 'linear', name: 'Non Competitiva 5km', distance: '5km',
+                requiresMedicalCert: false, price: 15, maxParticipants: 500, participants: 310, isOpen: true,
+                formSchema: [...baseNonComp, fMaglia, ...consensiLight],
+            },
+            {
+                id: '1-d', raceType: 'linear', name: 'Gara Ragazzi 1km', distance: '1km',
+                minAge: 6, maxAge: 15, requiresMedicalCert: false, price: 10, maxParticipants: 150, participants: 50, isOpen: true,
+                formSchema: [
+                    fNome, fCognome, fNascita, fAnno, fSesso,
+                    { ...fEmail, label: 'Email genitore/tutore' },
+                    { ...fTelefono, required: true, label: 'Telefono genitore/tutore' },
+                    fNote, ...consensiBase,
+                ],
+            },
         ],
         routeInfo: {
-            elevationGainM: 40,
-            maxElevationM: 132,
-            minElevationM: 112,
-            terrain: 'Asfalto',
+            elevationGainM: 40, maxElevationM: 132, minElevationM: 112, terrain: 'Asfalto',
             profile: [
                 { km: 0, elev: 120 }, { km: 3, elev: 128 }, { km: 6, elev: 115 },
                 { km: 9, elev: 122 }, { km: 12, elev: 132 }, { km: 15, elev: 118 },
@@ -50,15 +139,36 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'Ciclosport Veneto',
         races: [
-            { id: '2-a', raceType: 'linear', name: 'Granfondo 138km', distance: '138km', minAge: 18, requiresMedicalCert: true, price: 55, maxParticipants: 400, participants: 298, isOpen: true },
-            { id: '2-b', raceType: 'linear', name: 'Mediofondo 85km', distance: '85km', minAge: 16, requiresMedicalCert: true, price: 40, maxParticipants: 400, participants: 356, isOpen: true },
-            { id: '2-c', raceType: 'linear', name: 'Cicloturistica 50km', distance: '50km', requiresMedicalCert: false, price: 25, maxParticipants: 300, participants: 180, isOpen: false },
+            {
+                id: '2-a', raceType: 'linear', name: 'Granfondo 138km', distance: '138km',
+                minAge: 18, requiresMedicalCert: true, price: 55, maxParticipants: 400, participants: 298, isOpen: true,
+                priceSteps: [
+                    ps('ps-2a-1', 'Early Bird', 45, '2026-03-31'),
+                    ps('ps-2a-2', 'Standard',   55, '2026-04-28'),
+                ],
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fCodSoc, fFci,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '2-b', raceType: 'linear', name: 'Mediofondo 85km', distance: '85km',
+                minAge: 16, requiresMedicalCert: true, price: 40, maxParticipants: 400, participants: 356, isOpen: true,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFci, fRuncard,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '2-c', raceType: 'linear', name: 'Cicloturistica 50km', distance: '50km',
+                requiresMedicalCert: false, price: 25, maxParticipants: 300, participants: 180, isOpen: false,
+                formSchema: [...baseNonComp, fMaglia, ...consensiLight],
+            },
         ],
         routeInfo: {
-            elevationGainM: 3540,
-            maxElevationM: 2239,
-            minElevationM: 389,
-            terrain: 'Asfalto / Strada montana',
+            elevationGainM: 3540, maxElevationM: 2239, minElevationM: 389, terrain: 'Asfalto / Strada montana',
             profile: [
                 { km: 0, elev: 389 }, { km: 15, elev: 520 }, { km: 30, elev: 1240 },
                 { km: 45, elev: 1850 }, { km: 55, elev: 2239 }, { km: 65, elev: 1580 },
@@ -84,14 +194,27 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'Triathlon Romagna',
         races: [
-            { id: '3-a', raceType: 'linear', name: 'Distanza Olimpica', distance: '51.5km totali', minAge: 18, requiresMedicalCert: true, price: 70, maxParticipants: 250, participants: 198, isOpen: true },
-            { id: '3-b', raceType: 'linear', name: 'Sprint', distance: '25.75km totali', minAge: 16, requiresMedicalCert: true, price: 55, maxParticipants: 250, participants: 122, isOpen: true },
+            {
+                id: '3-a', raceType: 'linear', name: 'Distanza Olimpica', distance: '51.5km totali',
+                minAge: 18, requiresMedicalCert: true, price: 70, maxParticipants: 250, participants: 198, isOpen: true,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFitri,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '3-b', raceType: 'linear', name: 'Sprint', distance: '25.75km totali',
+                minAge: 16, requiresMedicalCert: true, price: 55, maxParticipants: 250, participants: 122, isOpen: true,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFitri, fRuncard,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
         ],
         routeInfo: {
-            elevationGainM: 35,
-            maxElevationM: 28,
-            minElevationM: 2,
-            terrain: 'Asfalto / Bici costiero',
+            elevationGainM: 35, maxElevationM: 28, minElevationM: 2, terrain: 'Asfalto / Bici costiero',
             profile: [
                 { km: 0, elev: 2 }, { km: 8, elev: 12 }, { km: 16, elev: 22 },
                 { km: 24, elev: 28 }, { km: 32, elev: 20 }, { km: 40, elev: 14 },
@@ -115,14 +238,23 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'Trail Running Liguria',
         races: [
-            { id: '4-a', raceType: 'linear', name: 'Trail Lungo 32km', distance: '32km', minAge: 18, requiresMedicalCert: true, price: 40, maxParticipants: 200, participants: 178, isOpen: false },
-            { id: '4-b', raceType: 'linear', name: 'Trail Corto 18km', distance: '18km', minAge: 16, requiresMedicalCert: false, price: 30, maxParticipants: 250, participants: 232, isOpen: false },
+            {
+                id: '4-a', raceType: 'linear', name: 'Trail Lungo 32km', distance: '32km',
+                minAge: 18, requiresMedicalCert: true, price: 40, maxParticipants: 200, participants: 178, isOpen: false,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFidal, fRuncard,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    fNote, ...consensiBase,
+                ],
+            },
+            {
+                id: '4-b', raceType: 'linear', name: 'Trail Corto 18km', distance: '18km',
+                minAge: 16, requiresMedicalCert: false, price: 30, maxParticipants: 250, participants: 232, isOpen: false,
+                formSchema: [...baseNonComp, fSocieta, fNote, ...consensiLight],
+            },
         ],
         routeInfo: {
-            elevationGainM: 1850,
-            maxElevationM: 612,
-            minElevationM: 8,
-            terrain: 'Sentiero / Roccia / Terra',
+            elevationGainM: 1850, maxElevationM: 612, minElevationM: 8, terrain: 'Sentiero / Roccia / Terra',
             profile: [
                 { km: 0, elev: 8 }, { km: 2, elev: 320 }, { km: 4, elev: 180 },
                 { km: 6, elev: 450 }, { km: 8, elev: 285 }, { km: 10, elev: 520 },
@@ -149,14 +281,23 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'Firenze Marathon SSD',
         races: [
-            { id: '5-a', raceType: 'linear', name: 'Maratona 42km', distance: '42.195km', minAge: 18, requiresMedicalCert: true, price: 60, maxParticipants: 3000, participants: 2840, isOpen: false },
-            { id: '5-b', raceType: 'linear', name: 'Non Competitiva 10km', distance: '10km', requiresMedicalCert: false, price: 20, maxParticipants: 2000, participants: 360, isOpen: false },
+            {
+                id: '5-a', raceType: 'linear', name: 'Maratona 42km', distance: '42.195km',
+                minAge: 18, requiresMedicalCert: true, price: 60, maxParticipants: 3000, participants: 2840, isOpen: false,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fCodSoc, fFidal, fRuncard,
+                    { ...fTipoCert, required: true }, fNumCert, { ...fScadCert, required: true },
+                    fMaglia, ...consensiBase,
+                ],
+            },
+            {
+                id: '5-b', raceType: 'linear', name: 'Non Competitiva 10km', distance: '10km',
+                requiresMedicalCert: false, price: 20, maxParticipants: 2000, participants: 360, isOpen: false,
+                formSchema: [...baseNonComp, fMaglia, ...consensiLight],
+            },
         ],
         routeInfo: {
-            elevationGainM: 130,
-            maxElevationM: 98,
-            minElevationM: 28,
-            terrain: 'Asfalto',
+            elevationGainM: 130, maxElevationM: 98, minElevationM: 28, terrain: 'Asfalto',
             profile: [
                 { km: 0, elev: 42 }, { km: 6, elev: 55 }, { km: 10, elev: 72 },
                 { km: 15, elev: 85 }, { km: 20, elev: 98 }, { km: 25, elev: 88 },
@@ -181,11 +322,30 @@ export const mockEvents: Event[] = [
         isLive: false,
         organizer: 'Nuoto Lago di Garda',
         races: [
-            { id: '6-a', raceType: 'linear', name: 'Gara 5km', distance: '5km', minAge: 18, requiresMedicalCert: true, price: 35, maxParticipants: 150, participants: 98, isOpen: false },
-            { id: '6-b', raceType: 'linear', name: 'Gara 3km', distance: '3km', minAge: 16, requiresMedicalCert: true, price: 28, maxParticipants: 150, participants: 110, isOpen: false },
-            { id: '6-c', raceType: 'linear', name: 'Gara 1.5km', distance: '1.5km', minAge: 14, requiresMedicalCert: false, price: 20, maxParticipants: 100, participants: 72, isOpen: false },
+            {
+                id: '6-a', raceType: 'linear', name: 'Gara 5km', distance: '5km',
+                minAge: 18, requiresMedicalCert: true, price: 35, maxParticipants: 150, participants: 98, isOpen: false,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFin,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    ...consensiBase,
+                ],
+            },
+            {
+                id: '6-b', raceType: 'linear', name: 'Gara 3km', distance: '3km',
+                minAge: 16, requiresMedicalCert: true, price: 28, maxParticipants: 150, participants: 110, isOpen: false,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFin,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    ...consensiBase,
+                ],
+            },
+            {
+                id: '6-c', raceType: 'linear', name: 'Gara 1.5km', distance: '1.5km',
+                minAge: 14, requiresMedicalCert: false, price: 20, maxParticipants: 100, participants: 72, isOpen: false,
+                formSchema: [...baseNonComp, fFin, ...consensiLight],
+            },
         ],
-        // No routeInfo for open water swimming
     },
     {
         id: '7',
@@ -204,39 +364,24 @@ export const mockEvents: Event[] = [
         organizer: 'Velo Club Torino',
         races: [
             {
-                id: '7-a',
-                raceType: 'laps_fixed',
-                name: 'Criterium Elite (30 giri)',
-                distance: '30 giri × 2.8km = 84km',
-                lapDistanceKm: 2.8,
-                totalLaps: 30,
-                minAge: 18,
-                requiresMedicalCert: true,
-                price: 45,
-                maxParticipants: 80,
-                participants: 68,
-                isOpen: false,
+                id: '7-a', raceType: 'laps_fixed', name: 'Criterium Elite (30 giri)', distance: '30 giri × 2.8km = 84km',
+                lapDistanceKm: 2.8, totalLaps: 30, minAge: 18, requiresMedicalCert: true,
+                price: 45, maxParticipants: 80, participants: 68, isOpen: false,
+                formSchema: [
+                    ...baseCompetitiva, fSocieta, fFci,
+                    { ...fTipoCert, required: true }, { ...fScadCert, required: true },
+                    ...consensiBase,
+                ],
             },
             {
-                id: '7-b',
-                raceType: 'laps_timed',
-                name: 'Granfondo 1h (più giri vince)',
-                distance: '60 min × 2.8km/giro',
-                lapDistanceKm: 2.8,
-                timeLimitMinutes: 60,
-                minAge: 16,
-                requiresMedicalCert: false,
-                price: 25,
-                maxParticipants: 120,
-                participants: 104,
-                isOpen: false,
+                id: '7-b', raceType: 'laps_timed', name: 'Granfondo 1h (più giri vince)', distance: '60 min × 2.8km/giro',
+                lapDistanceKm: 2.8, timeLimitMinutes: 60, minAge: 16, requiresMedicalCert: false,
+                price: 25, maxParticipants: 120, participants: 104, isOpen: false,
+                formSchema: [...baseNonComp, fSocieta, fFci, fRuncard, ...consensiLight],
             },
         ],
         routeInfo: {
-            elevationGainM: 18,
-            maxElevationM: 245,
-            minElevationM: 230,
-            terrain: 'Asfalto (circuito chiuso)',
+            elevationGainM: 18, maxElevationM: 245, minElevationM: 230, terrain: 'Asfalto (circuito chiuso)',
             profile: [
                 { km: 0, elev: 235 }, { km: 0.5, elev: 240 }, { km: 1.0, elev: 245 },
                 { km: 1.5, elev: 242 }, { km: 2.0, elev: 236 }, { km: 2.8, elev: 235 },

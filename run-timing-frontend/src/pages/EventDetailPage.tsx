@@ -297,9 +297,12 @@ export default function EventDetailPage() {
                                                 <div className="flex-shrink-0 text-right">
                                                     <p className="font-bold text-ocean-700 text-lg">€{race.price}</p>
                                                     {!isPast && race.isOpen && (
-                                                        <button className="mt-2 bg-ocean-600 hover:bg-ocean-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors">
+                                                        <Link
+                                                            to={`/events/${event.slug}/register?race=${race.id}`}
+                                                            className="mt-2 inline-block bg-ocean-600 hover:bg-ocean-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                                                        >
                                                             Iscriviti
-                                                        </button>
+                                                        </Link>
                                                     )}
                                                     {isPast && (
                                                         <Link to="/results" className="mt-2 inline-block text-ocean-600 hover:underline text-xs">

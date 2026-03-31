@@ -6,6 +6,8 @@ import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import ResultsPage from './pages/ResultsPage';
 import ContactsPage from './pages/ContactsPage';
+import RegisterPage from './pages/RegisterPage';
+import AdminPage from './pages/admin/AdminPage';
 
 function PlaceholderPage({ title }: { title: string }) {
     return (
@@ -28,6 +30,8 @@ export default function App() {
                 <Route path="/events/:slug" element={<EventDetailPage />} />
                 <Route path="/results" element={<ResultsPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/events/:slug/register" element={<RegisterPage />} />
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="/athletes" element={<PlaceholderPage title="Atleti" />} />
                 <Route path="/login" element={<PlaceholderPage title="Accedi" />} />
                 <Route path="/register" element={<PlaceholderPage title="Registrati" />} />
