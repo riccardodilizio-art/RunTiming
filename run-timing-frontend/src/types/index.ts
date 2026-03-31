@@ -53,6 +53,19 @@ export interface RaceClassification {
     specials?: SpecialAward[];
 }
 
+export interface ElevationPoint {
+    km: number;
+    elev: number; // metres ASL
+}
+
+export interface RouteInfo {
+    elevationGainM: number;
+    maxElevationM: number;
+    minElevationM: number;
+    terrain: string;
+    profile: ElevationPoint[];
+}
+
 export interface Event {
     id: string;
     title: string;
@@ -62,11 +75,14 @@ export interface Event {
     location: string;
     city: string;
     province: string;
+    lat: number;
+    lng: number;
     coverImage: string;
     races: Race[];
     isFeatured: boolean;
     isLive: boolean;
     organizer: string;
+    routeInfo?: RouteInfo;
 }
 
 export interface Athlete {

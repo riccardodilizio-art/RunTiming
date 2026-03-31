@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
-    ChevronLeft, ChevronRight, Calendar,
+    ChevronLeft, ChevronRight, Calendar, Map,
 } from 'lucide-react';
 import { mockEvents, categoryLabels, categoryColors } from '../data/mockEvents';
 import type { Event, SportCategory } from '../types';
 import EventRow from '../components/ui/EventRow';
 import EventGridCard from '../components/ui/EventGridCard';
+import EventsMap from '../components/map/EventsMap';
 
 type Tab  = 'upcoming' | 'all' | 'past';
 type Sort = 'date-asc' | 'date-desc' | 'price-asc' | 'price-desc' | 'popular';
-type View = 'list' | 'grid' | 'calendar';
+type View = 'list' | 'grid' | 'calendar' | 'map';
 
 const CATEGORIES: Array<{ value: SportCategory | 'all'; label: string }> = [
     { value: 'all',       label: 'Tutti' },
@@ -305,8 +306,8 @@ export default function EventsPage() {
                         )}
                     </div>
 
-                    {/* Sort — hidden in calendar view */}
-                    {view !== 'calendar' && (
+                    {/* Sort — hidden in calendar/map view */}
+                    {view !== 'calendar' && view !== 'map' && (
                         <div className="relative">
                             <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
@@ -344,6 +345,13 @@ export default function EventsPage() {
                             aria-label="Vista calendario"
                         >
                             <Calendar className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setView('map')}
+                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'map' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            aria-label="Vista mappa"
+                        >
+                            <Map className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
@@ -405,8 +413,8 @@ export default function EventsPage() {
                     </button>
                 </div>
 
-                {/* Active filter chips + results count — hidden in calendar view */}
-                {view !== 'calendar' && (
+                {/* Active filter chips + results count — hidden in calendar/map view */}
+                {view !== 'calendar' && view !== 'map' && (
                     <div className="flex items-center justify-between mb-4 min-h-[24px]">
                         <div className="flex flex-wrap gap-1.5">
                             {category !== 'all' && (
@@ -453,8 +461,13 @@ export default function EventsPage() {
                     <EventCalendar events={filtered} />
                 )}
 
+                {/* ── Map view ── */}
+                {view === 'map' && (
+                    <EventsMap events={filtered} />
+                )}
+
                 {/* ── List / Grid view ── */}
-                {view !== 'calendar' && (
+                {view !== 'calendar' && view !== 'map' && (
                     filtered.length > 0 ? (
                         view === 'list' ? (
                             <div className="space-y-3">
