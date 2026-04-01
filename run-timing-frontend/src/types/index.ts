@@ -9,10 +9,11 @@ export type CatalogKey =
     | 'tessera_fidal' | 'tessera_runcard' | 'tessera_fci'
     | 'tessera_csi' | 'tessera_uisp' | 'tessera_fitri' | 'tessera_fin'
     | 'tipo_certificato' | 'num_certificato' | 'scadenza_certificato' | 'gruppo_sanguigno'
+    | 'upload_cert_medico' | 'upload_tessera'
     | 'taglia_maglia' | 'note'
     | 'privacy' | 'regolamento' | 'liberatoria' | 'marketing';
 
-export type FieldType = 'text' | 'email' | 'tel' | 'date' | 'number' | 'select' | 'checkbox' | 'textarea';
+export type FieldType = 'text' | 'email' | 'tel' | 'date' | 'number' | 'select' | 'checkbox' | 'textarea' | 'file';
 
 export interface FieldOption {
     value: string;
@@ -28,14 +29,15 @@ export interface FormField {
     required: boolean;
     options?: FieldOption[];
     helperText?: string;
-    readOnly?: boolean; // e.g. anno_nascita (auto-derived)
+    readOnly?: boolean;
+    accept?: string;   // per file: es. "application/pdf,image/*"
 }
 
 export interface PriceStep {
     id: string;
-    label: string;    // "Early Bird", "Standard", "Iscrizione tardiva"
+    label: string;
     price: number;
-    deadline: string; // ISO date "YYYY-MM-DD"
+    deadline: string;
 }
 
 export interface RegistrationSubmission {
@@ -48,6 +50,8 @@ export interface RegistrationSubmission {
     discountCode?: string;
     discountAmount?: number;
     paymentMethod?: 'paypal' | 'card' | 'free';
+    assignedCategory?: string;   // nome categoria assegnata
+    fidalVerified?: boolean;     // atleta verificato tramite tessera FIDAL
 }
 
 export interface DiscountCode {
@@ -55,28 +59,54 @@ export interface DiscountCode {
     code: string;
     description?: string;
     type: 'fixed' | 'percent';
-    value: number;         // EUR (fixed) or 0-100 (percent)
-    maxUses?: number;      // undefined = illimitato
+    value: number;
+    maxUses?: number;
     usedCount: number;
-    expiresAt?: string;    // ISO date YYYY-MM-DD
+    expiresAt?: string;
     isActive: boolean;
 }
 
 export interface CommissionConfig {
-    fixedFee: number;      // EUR aggiunta fissa
-    percentFee: number;    // % sul prezzo (0-100)
+    fixedFee: number;
+    percentFee: number;
     appliedTo: 'buyer' | 'organizer';
 }
 
+// ─── Race categories ──────────────────────────────────────────────────────────
+
+export interface RaceCategory {
+    id: string;
+    name: string;          // es. "Senior M", "Master 40 F", "Assoluta"
+    gender?: 'M' | 'F';   // undefined = tutti i sessi
+    minAge?: number;
+    maxAge?: number;
+}
+
+/** Restituisce la categoria corrispondente all'atleta, o null se nessuna corrisponde */
+export function assignCategory(
+    categories: RaceCategory[],
+    birthYear: number,
+    gender: string
+): RaceCategory | null {
+    const age = new Date().getFullYear() - birthYear;
+    for (const cat of categories) {
+        if (cat.gender && cat.gender !== gender) continue;
+        if (cat.minAge !== undefined && age < cat.minAge) continue;
+        if (cat.maxAge !== undefined && age > cat.maxAge) continue;
+        return cat;
+    }
+    return null;
+}
+
 export type RaceType =
-    | 'linear'       // gara su percorso (default)
-    | 'laps_fixed'   // gara a giri fissi (criterium, pista)
-    | 'laps_timed';  // gara a tempo fisso (chi fa più giri in X minuti)
+    | 'linear'
+    | 'laps_fixed'
+    | 'laps_timed';
 
 export interface LapSplit {
     lap: number;
-    split: string;   // tempo del singolo giro  "MM:SS"
-    cum: string;     // tempo cumulativo         "H:MM:SS"
+    split: string;
+    cum: string;
 }
 
 export interface Race {
@@ -84,9 +114,9 @@ export interface Race {
     name: string;
     distance: string;
     raceType: RaceType;
-    lapDistanceKm?: number;      // km per giro
-    totalLaps?: number;          // per laps_fixed
-    timeLimitMinutes?: number;   // per laps_timed
+    lapDistanceKm?: number;
+    totalLaps?: number;
+    timeLimitMinutes?: number;
     minAge?: number;
     maxAge?: number;
     requiresMedicalCert: boolean;
@@ -96,7 +126,8 @@ export interface Race {
     isOpen: boolean;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
-    publicFields?: string[];     // field IDs shown publicly in participant list
+    publicFields?: string[];
+    categories?: RaceCategory[];   // categorie agonistiche per questa gara
 }
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';
@@ -110,12 +141,12 @@ export interface Result {
     time: string;
     gap?: string;
     status: ResultStatus;
-    lapsCompleted?: number;  // per gare a giri
-    lapSplits?: LapSplit[];  // tempi di ogni giro
+    lapsCompleted?: number;
+    lapSplits?: LapSplit[];
 }
 
 export interface SpecialAward {
-    label: string;   // es. "Prima donna assoluta", "Primo atleta locale"
+    label: string;
     result: Result;
 }
 
@@ -126,7 +157,7 @@ export interface RaceClassification {
 
 export interface ElevationPoint {
     km: number;
-    elev: number; // metres ASL
+    elev: number;
 }
 
 export interface RouteInfo {
@@ -167,7 +198,6 @@ export interface Athlete {
     avatarUrl?: string;
     totalRaces: number;
     totalPodiums: number;
-    // campi gestiti dall'admin
     email?: string;
     phone?: string;
     gender?: 'M' | 'F';

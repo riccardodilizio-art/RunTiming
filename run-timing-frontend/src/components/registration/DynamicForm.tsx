@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Upload, FileCheck } from 'lucide-react';
 import type { FormField } from '../../types';
 
 interface Props {
@@ -12,7 +13,7 @@ export default function DynamicForm({ fields, data, onChange, errors }: Props) {
     // Auto-derive anno_nascita from data_nascita
     useEffect(() => {
         const nascitaField = fields.find(f => f.catalogKey === 'data_nascita');
-        const annoField = fields.find(f => f.catalogKey === 'anno_nascita');
+        const annoField    = fields.find(f => f.catalogKey === 'anno_nascita');
         if (!nascitaField || !annoField) return;
         const raw = data[nascitaField.id] as string | undefined;
         if (!raw) return;
@@ -35,8 +36,9 @@ export default function DynamicForm({ fields, data, onChange, errors }: Props) {
         <div className="space-y-5">
             {fields.map(field => {
                 const value = data[field.id];
-                const err = errors[field.id];
+                const err   = errors[field.id];
 
+                // ── Checkbox ─────────────────────────────────────────────────
                 if (field.type === 'checkbox') {
                     return (
                         <div key={field.id} className="flex items-start gap-3">
@@ -59,6 +61,61 @@ export default function DynamicForm({ fields, data, onChange, errors }: Props) {
                     );
                 }
 
+                // ── File upload ───────────────────────────────────────────────
+                if (field.type === 'file') {
+                    const fileName = value as string | undefined;
+                    return (
+                        <div key={field.id}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                {field.label}
+                                {field.required && <span className="ml-1 text-red-500">*</span>}
+                            </label>
+
+                            <label
+                                htmlFor={field.id}
+                                className={`flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
+                                    fileName
+                                        ? 'border-green-300 bg-green-50'
+                                        : err
+                                            ? 'border-red-300 bg-red-50'
+                                            : 'border-slate-300 bg-slate-50 hover:border-ocean-400 hover:bg-ocean-50'
+                                }`}
+                            >
+                                {fileName ? (
+                                    <>
+                                        <FileCheck className="h-6 w-6 text-green-600" />
+                                        <span className="text-sm text-green-700 font-medium truncate max-w-full">{fileName}</span>
+                                        <span className="text-xs text-green-500">File selezionato — clicca per cambiare</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="h-6 w-6 text-slate-400" />
+                                        <span className="text-sm text-slate-600 font-medium">Clicca per selezionare il file</span>
+                                        {field.helperText && (
+                                            <span className="text-xs text-slate-400">{field.helperText}</span>
+                                        )}
+                                    </>
+                                )}
+                                <input
+                                    id={field.id}
+                                    type="file"
+                                    accept={field.accept ?? 'application/pdf,image/*'}
+                                    className="sr-only"
+                                    onChange={e => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleChange(field, file.name);
+                                    }}
+                                />
+                            </label>
+                            {err && <p className="mt-1 text-xs text-red-500">{err}</p>}
+                            <p className="mt-1 text-xs text-slate-400">
+                                I documenti saranno verificati dall'organizzatore prima della conferma definitiva.
+                            </p>
+                        </div>
+                    );
+                }
+
+                // ── All other field types ─────────────────────────────────────
                 return (
                     <div key={field.id}>
                         <label htmlFor={field.id} className="block text-sm font-medium text-slate-700 mb-1">

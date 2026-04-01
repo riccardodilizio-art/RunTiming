@@ -7,7 +7,7 @@ import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
 import AthletesSection from './AthletesSection';
 import DiscountSection from './DiscountSection';
-import type { Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint } from '../../types';
+import type { Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +91,102 @@ function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s
             >
                 <Plus className="h-4 w-4" /> Aggiungi quota
             </button>
+        </div>
+    );
+}
+
+// ─── CategoryEditor ───────────────────────────────────────────────────────────
+
+function CategoryEditor({
+    categories,
+    onChange,
+}: {
+    categories: RaceCategory[];
+    onChange: (cats: RaceCategory[]) => void;
+}) {
+    function add() {
+        onChange([...categories, { id: newId(), name: '', gender: undefined, minAge: undefined, maxAge: undefined }]);
+    }
+    function remove(id: string) { onChange(categories.filter(c => c.id !== id)); }
+    function update<K extends keyof RaceCategory>(id: string, key: K, value: RaceCategory[K]) {
+        onChange(categories.map(c => c.id === id ? { ...c, [key]: value } : c));
+    }
+
+    return (
+        <div className="mt-6 pt-5 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-slate-700">Categorie agonistiche</h4>
+                <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 transition-colors">
+                    <Plus className="h-3.5 w-3.5" /> Aggiungi categoria
+                </button>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">
+                Definisci le categorie (es. Senior M, Master 40 F, Junior). Il sistema assegnerà automaticamente
+                l'atleta in base a età e sesso dichiarati al momento dell'iscrizione.
+            </p>
+            {categories.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Nessuna categoria configurata.</p>
+            ) : (
+                <div className="space-y-2">
+                    {categories.map((cat, idx) => (
+                        <div key={cat.id} className="grid grid-cols-12 gap-2 items-start">
+                            {/* Nome */}
+                            <div className="col-span-4">
+                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Nome categoria</label>}
+                                <input
+                                    type="text"
+                                    value={cat.name}
+                                    onChange={e => update(cat.id, 'name', e.target.value)}
+                                    className={inputCls}
+                                    placeholder="es. Senior M"
+                                />
+                            </div>
+                            {/* Sesso */}
+                            <div className="col-span-2">
+                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Sesso</label>}
+                                <select
+                                    value={cat.gender ?? ''}
+                                    onChange={e => update(cat.id, 'gender', (e.target.value as RaceCategory['gender']) || undefined)}
+                                    className={inputCls}
+                                >
+                                    <option value="">Tutti</option>
+                                    <option value="M">M</option>
+                                    <option value="F">F</option>
+                                </select>
+                            </div>
+                            {/* Età min */}
+                            <div className="col-span-2">
+                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Età min</label>}
+                                <input
+                                    type="number" min={0}
+                                    value={cat.minAge ?? ''}
+                                    onChange={e => update(cat.id, 'minAge', e.target.value ? parseInt(e.target.value) : undefined)}
+                                    className={inputCls}
+                                    placeholder="—"
+                                />
+                            </div>
+                            {/* Età max */}
+                            <div className="col-span-2">
+                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Età max</label>}
+                                <input
+                                    type="number" min={0}
+                                    value={cat.maxAge ?? ''}
+                                    onChange={e => update(cat.id, 'maxAge', e.target.value ? parseInt(e.target.value) : undefined)}
+                                    className={inputCls}
+                                    placeholder="—"
+                                />
+                            </div>
+                            {/* Delete */}
+                            <div className="col-span-2 flex items-end pb-0.5">
+                                {idx === 0 && <div className="h-5 mb-1" />}
+                                <button type="button" onClick={() => remove(cat.id)} className="p-1.5 rounded hover:bg-red-50">
+                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -215,6 +311,10 @@ function RaceEditor({
                         />
                         <label htmlFor="isOpen" className="text-sm text-slate-700">Iscrizioni aperte</label>
                     </div>
+                    <CategoryEditor
+                        categories={race.categories ?? []}
+                        onChange={cats => set('categories', cats)}
+                    />
                 </div>
             )}
 

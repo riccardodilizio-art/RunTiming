@@ -2,11 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
-    CreditCard, X, Percent, Euro,
+    CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration } from '../hooks/useAdminStore';
 import DynamicForm from '../components/registration/DynamicForm';
-import type { Race, FormField, PriceStep, DiscountCode } from '../types';
+import { lookupByTessera, lookupByName } from '../data/mockFidal';
+import type { FidalAthlete } from '../data/mockFidal';
+import type { Race, FormField, PriceStep, DiscountCode, RaceCategory } from '../types';
+import { assignCategory } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -134,11 +137,165 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
     );
 }
 
+// ─── FIDAL Lookup widget ──────────────────────────────────────────────────────
+
+function FidalLookup({
+    onPrefill,
+}: {
+    onPrefill: (athlete: FidalAthlete) => void;
+}) {
+    const [mode, setMode] = useState<'tessera' | 'nome'>('tessera');
+    const [tessera, setTessera] = useState('');
+    const [cognome, setCognome] = useState('');
+    const [nome, setNome] = useState('');
+    const [results, setResults] = useState<FidalAthlete[] | null>(null);
+    const [found, setFound] = useState<FidalAthlete | null>(null);
+    const [open, setOpen] = useState(true);
+
+    function handleSearch() {
+        if (mode === 'tessera') {
+            const a = lookupByTessera(tessera);
+            setResults(null);
+            setFound(a);
+            if (!a) setResults([]);
+        } else {
+            const list = lookupByName(cognome, nome);
+            setResults(list);
+            setFound(null);
+        }
+    }
+
+    function handleSelect(a: FidalAthlete) {
+        setFound(a);
+        setResults(null);
+    }
+
+    function handleUse() {
+        if (found) { onPrefill(found); setOpen(false); }
+    }
+
+    if (!open) return null;
+
+    return (
+        <div className="mb-5 rounded-xl border border-ocean-200 bg-ocean-50/60 p-4">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-ocean-800 flex items-center gap-2">
+                    <UserCheck className="h-4 w-4" /> Cerca dati atleta (FIDAL / RunCard)
+                </h3>
+                <button onClick={() => setOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">
+                    Salta, compila manualmente
+                </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-3">
+                Se sei tesserato FIDAL o RunCard, inserisci il numero tessera per caricare automaticamente i tuoi dati.
+            </p>
+
+            {/* Mode toggle */}
+            <div className="flex gap-2 mb-3">
+                {(['tessera', 'nome'] as const).map(m => (
+                    <button
+                        key={m}
+                        type="button"
+                        onClick={() => { setMode(m); setResults(null); setFound(null); }}
+                        className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                            mode === m ? 'border-ocean-500 bg-ocean-500 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                        }`}
+                    >
+                        {m === 'tessera' ? 'Per numero tessera' : 'Per cognome / nome'}
+                    </button>
+                ))}
+            </div>
+
+            {mode === 'tessera' ? (
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={tessera}
+                        onChange={e => { setTessera(e.target.value.toUpperCase()); setFound(null); setResults(null); }}
+                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                        placeholder="es. RM001234 oppure RC001122"
+                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ocean-500 uppercase"
+                    />
+                    <button type="button" onClick={handleSearch} disabled={!tessera.trim()}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40">
+                        <Search className="h-4 w-4" /> Cerca
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input type="text" value={cognome} onChange={e => setCognome(e.target.value)} placeholder="Cognome *"
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500" />
+                    <div className="flex gap-2">
+                        <input type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome (opzionale)"
+                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500" />
+                        <button type="button" onClick={handleSearch} disabled={!cognome.trim()}
+                            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40">
+                            <Search className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Results list (nome search) */}
+            {results !== null && results.length === 0 && (
+                <p className="mt-2 text-xs text-slate-500">Nessun atleta trovato. Compila manualmente il modulo.</p>
+            )}
+            {results && results.length > 0 && (
+                <div className="mt-2 border border-slate-200 rounded-lg bg-white divide-y divide-slate-100 max-h-40 overflow-y-auto">
+                    {results.map(a => (
+                        <button key={a.tessera} type="button" onClick={() => handleSelect(a)}
+                            className="w-full text-left px-3 py-2 hover:bg-ocean-50 transition-colors">
+                            <span className="text-sm font-medium text-slate-800">{a.cognome} {a.nome}</span>
+                            <span className="ml-2 text-xs text-slate-400">{a.tessera} · {a.societa}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Found athlete card */}
+            {found && (
+                <div className="mt-3 p-3 rounded-lg border border-green-200 bg-green-50">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <ShieldCheck className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-semibold text-green-800">{found.cognome} {found.nome}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-200 text-green-800 font-mono">{found.tessera}</span>
+                                <span className="text-xs text-green-600 uppercase font-semibold">{found.tipo}</span>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                                {found.sesso === 'M' ? 'Maschile' : 'Femminile'} ·{' '}
+                                {new Date(found.dataNascita).toLocaleDateString('it-IT')} ·{' '}
+                                {found.societa || 'Individuale'}
+                            </p>
+                            {found.certScadenza && (
+                                <p className="text-xs text-green-600 mt-0.5">
+                                    ✓ Certificato medico scade il {found.certScadenza}
+                                </p>
+                            )}
+                            {!found.certScadenza && (
+                                <p className="text-xs text-amber-600 mt-0.5">
+                                    ⚠ Scadenza certificato non disponibile — potrà essere richiesta dall'organizzatore
+                                </p>
+                            )}
+                        </div>
+                        <button type="button" onClick={handleUse}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 shrink-0">
+                            <Check className="h-3.5 w-3.5" /> Usa questi dati
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Step 3 — Summary + discount code ────────────────────────────────────────
 
 function Summary({
     race, fields, data,
     appliedDiscount, onApplyDiscount, validateCode,
+    assignedCat, fidalVerified,
 }: {
     race: Race;
     fields: FormField[];
@@ -146,6 +303,8 @@ function Summary({
     appliedDiscount: DiscountCode | null;
     onApplyDiscount: (code: DiscountCode | null) => void;
     validateCode: (code: string) => DiscountCode | null;
+    assignedCat: RaceCategory | null;
+    fidalVerified: boolean;
 }) {
     const { price, label: priceLabel } = getActivePrice(race);
     const [codeInput, setCodeInput] = useState('');
@@ -173,12 +332,22 @@ function Summary({
                     <div>
                         <p className="font-semibold text-slate-800">{race.name}</p>
                         <p className="text-sm text-slate-500">{race.distance}</p>
+                        {assignedCat && (
+                            <span className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-0.5 rounded-full bg-ocean-100 text-ocean-700 font-medium">
+                                Categoria: {assignedCat.name}
+                            </span>
+                        )}
                     </div>
                     <div className="text-right">
                         <p className="font-bold text-ocean-700 text-xl">{formatPrice(price)}</p>
                         <p className="text-xs text-slate-400">{priceLabel}</p>
                     </div>
                 </div>
+                {fidalVerified && (
+                    <div className="flex items-center gap-1.5 mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5" /> Dati verificati tramite tessera FIDAL/RunCard
+                    </div>
+                )}
             </div>
 
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -479,12 +648,47 @@ export default function RegisterPage() {
     const [appliedDiscount, setAppliedDiscount] = useState<DiscountCode | null>(null);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
     const [submissionId, setSubmissionId] = useState('');
+    const [fidalVerified, setFidalVerified] = useState(false);
 
     const selectedRace = useMemo(
         () => event?.races.find(r => r.id === selectedRaceId),
         [event, selectedRaceId]
     );
     const fields = useMemo(() => selectedRace?.formSchema ?? [], [selectedRace]);
+
+    // Categoria assegnata in base ai dati inseriti
+    const assignedCat = useMemo<RaceCategory | null>(() => {
+        if (!selectedRace?.categories?.length) return null;
+        const annoField = fields.find(f => f.catalogKey === 'anno_nascita');
+        const sessoField = fields.find(f => f.catalogKey === 'sesso');
+        const birthYear = annoField ? parseInt(formData[annoField.id] as string) : 0;
+        const gender = sessoField ? (formData[sessoField.id] as string) : '';
+        if (!birthYear || !gender) return null;
+        return assignCategory(selectedRace.categories, birthYear, gender);
+    }, [selectedRace, fields, formData]);
+
+    // Prefill form con dati atleta FIDAL
+    function handleFidalPrefill(athlete: FidalAthlete) {
+        const updates: Record<string, string | boolean> = {};
+        fields.forEach(f => {
+            if (f.catalogKey === 'nome') updates[f.id] = athlete.nome;
+            if (f.catalogKey === 'cognome') updates[f.id] = athlete.cognome;
+            if (f.catalogKey === 'data_nascita') updates[f.id] = athlete.dataNascita;
+            if (f.catalogKey === 'sesso') updates[f.id] = athlete.sesso;
+            if (f.catalogKey === 'societa') updates[f.id] = athlete.societa;
+            if (f.catalogKey === 'codice_societa') updates[f.id] = athlete.codiceSocieta;
+            if (f.catalogKey === 'tessera_fidal' && athlete.tipo === 'fidal') updates[f.id] = athlete.tessera;
+            if (f.catalogKey === 'tessera_runcard' && athlete.tipo === 'runcard') updates[f.id] = athlete.tessera;
+        });
+        setFormData(prev => ({ ...prev, ...updates }));
+        setFidalVerified(true);
+    }
+
+    // Mostra il widget FIDAL se la gara richiede cert o ha campo tessera nel modulo
+    const showFidalLookup = !fidalVerified && (
+        selectedRace?.requiresMedicalCert ||
+        fields.some(f => f.catalogKey === 'tessera_fidal' || f.catalogKey === 'tessera_runcard')
+    );
 
     // Price calculation
     const basePrice = useMemo(() => selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace]);
@@ -550,6 +754,8 @@ export default function RegisterPage() {
                 discountCode: appliedDiscount?.code,
                 discountAmount: discountAmount > 0 ? discountAmount : undefined,
                 paymentMethod: isFree ? 'free' : paymentMethod,
+                assignedCategory: assignedCat?.name,
+                fidalVerified,
             });
             setSubmissionId(id);
         }
@@ -590,6 +796,20 @@ export default function RegisterPage() {
                     {step === 1 && selectedRace && (
                         <div>
                             <h2 className="font-semibold text-slate-700 text-base mb-4">{selectedRace.name}</h2>
+                            {/* FIDAL lookup widget */}
+                            {showFidalLookup && (
+                                <FidalLookup onPrefill={handleFidalPrefill} />
+                            )}
+                            {/* Cert requirement notice for non-FIDAL */}
+                            {selectedRace.requiresMedicalCert && !fidalVerified && (
+                                <div className="mb-4 flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700">
+                                    <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>
+                                        Questa gara richiede il <strong>certificato medico agonistico</strong>.
+                                        Puoi caricare il documento tramite il campo apposito nel modulo, oppure usa la ricerca FIDAL per verificare automaticamente.
+                                    </span>
+                                </div>
+                            )}
                             {fields.length === 0 ? (
                                 <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
                             ) : (
@@ -606,6 +826,8 @@ export default function RegisterPage() {
                             appliedDiscount={appliedDiscount}
                             onApplyDiscount={setAppliedDiscount}
                             validateCode={validateDiscountCode}
+                            assignedCat={assignedCat}
+                            fidalVerified={fidalVerified}
                         />
                     )}
 

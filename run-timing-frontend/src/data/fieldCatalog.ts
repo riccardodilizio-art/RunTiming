@@ -69,6 +69,20 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
             { catalogKey: 'num_certificato',      type: 'text',   label: 'N° certificato',        defaultRequired: false },
             { catalogKey: 'scadenza_certificato', type: 'date',   label: 'Scadenza certificato',  defaultRequired: false },
             { catalogKey: 'gruppo_sanguigno',     type: 'select', label: 'Gruppo sanguigno',      defaultRequired: false, options: optSangue },
+            {
+                catalogKey: 'upload_cert_medico',
+                type: 'file',
+                label: 'Carica certificato medico (PDF/JPG)',
+                defaultRequired: false,
+                helperText: 'Formati accettati: PDF, JPG, PNG. Max 5 MB.',
+            },
+            {
+                catalogKey: 'upload_tessera',
+                type: 'file',
+                label: 'Carica tessera sportiva (fronte/retro)',
+                defaultRequired: false,
+                helperText: 'Formati accettati: PDF, JPG, PNG. Max 5 MB.',
+            },
         ],
     },
     {
