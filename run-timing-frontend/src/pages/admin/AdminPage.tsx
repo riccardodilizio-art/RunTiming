@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
-    Euro, Calendar, MapPin, Users,
+    Euro, Calendar, MapPin, Users, Image, Route,
 } from 'lucide-react';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
-import type { Event, Race, FormField, PriceStep, SportCategory } from '../../types';
+import type { Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -179,6 +179,16 @@ function RaceEditor({
                     </div>
                     <div className="flex items-center gap-2 pt-5">
                         <input
+                            id="requiresMedicalCert"
+                            type="checkbox"
+                            checked={race.requiresMedicalCert}
+                            onChange={e => set('requiresMedicalCert', e.target.checked)}
+                            className="accent-ocean-600 h-4 w-4"
+                        />
+                        <label htmlFor="requiresMedicalCert" className="text-sm text-slate-700">Certificato agonistico richiesto</label>
+                    </div>
+                    <div className="flex items-center gap-2 pt-5">
+                        <input
                             id="isOpen"
                             type="checkbox"
                             checked={race.isOpen}
@@ -207,6 +217,119 @@ function RaceEditor({
                         steps={race.priceSteps ?? []}
                         onChange={(steps: PriceStep[]) => set('priceSteps', steps)}
                     />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── RouteInfoEditor ──────────────────────────────────────────────────────────
+
+function parseProfile(raw: string): ElevationPoint[] {
+    return raw
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => {
+            const [km, elev] = line.split(',').map(s => parseFloat(s.trim()));
+            return { km, elev };
+        })
+        .filter(p => !isNaN(p.km) && !isNaN(p.elev));
+}
+
+function serializeProfile(profile: ElevationPoint[]): string {
+    return profile.map(p => `${p.km},${p.elev}`).join('\n');
+}
+
+function RouteInfoEditor({
+    routeInfo,
+    onChange,
+}: {
+    routeInfo?: RouteInfo;
+    onChange: (ri: RouteInfo | undefined) => void;
+}) {
+    const enabled = routeInfo !== undefined;
+    const ri = routeInfo ?? { elevationGainM: 0, maxElevationM: 0, minElevationM: 0, terrain: '', profile: [] };
+
+    function update<K extends keyof RouteInfo>(key: K, value: RouteInfo[K]) {
+        onChange({ ...ri, [key]: value });
+    }
+
+    return (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <Route className="h-4 w-4 text-ocean-600" /> Percorso altimetrico
+                </h3>
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={e => onChange(e.target.checked ? ri : undefined)}
+                        className="accent-ocean-600 h-4 w-4"
+                    />
+                    <span className="text-sm text-slate-600">Includi dati altimetrici</span>
+                </label>
+            </div>
+
+            {enabled && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Dislivello positivo (m)</label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={ri.elevationGainM}
+                            onChange={e => update('elevationGainM', parseInt(e.target.value) || 0)}
+                            className={inputCls}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Quota massima (m s.l.m.)</label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={ri.maxElevationM}
+                            onChange={e => update('maxElevationM', parseInt(e.target.value) || 0)}
+                            className={inputCls}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Quota minima (m s.l.m.)</label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={ri.minElevationM}
+                            onChange={e => update('minElevationM', parseInt(e.target.value) || 0)}
+                            className={inputCls}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Tipo di terreno</label>
+                        <input
+                            type="text"
+                            value={ri.terrain}
+                            onChange={e => update('terrain', e.target.value)}
+                            className={inputCls}
+                            placeholder="es. Asfalto, Sterrato, Misto"
+                        />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Profilo altimetrico{' '}
+                            <span className="font-normal text-slate-400">(una riga per punto: km,quota)</span>
+                        </label>
+                        <textarea
+                            rows={6}
+                            value={serializeProfile(ri.profile)}
+                            onChange={e => update('profile', parseProfile(e.target.value))}
+                            className={`${inputCls} font-mono text-xs`}
+                            placeholder={'0,150\n5,210\n10,380\n15,420\n20,150'}
+                        />
+                        <p className="text-xs text-slate-400 mt-1">
+                            Formato: <code>km,quota</code> — una riga per ogni punto. Es: <code>0,150</code>
+                        </p>
+                    </div>
                 </div>
             )}
         </div>
@@ -283,10 +406,10 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
                 />
             ) : (
                 <div className="space-y-6">
-                    {/* Event fields */}
+                    {/* Generale */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                            <Settings className="h-4 w-4 text-ocean-600" /> Dettagli evento
+                            <Settings className="h-4 w-4 text-ocean-600" /> Dettagli generali
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="sm:col-span-2">
@@ -294,7 +417,7 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
                                 <input type="text" value={draft.title} onChange={e => set('title', e.target.value)} className={inputCls} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Data e ora</label>
                                 <input type="datetime-local" value={draft.date.slice(0, 16)} onChange={e => set('date', e.target.value + ':00')} className={inputCls} />
                             </div>
                             <div>
@@ -305,24 +428,133 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
                                     ))}
                                 </select>
                             </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Organizzatore</label>
+                                <input type="text" value={draft.organizer} onChange={e => set('organizer', e.target.value)} className={inputCls} />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Descrizione evento</label>
+                                <textarea
+                                    rows={4}
+                                    value={draft.description ?? ''}
+                                    onChange={e => set('description', e.target.value || undefined)}
+                                    className={inputCls}
+                                    placeholder="Descrizione dell'evento, informazioni generali, storia della manifestazione..."
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input id="featured" type="checkbox" checked={draft.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="accent-ocean-600 h-4 w-4" />
+                                <label htmlFor="featured" className="text-sm text-slate-700">In evidenza</label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input id="isLive" type="checkbox" checked={draft.isLive} onChange={e => set('isLive', e.target.checked)} className="accent-ocean-600 h-4 w-4" />
+                                <label htmlFor="isLive" className="text-sm text-slate-700">Live (in corso)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Luogo */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-ocean-600" /> Luogo
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Luogo / indirizzo di partenza</label>
+                                <input type="text" value={draft.location} onChange={e => set('location', e.target.value)} className={inputCls} placeholder="es. Piazza del Comune, 1 – Via Roma" />
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Città</label>
                                 <input type="text" value={draft.city} onChange={e => set('city', e.target.value)} className={inputCls} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Provincia</label>
-                                <input type="text" value={draft.province} onChange={e => set('province', e.target.value)} className={inputCls} />
+                                <input type="text" value={draft.province} onChange={e => set('province', e.target.value)} className={inputCls} placeholder="es. MI" maxLength={2} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Organizzatore</label>
-                                <input type="text" value={draft.organizer} onChange={e => set('organizer', e.target.value)} className={inputCls} />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Latitudine</label>
+                                <input
+                                    type="number"
+                                    step="0.000001"
+                                    value={draft.lat}
+                                    onChange={e => set('lat', parseFloat(e.target.value) || 0)}
+                                    className={inputCls}
+                                    placeholder="es. 45.4654"
+                                />
                             </div>
-                            <div className="flex items-center gap-2 pt-5">
-                                <input id="featured" type="checkbox" checked={draft.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="accent-ocean-600 h-4 w-4" />
-                                <label htmlFor="featured" className="text-sm text-slate-700">In evidenza</label>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Longitudine</label>
+                                <input
+                                    type="number"
+                                    step="0.000001"
+                                    value={draft.lng}
+                                    onChange={e => set('lng', parseFloat(e.target.value) || 0)}
+                                    className={inputCls}
+                                    placeholder="es. 9.1859"
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <p className="text-xs text-slate-400">
+                                    Puoi trovare le coordinate su{' '}
+                                    <a
+                                        href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(draft.city || 'Italia')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-ocean-600 hover:underline"
+                                    >
+                                        OpenStreetMap
+                                    </a>{' '}
+                                    (tasto destro → &quot;Mostra indirizzo&quot;).
+                                </p>
                             </div>
                         </div>
                     </div>
+
+                    {/* Media & Regolamento */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                            <Image className="h-4 w-4 text-ocean-600" /> Media &amp; Regolamento
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">URL immagine di copertina</label>
+                                <input
+                                    type="url"
+                                    value={draft.coverImage}
+                                    onChange={e => set('coverImage', e.target.value)}
+                                    className={inputCls}
+                                    placeholder="https://esempio.com/immagine.jpg"
+                                />
+                                {draft.coverImage && (
+                                    <img
+                                        src={draft.coverImage}
+                                        alt="Anteprima copertina"
+                                        className="mt-2 h-24 w-full object-cover rounded-lg border border-slate-200"
+                                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">URL regolamento (PDF)</label>
+                                <input
+                                    type="url"
+                                    value={draft.regulationUrl ?? ''}
+                                    onChange={e => set('regulationUrl', e.target.value || undefined)}
+                                    className={inputCls}
+                                    placeholder="https://esempio.com/regolamento.pdf"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Se presente, il pulsante &quot;Scarica regolamento&quot; punterà a questo file.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Percorso altimetrico */}
+                    <RouteInfoEditor
+                        routeInfo={draft.routeInfo}
+                        onChange={ri => set('routeInfo', ri)}
+                    />
 
                     {/* Races list */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">

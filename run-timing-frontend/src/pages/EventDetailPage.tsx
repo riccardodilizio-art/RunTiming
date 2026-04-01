@@ -4,7 +4,8 @@ import {
     TrendingUp, Mountain, Download, Layers,
 } from 'lucide-react';
 import type { Race, ElevationPoint } from '../types';
-import { mockEvents, categoryLabels, categoryColors } from '../data/mockEvents';
+import { categoryLabels, categoryColors } from '../data/mockEvents';
+import { useAdminStore } from '../hooks/useAdminStore';
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('it-IT', {
@@ -108,7 +109,11 @@ function ElevationChart({ profile }: { profile: ElevationPoint[] }) {
 
 // ─── Download regulation helper ───────────────────────────────────────────────
 
-function downloadRegulation(title: string, slug: string, date: string) {
+function openRegulation(regulationUrl: string | undefined, title: string, slug: string, date: string) {
+    if (regulationUrl) {
+        window.open(regulationUrl, '_blank', 'noopener,noreferrer');
+        return;
+    }
     const lines = [
         `REGOLAMENTO UFFICIALE`,
         ``,
@@ -145,7 +150,8 @@ function downloadRegulation(title: string, slug: string, date: string) {
 
 export default function EventDetailPage() {
     const { slug } = useParams<{ slug: string }>();
-    const event = mockEvents.find(e => e.slug === slug);
+    const { getEvent } = useAdminStore();
+    const event = getEvent(slug ?? '');
 
     if (!event) {
         return (
@@ -237,6 +243,16 @@ export default function EventDetailPage() {
                             </div>
                         </div>
 
+                        {/* Description */}
+                        {event.description && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-5" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                                <h2 className="font-display font-700 text-base text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
+                                    Descrizione
+                                </h2>
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{event.description}</p>
+                            </div>
+                        )}
+
                         {/* Races table */}
                         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
                             <div className="px-5 py-4 border-b border-slate-100">
@@ -324,7 +340,7 @@ export default function EventDetailPage() {
                                     Percorso &amp; Sede
                                 </h2>
                                 <button
-                                    onClick={() => downloadRegulation(event.title, event.slug, event.date)}
+                                    onClick={() => openRegulation(event.regulationUrl, event.title, event.slug, event.date)}
                                     className="flex items-center gap-1.5 text-xs text-ocean-600 hover:text-ocean-700 border border-ocean-200 hover:bg-ocean-50 px-3 py-1.5 rounded-lg transition-colors"
                                 >
                                     <Download className="w-3.5 h-3.5" />

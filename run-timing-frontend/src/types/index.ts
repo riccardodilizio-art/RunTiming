@@ -131,6 +131,8 @@ export interface Event {
     isFeatured: boolean;
     isLive: boolean;
     organizer: string;
+    description?: string;
+    regulationUrl?: string;
     routeInfo?: RouteInfo;
 }
 
