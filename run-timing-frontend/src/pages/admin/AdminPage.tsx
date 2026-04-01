@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
-    Euro, Calendar, MapPin, Users, Image, Route,
+    Euro, Calendar, MapPin, Users, Image, Route, Tag, UserCheck, Eye, EyeOff,
 } from 'lucide-react';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
+import AthletesSection from './AthletesSection';
+import DiscountSection from './DiscountSection';
 import type { Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -95,28 +97,44 @@ function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s
 
 // ─── RaceEditor ───────────────────────────────────────────────────────────────
 
-type RaceTab = 'info' | 'form' | 'prices';
+type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti';
 
 function RaceEditor({
     race,
+    eventId,
     onChange,
     onBack,
 }: {
     race: Race;
+    eventId: string;
     onChange: (r: Race) => void;
     onBack: () => void;
 }) {
     const [tab, setTab] = useState<RaceTab>('info');
+    const { getRegistrationsByRace } = useAdminStore();
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
         onChange({ ...race, [key]: value });
+    }
+
+    const registrations = tab === 'partecipanti' ? getRegistrationsByRace(race.id) : [];
+    const formFields = race.formSchema ?? [];
+
+    function togglePublicField(fieldId: string) {
+        const current = race.publicFields ?? [];
+        const next = current.includes(fieldId)
+            ? current.filter(f => f !== fieldId)
+            : [...current, fieldId];
+        set('publicFields', next);
     }
 
     const tabs: { key: RaceTab; label: string; icon: React.ReactNode }[] = [
         { key: 'info', label: 'Dettagli', icon: <Settings className="h-4 w-4" /> },
         { key: 'form', label: 'Modulo iscrizione', icon: <ClipboardList className="h-4 w-4" /> },
         { key: 'prices', label: 'Quote', icon: <Euro className="h-4 w-4" /> },
+        { key: 'partecipanti', label: 'Iscritti', icon: <UserCheck className="h-4 w-4" /> },
     ];
+    void eventId;
 
     return (
         <div>
@@ -217,6 +235,94 @@ function RaceEditor({
                         steps={race.priceSteps ?? []}
                         onChange={(steps: PriceStep[]) => set('priceSteps', steps)}
                     />
+                </div>
+            )}
+
+            {tab === 'partecipanti' && (
+                <div className="space-y-5">
+                    {/* Visibilità pubblica campi */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+                        <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                            <Eye className="h-4 w-4 text-ocean-500" /> Campi visibili pubblicamente
+                        </h4>
+                        <p className="text-xs text-slate-400 mb-3">
+                            Seleziona quali informazioni degli iscritti sono visibili nella pagina pubblica della manifestazione.
+                        </p>
+                        {formFields.length === 0 ? (
+                            <p className="text-sm text-slate-400 italic">Nessun campo nel modulo. Configura prima il modulo iscrizione.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {formFields.filter(f => !f.readOnly).map(f => {
+                                    const isPublic = (race.publicFields ?? []).includes(f.id);
+                                    return (
+                                        <label key={f.id} className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                checked={isPublic}
+                                                onChange={() => togglePublicField(f.id)}
+                                                className="accent-ocean-600 h-4 w-4"
+                                            />
+                                            <span className="text-sm text-slate-700 group-hover:text-ocean-700 flex items-center gap-1">
+                                                {isPublic
+                                                    ? <Eye className="h-3.5 w-3.5 text-ocean-500" />
+                                                    : <EyeOff className="h-3.5 w-3.5 text-slate-300" />
+                                                }
+                                                {f.label}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Lista iscrizioni */}
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
+                        </h4>
+                        {registrations.length === 0 ? (
+                            <p className="text-sm text-slate-400 italic">Nessuna iscrizione ricevuta per questa gara.</p>
+                        ) : (
+                            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                            <th className="px-3 py-2">N°</th>
+                                            {formFields.filter(f => !f.readOnly).map(f => (
+                                                <th key={f.id} className="px-3 py-2">
+                                                    {f.label}
+                                                    {(race.publicFields ?? []).includes(f.id) && (
+                                                        <Eye className="inline h-3 w-3 ml-1 text-ocean-400" />
+                                                    )}
+                                                </th>
+                                            ))}
+                                            <th className="px-3 py-2">Quota</th>
+                                            <th className="px-3 py-2">Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {registrations.map((reg, idx) => (
+                                            <tr key={reg.id} className="hover:bg-slate-50/50">
+                                                <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
+                                                {formFields.filter(f => !f.readOnly).map(f => (
+                                                    <td key={f.id} className="px-3 py-2 text-slate-700">
+                                                        {typeof reg.formData[f.id] === 'boolean'
+                                                            ? (reg.formData[f.id] ? '✓' : '—')
+                                                            : (reg.formData[f.id] as string) || '—'}
+                                                    </td>
+                                                ))}
+                                                <td className="px-3 py-2 font-medium text-ocean-700">{formatPrice(reg.pricePaid)}</td>
+                                                <td className="px-3 py-2 text-slate-400">
+                                                    {new Date(reg.submittedAt).toLocaleDateString('it-IT')}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
@@ -401,6 +507,7 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
             {editingRace ? (
                 <RaceEditor
                     race={editingRace}
+                    eventId={draft.id}
                     onChange={updateRace}
                     onBack={() => setEditingRaceId(null)}
                 />
@@ -623,8 +730,17 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
 
 // ─── AdminPage ────────────────────────────────────────────────────────────────
 
+type AdminSection = 'gare' | 'atleti' | 'sconti';
+
+const NAV_ITEMS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
+    { key: 'gare',    label: 'Gare',    icon: <Calendar className="h-4 w-4" /> },
+    { key: 'atleti',  label: 'Atleti',  icon: <Users className="h-4 w-4" /> },
+    { key: 'sconti',  label: 'Sconti',  icon: <Tag className="h-4 w-4" /> },
+];
+
 export default function AdminPage() {
     const { events, saveEvent, deleteEvent } = useAdminStore();
+    const [section, setSection] = useState<AdminSection>('gare');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
 
@@ -663,7 +779,7 @@ export default function AdminPage() {
     return (
         <main className="min-h-screen bg-slate-50">
             {/* Top bar */}
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 flex items-center justify-between">
+            <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Settings className="h-5 w-5 text-ocean-600" />
                     <span className="font-semibold text-slate-800 text-lg">Admin Panel</span>
@@ -675,6 +791,28 @@ export default function AdminPage() {
                 )}
             </div>
 
+            {/* Navigation tabs */}
+            {!editingEvent && (
+                <div className="bg-white border-b border-slate-200 px-4 sm:px-8">
+                    <div className="flex gap-1 max-w-5xl mx-auto">
+                        {NAV_ITEMS.map(item => (
+                            <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => setSection(item.key)}
+                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                                    section === item.key
+                                        ? 'border-ocean-600 text-ocean-700'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                {item.icon} {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
                 {editingEvent ? (
                     <EventEditor
@@ -682,11 +820,15 @@ export default function AdminPage() {
                         onSave={handleSave}
                         onBack={() => setEditingId(null)}
                     />
+                ) : section === 'atleti' ? (
+                    <AthletesSection />
+                ) : section === 'sconti' ? (
+                    <DiscountSection />
                 ) : (
                     <div>
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-800">Eventi</h1>
+                                <h1 className="text-2xl font-bold text-slate-800">Gare ed eventi</h1>
                                 <p className="text-slate-500 text-sm mt-0.5">{events.length} eventi totali</p>
                             </div>
                             <button

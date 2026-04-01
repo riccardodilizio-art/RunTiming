@@ -45,6 +45,27 @@ export interface RegistrationSubmission {
     submittedAt: string;
     formData: Record<string, string | boolean>;
     pricePaid: number;
+    discountCode?: string;
+    discountAmount?: number;
+    paymentMethod?: 'paypal' | 'card' | 'free';
+}
+
+export interface DiscountCode {
+    id: string;
+    code: string;
+    description?: string;
+    type: 'fixed' | 'percent';
+    value: number;         // EUR (fixed) or 0-100 (percent)
+    maxUses?: number;      // undefined = illimitato
+    usedCount: number;
+    expiresAt?: string;    // ISO date YYYY-MM-DD
+    isActive: boolean;
+}
+
+export interface CommissionConfig {
+    fixedFee: number;      // EUR aggiunta fissa
+    percentFee: number;    // % sul prezzo (0-100)
+    appliedTo: 'buyer' | 'organizer';
 }
 
 export type RaceType =
@@ -75,6 +96,7 @@ export interface Race {
     isOpen: boolean;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
+    publicFields?: string[];     // field IDs shown publicly in participant list
 }
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';
@@ -145,4 +167,9 @@ export interface Athlete {
     avatarUrl?: string;
     totalRaces: number;
     totalPodiums: number;
+    // campi gestiti dall'admin
+    email?: string;
+    phone?: string;
+    gender?: 'M' | 'F';
+    notes?: string;
 }

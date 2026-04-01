@@ -478,6 +478,16 @@ export default function EventDetailPage() {
                                     <span className="text-slate-600 font-medium">{categoryLabels[event.category]}</span>
                                 </div>
                             </div>
+
+                            {/* Link lista iscritti */}
+                            {event.races.some(r => r.publicFields && r.publicFields.length > 0) && (
+                                <Link
+                                    to={`/events/${event.slug}/partecipanti`}
+                                    className="mt-4 flex items-center justify-center gap-1.5 w-full text-sm text-ocean-600 hover:text-ocean-800 border border-ocean-200 hover:bg-ocean-50 py-2 rounded-xl transition-colors"
+                                >
+                                    Vedi lista iscritti
+                                </Link>
+                            )}
                         </div>
                     </div>
 

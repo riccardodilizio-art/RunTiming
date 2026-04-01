@@ -1,26 +1,75 @@
 import { useState, useMemo } from 'react';
 import { mockEvents } from '../data/mockEvents';
-import type { Event } from '../types';
+import type {
+    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission,
+} from '../types';
+
+// ─── Events ───────────────────────────────────────────────────────────────────
 
 const LS_KEY = 'rt_admin_events';
 
 function load(): Event[] {
+    try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+}
+function persist(events: Event[]) { localStorage.setItem(LS_KEY, JSON.stringify(events)); }
+
+// ─── Athletes ─────────────────────────────────────────────────────────────────
+
+const LS_ATHLETES_KEY = 'rt_athletes';
+
+function loadAthletes(): Athlete[] {
+    try { const raw = localStorage.getItem(LS_ATHLETES_KEY); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+}
+function persistAthletes(a: Athlete[]) { localStorage.setItem(LS_ATHLETES_KEY, JSON.stringify(a)); }
+
+// ─── Discount codes ───────────────────────────────────────────────────────────
+
+const LS_DISCOUNTS_KEY = 'rt_discount_codes';
+
+function loadDiscounts(): DiscountCode[] {
+    try { const raw = localStorage.getItem(LS_DISCOUNTS_KEY); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+}
+function persistDiscounts(d: DiscountCode[]) { localStorage.setItem(LS_DISCOUNTS_KEY, JSON.stringify(d)); }
+
+// ─── Commission ───────────────────────────────────────────────────────────────
+
+const LS_COMMISSION_KEY = 'rt_commission';
+const DEFAULT_COMMISSION: CommissionConfig = { fixedFee: 0, percentFee: 0, appliedTo: 'buyer' };
+
+function loadCommission(): CommissionConfig {
     try {
-        const raw = localStorage.getItem(LS_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
+        const raw = localStorage.getItem(LS_COMMISSION_KEY);
+        return raw ? JSON.parse(raw) : DEFAULT_COMMISSION;
+    } catch { return DEFAULT_COMMISSION; }
+}
+function persistCommission(c: CommissionConfig) { localStorage.setItem(LS_COMMISSION_KEY, JSON.stringify(c)); }
+
+// ─── Registrations ────────────────────────────────────────────────────────────
+
+const LS_REG_KEY = 'rt_registrations';
+
+export function loadRegistrations(): RegistrationSubmission[] {
+    try { const raw = localStorage.getItem(LS_REG_KEY); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
 }
 
-function persist(events: Event[]) {
-    localStorage.setItem(LS_KEY, JSON.stringify(events));
+export function saveRegistration(sub: RegistrationSubmission) {
+    try {
+        const list = loadRegistrations();
+        list.push(sub);
+        localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
+    } catch { /* ignore */ }
 }
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAdminStore() {
+    // Events
     const [overrides, setOverrides] = useState<Event[]>(() => load());
 
-    // Merge base mockEvents with admin overrides (overrides win by event.id)
     const events = useMemo<Event[]>(() => {
         const merged: Event[] = [...mockEvents];
         for (const ov of overrides) {
@@ -34,14 +83,12 @@ export function useAdminStore() {
     function saveEvent(event: Event) {
         const next = [...overrides];
         const idx = next.findIndex(e => e.id === event.id);
-        if (idx >= 0) next[idx] = event;
-        else next.push(event);
+        if (idx >= 0) next[idx] = event; else next.push(event);
         setOverrides(next);
         persist(next);
     }
 
     function deleteEvent(id: string) {
-        // Only remove from overrides; mockEvents base remains untouched
         const next = overrides.filter(e => e.id !== id);
         setOverrides(next);
         persist(next);
@@ -51,18 +98,93 @@ export function useAdminStore() {
         return events.find(e => e.slug === slug);
     }
 
-    return { events, saveEvent, deleteEvent, getEvent };
-}
+    // Athletes
+    const [athletes, setAthletes] = useState<Athlete[]>(() => loadAthletes());
 
-// ─── Registration submissions ─────────────────────────────────────────────────
+    function saveAthlete(athlete: Athlete) {
+        const next = [...athletes];
+        const idx = next.findIndex(a => a.id === athlete.id);
+        if (idx >= 0) next[idx] = athlete; else next.push(athlete);
+        setAthletes(next);
+        persistAthletes(next);
+    }
 
-const LS_REG_KEY = 'rt_registrations';
+    function deleteAthlete(id: string) {
+        const next = athletes.filter(a => a.id !== id);
+        setAthletes(next);
+        persistAthletes(next);
+    }
 
-export function saveRegistration(sub: import('../types').RegistrationSubmission) {
-    try {
-        const raw = localStorage.getItem(LS_REG_KEY);
-        const list = raw ? JSON.parse(raw) : [];
-        list.push(sub);
-        localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
-    } catch { /* ignore */ }
+    // Discount codes
+    const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>(() => loadDiscounts());
+
+    function saveDiscountCode(code: DiscountCode) {
+        const next = [...discountCodes];
+        const idx = next.findIndex(c => c.id === code.id);
+        if (idx >= 0) next[idx] = code; else next.push(code);
+        setDiscountCodes(next);
+        persistDiscounts(next);
+    }
+
+    function deleteDiscountCode(id: string) {
+        const next = discountCodes.filter(c => c.id !== id);
+        setDiscountCodes(next);
+        persistDiscounts(next);
+    }
+
+    /** Valida un codice sconto e restituisce il codice se valido, null altrimenti */
+    function validateDiscountCode(inputCode: string): DiscountCode | null {
+        const today = new Date().toISOString().slice(0, 10);
+        const found = discountCodes.find(
+            c => c.code.toLowerCase() === inputCode.toLowerCase() && c.isActive
+        );
+        if (!found) return null;
+        if (found.expiresAt && found.expiresAt < today) return null;
+        if (found.maxUses !== undefined && found.usedCount >= found.maxUses) return null;
+        return found;
+    }
+
+    /** Incrementa il contatore utilizzi di un codice sconto */
+    function applyDiscountCode(codeId: string) {
+        const next = discountCodes.map(c =>
+            c.id === codeId ? { ...c, usedCount: c.usedCount + 1 } : c
+        );
+        setDiscountCodes(next);
+        persistDiscounts(next);
+    }
+
+    // Commission
+    const [commission, setCommission] = useState<CommissionConfig>(() => loadCommission());
+
+    function saveCommission(c: CommissionConfig) {
+        setCommission(c);
+        persistCommission(c);
+    }
+
+    // Registrations (read-only from store, write via saveRegistration)
+    function getRegistrations(): RegistrationSubmission[] {
+        return loadRegistrations();
+    }
+
+    function getRegistrationsByEvent(eventId: string): RegistrationSubmission[] {
+        return loadRegistrations().filter(r => r.eventId === eventId);
+    }
+
+    function getRegistrationsByRace(raceId: string): RegistrationSubmission[] {
+        return loadRegistrations().filter(r => r.raceId === raceId);
+    }
+
+    return {
+        // events
+        events, saveEvent, deleteEvent, getEvent,
+        // athletes
+        athletes, saveAthlete, deleteAthlete,
+        // discounts
+        discountCodes, saveDiscountCode, deleteDiscountCode,
+        validateDiscountCode, applyDiscountCode,
+        // commissions
+        commission, saveCommission,
+        // registrations
+        getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
+    };
 }

@@ -7,6 +7,7 @@ import EventDetailPage from './pages/EventDetailPage';
 import ResultsPage from './pages/ResultsPage';
 import ContactsPage from './pages/ContactsPage';
 import RegisterPage from './pages/RegisterPage';
+import ParticipantsPage from './pages/ParticipantsPage';
 import AdminPage from './pages/admin/AdminPage';
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/results" element={<ResultsPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/events/:slug/register" element={<RegisterPage />} />
+                <Route path="/events/:slug/partecipanti" element={<ParticipantsPage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/athletes" element={<PlaceholderPage title="Atleti" />} />
                 <Route path="/login" element={<PlaceholderPage title="Accedi" />} />
