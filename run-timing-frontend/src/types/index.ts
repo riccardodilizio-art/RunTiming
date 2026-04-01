@@ -40,6 +40,8 @@ export interface PriceStep {
     deadline: string;
 }
 
+export type PaymentStatus = 'pending' | 'confirmed' | 'rejected';
+
 export interface RegistrationSubmission {
     id: string;
     eventId: string;
@@ -49,9 +51,11 @@ export interface RegistrationSubmission {
     pricePaid: number;
     discountCode?: string;
     discountAmount?: number;
-    paymentMethod?: 'paypal' | 'card' | 'free';
+    paymentMethod?: 'paypal' | 'card' | 'free' | 'manual';
+    paymentStatus: PaymentStatus;
     assignedCategory?: string;   // nome categoria assegnata
     fidalVerified?: boolean;     // atleta verificato tramite tessera FIDAL
+    addedByOrganizer?: boolean;  // iscrizione manuale da parte dell'organizzatore
 }
 
 export interface DiscountCode {
@@ -202,4 +206,20 @@ export interface Athlete {
     phone?: string;
     gender?: 'M' | 'F';
     notes?: string;
+}
+
+// ─── Auth / Users ─────────────────────────────────────────────────────────────
+
+export type UserRole = 'admin' | 'organizer';
+
+export interface AppUser {
+    id: string;
+    username: string;
+    /** stored as plain string — in production this would be hashed */
+    password: string;
+    displayName: string;
+    role: UserRole;
+    /** IDs of events the organizer is allowed to manage (ignored for admin) */
+    assignedEventIds: string[];
+    isActive: boolean;
 }

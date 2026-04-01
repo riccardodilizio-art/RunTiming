@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Calendar, MapPin, Users, Image, Route, Tag, UserCheck, Eye, EyeOff,
+    LogOut, CheckCircle2, XCircle, UserPlus,
 } from 'lucide-react';
-import { useAdminStore } from '../../hooks/useAdminStore';
+import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
+import { useAuth } from '../../context/AuthContext';
 import FormBuilder from '../../components/admin/FormBuilder';
 import AthletesSection from './AthletesSection';
 import DiscountSection from './DiscountSection';
-import type { Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory } from '../../types';
+import UsersSection from './UsersSection';
+import type {
+    Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory,
+    RegistrationSubmission, PaymentStatus,
+} from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -207,13 +213,31 @@ function RaceEditor({
     onBack: () => void;
 }) {
     const [tab, setTab] = useState<RaceTab>('info');
-    const { getRegistrationsByRace } = useAdminStore();
+    const [regKey, setRegKey] = useState(0);
+    const [showManualReg, setShowManualReg] = useState(false);
+    const { getRegistrationsByRace, updatePaymentStatus, deleteRegistration } = useAdminStore();
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
         onChange({ ...race, [key]: value });
     }
 
-    const registrations = tab === 'partecipanti' ? getRegistrationsByRace(race.id) : [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const registrations = useMemo(() =>
+        tab === 'partecipanti' ? getRegistrationsByRace(race.id) : [],
+        // regKey triggers a re-read from localStorage after mutations
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tab, race.id, regKey]
+    );
+
+    function handlePaymentStatus(regId: string, status: PaymentStatus) {
+        updatePaymentStatus(regId, status);
+        setRegKey(k => k + 1);
+    }
+
+    function handleDeleteReg(regId: string) {
+        deleteRegistration(regId);
+        setRegKey(k => k + 1);
+    }
     const formFields = race.formSchema ?? [];
 
     function togglePublicField(fieldId: string) {
@@ -378,9 +402,18 @@ function RaceEditor({
 
                     {/* Lista iscrizioni */}
                     <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                            <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
+                            </h4>
+                            <button
+                                type="button"
+                                onClick={() => setShowManualReg(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-medium hover:bg-ocean-700 transition-colors"
+                            >
+                                <UserPlus className="h-3.5 w-3.5" /> Iscrivi manualmente
+                            </button>
+                        </div>
                         {registrations.length === 0 ? (
                             <p className="text-sm text-slate-400 italic">Nessuna iscrizione ricevuta per questa gara.</p>
                         ) : (
@@ -398,7 +431,9 @@ function RaceEditor({
                                                 </th>
                                             ))}
                                             <th className="px-3 py-2">Quota</th>
+                                            <th className="px-3 py-2">Pagamento</th>
                                             <th className="px-3 py-2">Data</th>
+                                            <th className="px-3 py-2" />
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -413,8 +448,29 @@ function RaceEditor({
                                                     </td>
                                                 ))}
                                                 <td className="px-3 py-2 font-medium text-ocean-700">{formatPrice(reg.pricePaid)}</td>
+                                                <td className="px-3 py-2">
+                                                    <PaymentBadge
+                                                        status={reg.paymentStatus ?? 'pending'}
+                                                        onConfirm={() => handlePaymentStatus(reg.id, 'confirmed')}
+                                                        onReject={() => handlePaymentStatus(reg.id, 'rejected')}
+                                                        onReset={() => handlePaymentStatus(reg.id, 'pending')}
+                                                    />
+                                                </td>
                                                 <td className="px-3 py-2 text-slate-400">
                                                     {new Date(reg.submittedAt).toLocaleDateString('it-IT')}
+                                                    {reg.addedByOrganizer && (
+                                                        <span className="ml-1 text-ocean-500" title="Iscrizione manuale">M</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
+                                                        className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+                                                        title="Elimina iscrizione"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -423,8 +479,217 @@ function RaceEditor({
                             </div>
                         )}
                     </div>
+
+                    {showManualReg && (
+                        <ManualRegModal
+                            race={race}
+                            eventId={eventId}
+                            onClose={() => setShowManualReg(false)}
+                            onSaved={() => setRegKey(k => k + 1)}
+                        />
+                    )}
                 </div>
             )}
+        </div>
+    );
+}
+
+// ─── PaymentBadge ─────────────────────────────────────────────────────────────
+
+function PaymentBadge({
+    status,
+    onConfirm,
+    onReject,
+    onReset,
+}: {
+    status: PaymentStatus;
+    onConfirm: () => void;
+    onReject: () => void;
+    onReset: () => void;
+}) {
+    if (status === 'confirmed') {
+        return (
+            <button
+                type="button"
+                onClick={onReset}
+                title="Clicca per annullare conferma"
+                className="flex items-center gap-1 text-emerald-600 font-medium hover:text-emerald-800"
+            >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Confermato
+            </button>
+        );
+    }
+    if (status === 'rejected') {
+        return (
+            <button
+                type="button"
+                onClick={onReset}
+                title="Clicca per riportare in attesa"
+                className="flex items-center gap-1 text-red-500 font-medium hover:text-red-700"
+            >
+                <XCircle className="h-3.5 w-3.5" /> Rifiutato
+            </button>
+        );
+    }
+    return (
+        <div className="flex items-center gap-1">
+            <span className="text-amber-600 font-medium">In attesa</span>
+            <button
+                type="button"
+                onClick={onConfirm}
+                title="Conferma pagamento"
+                className="ml-1 p-0.5 rounded hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
+            >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+                type="button"
+                onClick={onReject}
+                title="Rifiuta pagamento"
+                className="p-0.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+            >
+                <XCircle className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+}
+
+// ─── ManualRegModal ───────────────────────────────────────────────────────────
+
+function ManualRegModal({
+    race,
+    eventId,
+    onClose,
+    onSaved,
+}: {
+    race: Race;
+    eventId: string;
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const [formData, setFormData] = useState<Record<string, string | boolean>>({});
+    const [price, setPrice] = useState(race.price);
+    const [paymentMethod, setPaymentMethod] = useState<'manual' | 'free'>('manual');
+
+    const fields = (race.formSchema ?? []).filter(f => !f.readOnly && f.type !== 'file');
+
+    function setField(id: string, val: string | boolean) {
+        setFormData(d => ({ ...d, [id]: val }));
+    }
+
+    function handleSave() {
+        const sub: RegistrationSubmission = {
+            id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            eventId,
+            raceId: race.id,
+            submittedAt: new Date().toISOString(),
+            formData,
+            pricePaid: price,
+            paymentMethod,
+            paymentStatus: 'confirmed',
+            addedByOrganizer: true,
+        };
+        saveRegistration(sub);
+        onSaved();
+        onClose();
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                    <h3 className="font-semibold text-slate-800">Iscrizione manuale — {race.name}</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <XCircle className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="p-5 space-y-3">
+                    {fields.length === 0 && (
+                        <p className="text-sm text-slate-400 italic">Nessun campo nel modulo. Compila i dati base.</p>
+                    )}
+                    {fields.map(f => (
+                        <div key={f.id}>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">
+                                {f.label}{f.required && ' *'}
+                            </label>
+                            {f.type === 'select' ? (
+                                <select
+                                    value={(formData[f.id] as string) ?? ''}
+                                    onChange={e => setField(f.id, e.target.value)}
+                                    className={inputCls}
+                                >
+                                    <option value="">— seleziona —</option>
+                                    {f.options?.map(o => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                            ) : f.type === 'checkbox' ? (
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={(formData[f.id] as boolean) ?? false}
+                                        onChange={e => setField(f.id, e.target.checked)}
+                                        className="accent-ocean-600"
+                                    />
+                                    <span className="text-sm text-slate-700">{f.helperText ?? f.label}</span>
+                                </label>
+                            ) : f.type === 'textarea' ? (
+                                <textarea
+                                    rows={3}
+                                    value={(formData[f.id] as string) ?? ''}
+                                    onChange={e => setField(f.id, e.target.value)}
+                                    className={inputCls}
+                                    placeholder={f.placeholder}
+                                />
+                            ) : (
+                                <input
+                                    type={f.type}
+                                    value={(formData[f.id] as string) ?? ''}
+                                    onChange={e => setField(f.id, e.target.value)}
+                                    className={inputCls}
+                                    placeholder={f.placeholder}
+                                />
+                            )}
+                        </div>
+                    ))}
+
+                    <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Quota pagata (€)</label>
+                            <input
+                                type="number" min={0} step={0.5}
+                                value={price}
+                                onChange={e => setPrice(parseFloat(e.target.value) || 0)}
+                                className={inputCls}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Metodo pagamento</label>
+                            <select
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value as 'manual' | 'free')}
+                                className={inputCls}
+                            >
+                                <option value="manual">Manuale (contanti/bonifico)</option>
+                                <option value="free">Gratuito / esenzione</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                        L'iscrizione sarà marcata come <strong>confermata</strong> automaticamente.
+                    </p>
+                </div>
+                <div className="flex justify-end gap-2 px-5 pb-5">
+                    <button onClick={onClose}
+                        className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">
+                        Annulla
+                    </button>
+                    <button onClick={handleSave}
+                        className="px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 flex items-center gap-1.5">
+                        <Check className="w-4 h-4" /> Salva iscrizione
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -830,21 +1095,30 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
 
 // ─── AdminPage ────────────────────────────────────────────────────────────────
 
-type AdminSection = 'gare' | 'atleti' | 'sconti';
-
-const NAV_ITEMS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
-    { key: 'gare',    label: 'Gare',    icon: <Calendar className="h-4 w-4" /> },
-    { key: 'atleti',  label: 'Atleti',  icon: <Users className="h-4 w-4" /> },
-    { key: 'sconti',  label: 'Sconti',  icon: <Tag className="h-4 w-4" /> },
-];
+type AdminSection = 'gare' | 'atleti' | 'sconti' | 'utenti';
 
 export default function AdminPage() {
     const { events, saveEvent, deleteEvent } = useAdminStore();
+    const { currentUser, isAdmin, logout, canManageEvent } = useAuth();
     const [section, setSection] = useState<AdminSection>('gare');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
 
+    // Organizer sees only their assigned events
+    const visibleEvents = isAdmin
+        ? events
+        : events.filter(e => canManageEvent(e.id));
+
     const editingEvent = editingId ? events.find(e => e.id === editingId) : null;
+
+    const NAV_ITEMS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
+        { key: 'gare',   label: 'Gare',    icon: <Calendar className="h-4 w-4" /> },
+        ...(isAdmin ? [
+            { key: 'atleti' as AdminSection,  label: 'Atleti',        icon: <Users className="h-4 w-4" /> },
+            { key: 'sconti' as AdminSection,  label: 'Sconti',        icon: <Tag className="h-4 w-4" /> },
+            { key: 'utenti' as AdminSection,  label: 'Organizzatori', icon: <UserCheck className="h-4 w-4" /> },
+        ] : []),
+    ];
 
     function createEvent() {
         const id = `ev_${newId()}`;
@@ -882,13 +1156,27 @@ export default function AdminPage() {
             <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Settings className="h-5 w-5 text-ocean-600" />
-                    <span className="font-semibold text-slate-800 text-lg">Admin Panel</span>
-                </div>
-                {saved && (
-                    <span className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                        <Check className="h-4 w-4" /> Salvato
+                    <span className="font-semibold text-slate-800 text-lg">
+                        {isAdmin ? 'Admin Panel' : 'Pannello Organizzatore'}
                     </span>
-                )}
+                </div>
+                <div className="flex items-center gap-3">
+                    {saved && (
+                        <span className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
+                            <Check className="h-4 w-4" /> Salvato
+                        </span>
+                    )}
+                    <span className="hidden sm:block text-sm text-slate-500">
+                        {currentUser?.displayName}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={logout}
+                        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                    >
+                        <LogOut className="h-4 w-4" /> Esci
+                    </button>
+                </div>
             </div>
 
             {/* Navigation tabs */}
@@ -924,24 +1212,36 @@ export default function AdminPage() {
                     <AthletesSection />
                 ) : section === 'sconti' ? (
                     <DiscountSection />
+                ) : section === 'utenti' ? (
+                    <UsersSection />
                 ) : (
                     <div>
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-800">Gare ed eventi</h1>
-                                <p className="text-slate-500 text-sm mt-0.5">{events.length} eventi totali</p>
+                                <p className="text-slate-500 text-sm mt-0.5">{visibleEvents.length} eventi</p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={createEvent}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
-                            >
-                                <Plus className="h-4 w-4" /> Nuovo evento
-                            </button>
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={createEvent}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                                >
+                                    <Plus className="h-4 w-4" /> Nuovo evento
+                                </button>
+                            )}
                         </div>
 
+                        {visibleEvents.length === 0 && (
+                            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+                                <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-500 text-sm">Nessuna gara assegnata al tuo account.</p>
+                                <p className="text-slate-400 text-xs mt-1">Contatta l'amministratore per richiedere l'accesso.</p>
+                            </div>
+                        )}
+
                         <div className="space-y-3">
-                            {events.map(event => (
+                            {visibleEvents.map(event => (
                                 <div
                                     key={event.id}
                                     className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-4 hover:border-slate-300 transition-colors"
@@ -976,15 +1276,17 @@ export default function AdminPage() {
                                         >
                                             <Edit2 className="h-3.5 w-3.5" /> Modifica
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (confirm(`Eliminare "${event.title}"?`)) deleteEvent(event.id);
-                                            }}
-                                            className="p-1.5 rounded hover:bg-red-50 transition-colors"
-                                        >
-                                            <Trash2 className="h-4 w-4 text-red-400" />
-                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm(`Eliminare "${event.title}"?`)) deleteEvent(event.id);
+                                                }}
+                                                className="p-1.5 rounded hover:bg-red-50 transition-colors"
+                                            >
+                                                <Trash2 className="h-4 w-4 text-red-400" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}

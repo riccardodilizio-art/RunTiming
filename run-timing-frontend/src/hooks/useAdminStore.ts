@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { mockEvents } from '../data/mockEvents';
 import type {
-    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission,
+    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus,
 } from '../types';
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -63,6 +63,21 @@ export function saveRegistration(sub: RegistrationSubmission) {
         localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
     } catch { /* ignore */ }
 }
+
+function persistRegistrations(list: RegistrationSubmission[]) {
+    localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
+}
+
+// ─── Users (organizers) ───────────────────────────────────────────────────────
+
+const LS_USERS_KEY = 'rt_users';
+
+export function loadUsers(): AppUser[] {
+    try { const raw = localStorage.getItem(LS_USERS_KEY); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+}
+
+function persistUsers(u: AppUser[]) { localStorage.setItem(LS_USERS_KEY, JSON.stringify(u)); }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -161,7 +176,7 @@ export function useAdminStore() {
         persistCommission(c);
     }
 
-    // Registrations (read-only from store, write via saveRegistration)
+    // Registrations
     function getRegistrations(): RegistrationSubmission[] {
         return loadRegistrations();
     }
@@ -172,6 +187,35 @@ export function useAdminStore() {
 
     function getRegistrationsByRace(raceId: string): RegistrationSubmission[] {
         return loadRegistrations().filter(r => r.raceId === raceId);
+    }
+
+    function updatePaymentStatus(registrationId: string, status: PaymentStatus) {
+        const list = loadRegistrations().map(r =>
+            r.id === registrationId ? { ...r, paymentStatus: status } : r
+        );
+        persistRegistrations(list);
+    }
+
+    function deleteRegistration(registrationId: string) {
+        const list = loadRegistrations().filter(r => r.id !== registrationId);
+        persistRegistrations(list);
+    }
+
+    // Users (organizers)
+    const [users, setUsers] = useState<AppUser[]>(() => loadUsers());
+
+    function saveUser(user: AppUser) {
+        const next = [...users];
+        const idx = next.findIndex(u => u.id === user.id);
+        if (idx >= 0) next[idx] = user; else next.push(user);
+        setUsers(next);
+        persistUsers(next);
+    }
+
+    function deleteUser(id: string) {
+        const next = users.filter(u => u.id !== id);
+        setUsers(next);
+        persistUsers(next);
     }
 
     return {
@@ -186,5 +230,8 @@ export function useAdminStore() {
         commission, saveCommission,
         // registrations
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
+        updatePaymentStatus, deleteRegistration,
+        // users
+        users, saveUser, deleteUser,
     };
 }

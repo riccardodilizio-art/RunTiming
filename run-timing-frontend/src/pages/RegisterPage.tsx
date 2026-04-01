@@ -756,6 +756,7 @@ export default function RegisterPage() {
                 paymentMethod: isFree ? 'free' : paymentMethod,
                 assignedCategory: assignedCat?.name,
                 fidalVerified,
+                paymentStatus: 'pending',
             });
             setSubmissionId(id);
         }
