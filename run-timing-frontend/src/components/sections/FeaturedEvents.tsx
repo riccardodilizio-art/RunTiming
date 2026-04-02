@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
-import { mockEvents } from '../../data/mockEvents';
+import { useAdminStore } from '../../hooks/useAdminStore';
 import EventRow from '../ui/EventRow';
 
 export default function FeaturedEvents() {
+    const { events } = useAdminStore();
     const [query, setQuery] = useState('');
     const now = new Date();
 
-    const filtered = mockEvents.filter(e =>
+    const filtered = events.filter(e =>
         e.title.toLowerCase().includes(query.toLowerCase()) ||
         e.city.toLowerCase().includes(query.toLowerCase())
     );

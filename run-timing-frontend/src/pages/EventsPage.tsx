@@ -4,7 +4,8 @@ import {
     Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
     ChevronLeft, ChevronRight, Calendar, Map,
 } from 'lucide-react';
-import { mockEvents, categoryLabels, categoryColors } from '../data/mockEvents';
+import { categoryLabels, categoryColors } from '../data/mockEvents';
+import { useAdminStore } from '../hooks/useAdminStore';
 import type { Event, SportCategory } from '../types';
 import EventRow from '../components/ui/EventRow';
 import EventGridCard from '../components/ui/EventGridCard';
@@ -39,11 +40,11 @@ const TABS: Array<{ value: Tab; label: string }> = [
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
-function minPrice(event: (typeof mockEvents)[number]) {
+function minPrice(event: Event) {
     return Math.min(...event.races.map(r => r.price));
 }
 
-function totalParticipants(event: (typeof mockEvents)[number]) {
+function totalParticipants(event: Event) {
     return event.races.reduce((s, r) => s + r.participants, 0);
 }
 
@@ -51,7 +52,7 @@ function totalParticipants(event: (typeof mockEvents)[number]) {
 
 function EventCalendar({ events }: { events: Event[] }) {
     const [month, setMonth] = useState<Date>(() => {
-        const upcoming = [...mockEvents]
+        const upcoming = [...events]
             .filter(e => new Date(e.date) >= new Date())
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         if (upcoming.length) {
@@ -221,6 +222,7 @@ function EventCalendar({ events }: { events: Event[] }) {
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
+    const { events } = useAdminStore();
     const [query,     setQuery]     = useState('');
     const [category,  setCategory]  = useState<SportCategory | 'all'>('all');
     const [tab,       setTab]       = useState<Tab>('upcoming');
@@ -231,14 +233,14 @@ export default function EventsPage() {
     const now = new Date();
 
     const countFor = (cat: SportCategory | 'all') =>
-        mockEvents.filter(e => {
+        events.filter(e => {
             const matchesTab = tab === 'all' ? true : tab === 'upcoming'
                 ? new Date(e.date) >= now : new Date(e.date) < now;
             const matchesCat = cat === 'all' || e.category === cat;
             return matchesTab && matchesCat;
         }).length;
 
-    const filtered = mockEvents
+    const filtered = events
         .filter(e => {
             const q = query.toLowerCase();
             const matchesQuery    = !q ||

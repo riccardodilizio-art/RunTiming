@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
-import { mockEvents, categoryLabels, categoryColors } from '../data/mockEvents';
+import { categoryLabels, categoryColors } from '../data/mockEvents';
+import { useAdminStore } from '../hooks/useAdminStore';
 import { mockResults, raceClassifications } from '../data/mockResults';
 import type { Event, Race, Result, LapSplit } from '../types';
 import CertificateModal from '../components/results/CertificateModal';
@@ -142,9 +143,9 @@ function TableHeader({ isLapRace }: { isLapRace: boolean }) {
 
 // ─── Main page ──────────────────────────────────────────────────────────────
 
-const pastEvents = mockEvents.filter(e => new Date(e.date) < new Date());
-
 export default function ResultsPage() {
+    const { events } = useAdminStore();
+    const pastEvents = events.filter(e => new Date(e.date) < new Date());
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [selectedRace,  setSelectedRace]  = useState<Race | null>(null);
     const [query,      setQuery]      = useState('');
