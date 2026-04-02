@@ -26,9 +26,10 @@ export default function Footer() {
                             <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-3">Piattaforma</h4>
                             <ul className="space-y-2">
                                 {[
-                                    { label: 'Home', href: '/' },
-                                    { label: 'Eventi', href: '/events' },
-                                    { label: 'Risultati', href: '/results' },
+                                    { label: 'Home',          href: '/' },
+                                    { label: 'Eventi',        href: '/events' },
+                                    { label: 'Risultati',     href: '/results' },
+                                    { label: 'Organizzatori', href: '/organizer' },
                                 ].map(l => (
                                     <li key={l.href}>
                                         <Link to={l.href} className="text-slate-500 hover:text-white text-sm transition-colors">

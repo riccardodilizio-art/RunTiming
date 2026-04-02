@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Timer } from 'lucide-react';
 
 const navLinks = [
-    { label: 'Home', href: '/' },
-    { label: 'Eventi', href: '/events' },
-    { label: 'Risultati', href: '/results' },
-    { label: 'Contatti', href: '/contacts' },
+    { label: 'Home',          href: '/' },
+    { label: 'Eventi',        href: '/events' },
+    { label: 'Risultati',     href: '/results' },
+    { label: 'Organizzatori', href: '/organizer' },
+    { label: 'Contatti',      href: '/contacts' },
 ];
 
 export default function Navbar() {
