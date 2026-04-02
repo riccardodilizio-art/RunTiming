@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Timer, LayoutDashboard, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, Timer, LayoutDashboard, LogOut, ChevronDown, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAthleteAuth } from '../../context/AthleteAuthContext';
 
 const navLinks = [
     { label: 'Home',          href: '/' },
@@ -12,12 +13,14 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-    const [open,        setOpen]        = useState(false);
-    const [userMenuOpen, setUserMenuOpen] = useState(false);
-    const [scrolled,    setScrolled]    = useState(false);
+    const [open,           setOpen]           = useState(false);
+    const [adminMenuOpen,  setAdminMenuOpen]  = useState(false);
+    const [athleteMenuOpen,setAthleteMenuOpen]= useState(false);
+    const [scrolled,       setScrolled]       = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout: adminLogout }       = useAuth();
+    const { currentAthlete, logout: athleteLogout }  = useAthleteAuth();
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 20);
@@ -26,10 +29,19 @@ export default function Navbar() {
     }, []);
 
     // close menus on route change
-    useEffect(() => { setOpen(false); setUserMenuOpen(false); }, [location]);
+    useEffect(() => {
+        setOpen(false);
+        setAdminMenuOpen(false);
+        setAthleteMenuOpen(false);
+    }, [location]);
 
-    function handleLogout() {
-        logout();
+    function handleAdminLogout() {
+        adminLogout();
+        navigate('/');
+    }
+
+    function handleAthleteLogout() {
+        athleteLogout();
         navigate('/');
     }
 
@@ -74,10 +86,10 @@ export default function Navbar() {
                     {/* Right side */}
                     <div className="hidden md:flex items-center gap-2">
                         {currentUser ? (
-                            /* ── Logged-in user menu ── */
+                            /* ── Admin / organizer menu ── */
                             <div className="relative">
                                 <button
-                                    onClick={() => setUserMenuOpen(v => !v)}
+                                    onClick={() => setAdminMenuOpen(v => !v)}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-700"
                                 >
                                     <div className="w-6 h-6 rounded-full bg-ocean-100 flex items-center justify-center">
@@ -86,10 +98,10 @@ export default function Navbar() {
                                         </span>
                                     </div>
                                     <span className="font-medium">{currentUser.displayName}</span>
-                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${adminMenuOpen ? 'rotate-180' : ''}`} />
                                 </button>
 
-                                {userMenuOpen && (
+                                {adminMenuOpen && (
                                     <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
                                         <Link
                                             to="/admin"
@@ -100,7 +112,43 @@ export default function Navbar() {
                                         </Link>
                                         <div className="border-t border-slate-100 my-1" />
                                         <button
-                                            onClick={handleLogout}
+                                            onClick={handleAdminLogout}
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Esci
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : currentAthlete ? (
+                            /* ── Athlete menu ── */
+                            <div className="relative">
+                                <button
+                                    onClick={() => setAthleteMenuOpen(v => !v)}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-700"
+                                >
+                                    <div className="w-6 h-6 rounded-full bg-ocean-100 flex items-center justify-center">
+                                        <span className="text-ocean-700 text-xs font-bold">
+                                            {currentAthlete.name.charAt(0).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <span className="font-medium">{currentAthlete.name} {currentAthlete.surname}</span>
+                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${athleteMenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {athleteMenuOpen && (
+                                    <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
+                                        <Link
+                                            to="/profilo"
+                                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                        >
+                                            <User className="w-4 h-4 text-ocean-500" />
+                                            Il mio profilo
+                                        </Link>
+                                        <div className="border-t border-slate-100 my-1" />
+                                        <button
+                                            onClick={handleAthleteLogout}
                                             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
                                         >
                                             <LogOut className="w-4 h-4" />
@@ -110,13 +158,21 @@ export default function Navbar() {
                                 )}
                             </div>
                         ) : !isLoginPage ? (
-                            /* ── Guest: Accedi button ── */
-                            <Link
-                                to="/login"
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-semibold transition-colors"
-                            >
-                                Accedi
-                            </Link>
+                            /* ── Guest buttons ── */
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    to="/accedi"
+                                    className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-2"
+                                >
+                                    Accedi
+                                </Link>
+                                <Link
+                                    to="/registrati"
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-semibold transition-colors"
+                                >
+                                    Registrati
+                                </Link>
+                            </div>
                         ) : null}
                     </div>
 
@@ -153,16 +209,34 @@ export default function Navbar() {
                                     <LayoutDashboard className="w-4 h-4 text-ocean-500" />
                                     Pannello — {currentUser.displayName}
                                 </Link>
-                                <button onClick={handleLogout}
+                                <button onClick={handleAdminLogout}
+                                    className="flex items-center gap-2 py-2 text-sm text-red-500 w-full hover:text-red-700 transition-colors">
+                                    <LogOut className="w-4 h-4" /> Esci
+                                </button>
+                            </>
+                        ) : currentAthlete ? (
+                            <>
+                                <Link to="/profilo"
+                                    className="flex items-center gap-2 py-2 text-sm font-medium text-slate-700 hover:text-ocean-600 transition-colors">
+                                    <User className="w-4 h-4 text-ocean-500" />
+                                    {currentAthlete.name} {currentAthlete.surname}
+                                </Link>
+                                <button onClick={handleAthleteLogout}
                                     className="flex items-center gap-2 py-2 text-sm text-red-500 w-full hover:text-red-700 transition-colors">
                                     <LogOut className="w-4 h-4" /> Esci
                                 </button>
                             </>
                         ) : !isLoginPage ? (
-                            <Link to="/login"
-                                className="block py-2 text-sm font-semibold text-ocean-600 hover:text-ocean-800 transition-colors">
-                                Accedi
-                            </Link>
+                            <div className="flex flex-col gap-1">
+                                <Link to="/accedi"
+                                    className="block py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                                    Accedi
+                                </Link>
+                                <Link to="/registrati"
+                                    className="block py-2 text-sm font-semibold text-ocean-600 hover:text-ocean-800 transition-colors">
+                                    Registrati
+                                </Link>
+                            </div>
                         ) : null}
                     </div>
                 </div>

@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
-    CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck,
+    CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck, User,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration } from '../hooks/useAdminStore';
+import { useAthleteAuth } from '../context/AthleteAuthContext';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';
@@ -574,12 +575,13 @@ function PaymentStep({
 
 // ─── Step 5 — Confirmation ────────────────────────────────────────────────────
 
-function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMethod }: {
+function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMethod, athleteLoggedIn }: {
     submissionId: string;
     raceName: string;
     eventTitle: string;
     pricePaid: number;
     paymentMethod: PaymentMethod;
+    athleteLoggedIn: boolean;
 }) {
     function downloadReceipt() {
         const content = [
@@ -619,13 +621,28 @@ function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMe
                 >
                     <Download className="h-4 w-4" /> Scarica ricevuta
                 </button>
-                <Link
-                    to="/events"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
-                >
-                    Torna agli eventi
-                </Link>
+                {athleteLoggedIn ? (
+                    <Link
+                        to="/profilo"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                    >
+                        <User className="h-4 w-4" /> Il mio profilo
+                    </Link>
+                ) : (
+                    <Link
+                        to="/events"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                    >
+                        Torna agli eventi
+                    </Link>
+                )}
             </div>
+            {!athleteLoggedIn && (
+                <p className="text-sm text-slate-400 mt-4">
+                    Vuoi tracciare le tue gare?{' '}
+                    <Link to="/registrati" className="text-ocean-600 hover:underline">Crea un account gratuito</Link>
+                </p>
+            )}
         </div>
     );
 }
@@ -637,6 +654,7 @@ export default function RegisterPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { getEvent, commission, validateDiscountCode, applyDiscountCode } = useAdminStore();
+    const { currentAthlete } = useAthleteAuth();
 
     const event = slug ? getEvent(slug) : undefined;
     const initialRaceId = searchParams.get('race') ?? event?.races[0]?.id ?? '';
@@ -666,6 +684,29 @@ export default function RegisterPage() {
         if (!birthYear || !gender) return null;
         return assignCategory(selectedRace.categories, birthYear, gender);
     }, [selectedRace, fields, formData]);
+
+    // Prefill form da account atleta loggato (applicato quando cambiano i fields)
+    useEffect(() => {
+        if (!currentAthlete || fields.length === 0) return;
+        const updates: Record<string, string | boolean> = {};
+        fields.forEach(f => {
+            if (f.catalogKey === 'nome')            updates[f.id] = currentAthlete.name;
+            if (f.catalogKey === 'cognome')         updates[f.id] = currentAthlete.surname;
+            if (f.catalogKey === 'email')           updates[f.id] = currentAthlete.email;
+            if (f.catalogKey === 'telefono' && currentAthlete.phone)   updates[f.id] = currentAthlete.phone;
+            if (f.catalogKey === 'societa' && currentAthlete.club)     updates[f.id] = currentAthlete.club;
+            if (f.catalogKey === 'anno_nascita')    updates[f.id] = String(currentAthlete.birthYear);
+            if (f.catalogKey === 'sesso')           updates[f.id] = currentAthlete.gender;
+            if (f.catalogKey === 'tessera_fidal' && currentAthlete.fidalTessera)
+                updates[f.id] = currentAthlete.fidalTessera;
+            if (f.catalogKey === 'tessera_runcard' && currentAthlete.runcardTessera)
+                updates[f.id] = currentAthlete.runcardTessera;
+        });
+        if (Object.keys(updates).length > 0) {
+            setFormData(prev => ({ ...prev, ...updates }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fields]);
 
     // Prefill form con dati atleta FIDAL
     function handleFidalPrefill(athlete: FidalAthlete) {
@@ -757,6 +798,7 @@ export default function RegisterPage() {
                 assignedCategory: assignedCat?.name,
                 fidalVerified,
                 paymentStatus: 'pending',
+                athleteAccountId: currentAthlete?.id,
             });
             setSubmissionId(id);
         }
@@ -787,6 +829,23 @@ export default function RegisterPage() {
                 </div>
 
                 {step < STEPS.length - 1 && <StepBar current={step} />}
+
+                {/* Athlete login banner */}
+                {currentAthlete && step < 4 && (
+                    <div className="flex items-center gap-2 mb-4 bg-ocean-50 border border-ocean-200 rounded-xl px-4 py-2.5 text-sm text-ocean-800">
+                        <User className="h-4 w-4 shrink-0" />
+                        <span>Stai iscrivendo come <strong>{currentAthlete.name} {currentAthlete.surname}</strong> — i tuoi dati verranno pre-compilati automaticamente.</span>
+                    </div>
+                )}
+                {!currentAthlete && step < 4 && (
+                    <div className="flex items-center gap-2 mb-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600">
+                        <User className="h-4 w-4 shrink-0" />
+                        <span>
+                            <Link to="/accedi" className="text-ocean-600 font-medium hover:underline">Accedi</Link> o{' '}
+                            <Link to="/registrati" className="text-ocean-600 font-medium hover:underline">registrati</Link> per salvare questa gara nel tuo profilo.
+                        </span>
+                    </div>
+                )}
 
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-7">
@@ -847,6 +906,7 @@ export default function RegisterPage() {
                             eventTitle={event.title}
                             pricePaid={totalPrice}
                             paymentMethod={isFree ? 'free' : paymentMethod}
+                            athleteLoggedIn={!!currentAthlete}
                         />
                     )}
                 </div>

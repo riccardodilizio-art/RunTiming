@@ -53,9 +53,27 @@ export interface RegistrationSubmission {
     discountAmount?: number;
     paymentMethod?: 'paypal' | 'card' | 'free' | 'manual';
     paymentStatus: PaymentStatus;
-    assignedCategory?: string;   // nome categoria assegnata
-    fidalVerified?: boolean;     // atleta verificato tramite tessera FIDAL
-    addedByOrganizer?: boolean;  // iscrizione manuale da parte dell'organizzatore
+    assignedCategory?: string;
+    fidalVerified?: boolean;
+    addedByOrganizer?: boolean;
+    athleteAccountId?: string;   // collegato all'account atleta se loggato
+}
+
+// ─── Athlete account (public users) ──────────────────────────────────────────
+
+export interface AthleteAccount {
+    id: string;
+    email: string;
+    password: string;           // plain text — backend lo hashierà
+    name: string;
+    surname: string;
+    birthYear: number;
+    gender: 'M' | 'F';
+    phone?: string;
+    club?: string;
+    fidalTessera?: string;
+    runcardTessera?: string;
+    createdAt: string;
 }
 
 export interface DiscountCode {
