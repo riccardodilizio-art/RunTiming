@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    User, LogOut, Trophy, Flag, Timer, TrendingUp,
+    User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
     Calendar, MapPin, Clock,
 } from 'lucide-react';
@@ -68,7 +68,7 @@ type Tab = 'overview' | 'races' | 'settings';
 
 export default function AthleteDashboardPage() {
     const navigate = useNavigate();
-    const { currentAthlete, logout, updateProfile } = useAthleteAuth();
+    const { currentAthlete, updateProfile } = useAthleteAuth();
 
     const [tab, setTab] = useState<Tab>('overview');
     const [editing, setEditing] = useState(false);
@@ -156,11 +156,6 @@ export default function AthleteDashboardPage() {
 
     // ── handlers ──────────────────────────────────────────────────────────────
 
-    function handleLogout() {
-        logout();
-        navigate('/', { replace: true });
-    }
-
     function setField(field: keyof typeof editForm) {
         return (e: React.ChangeEvent<HTMLInputElement>) =>
             setEditForm(f => ({ ...f, [field]: e.target.value }));
@@ -222,30 +217,6 @@ export default function AthleteDashboardPage() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Top bar */}
-            <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
-                <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-                    <Link to="/" className="inline-flex items-center gap-2">
-                        <div className="w-8 h-8 bg-ocean-600 rounded-lg flex items-center justify-center">
-                            <Timer className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="font-display font-700 text-base text-slate-800">
-                            Run<span className="text-ocean-600">Timing</span>
-                        </span>
-                    </Link>
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-slate-600 hidden sm:block">
-                            {currentAthlete.name} {currentAthlete.surname}
-                        </span>
-                        <button onClick={handleLogout}
-                            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
-                            <LogOut className="w-4 h-4" />
-                            <span className="hidden sm:inline">Esci</span>
-                        </button>
-                    </div>
-                </div>
-            </header>
-
             <div className="max-w-5xl mx-auto px-4 py-8">
                 {/* Profile header */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6 flex items-center gap-5">
