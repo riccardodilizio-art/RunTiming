@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { mockEvents } from '../data/mockEvents';
 import type {
-    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus,
+    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus, Result,
 } from '../types';
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -78,6 +78,19 @@ export function loadUsers(): AppUser[] {
 }
 
 function persistUsers(u: AppUser[]) { localStorage.setItem(LS_USERS_KEY, JSON.stringify(u)); }
+
+// ─── Results ──────────────────────────────────────────────────────────────────
+
+const LS_RESULTS_KEY = 'rt_results';
+
+export function loadResults(): Record<string, Result[]> {
+    try { const raw = localStorage.getItem(LS_RESULTS_KEY); return raw ? JSON.parse(raw) : {}; }
+    catch { return {}; }
+}
+
+function persistResults(r: Record<string, Result[]>) {
+    localStorage.setItem(LS_RESULTS_KEY, JSON.stringify(r));
+}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -201,6 +214,19 @@ export function useAdminStore() {
         persistRegistrations(list);
     }
 
+    // Results
+    const [resultsMap, setResultsMap] = useState<Record<string, Result[]>>(() => loadResults());
+
+    function saveResults(raceId: string, results: Result[]) {
+        const next = { ...resultsMap, [raceId]: results };
+        setResultsMap(next);
+        persistResults(next);
+    }
+
+    function getResults(raceId: string): Result[] {
+        return resultsMap[raceId] ?? [];
+    }
+
     // Users (organizers)
     const [users, setUsers] = useState<AppUser[]>(() => loadUsers());
 
@@ -231,6 +257,8 @@ export function useAdminStore() {
         // registrations
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
         updatePaymentStatus, deleteRegistration,
+        // results
+        saveResults, getResults,
         // users
         users, saveUser, deleteUser,
     };

@@ -3,7 +3,7 @@ import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Calendar, MapPin, Users, Image, Route, Tag, UserCheck, Eye, EyeOff,
     LogOut, CheckCircle2, XCircle, UserPlus, Search, LayoutList, LayoutGrid, X,
-    SlidersHorizontal, ChevronDown,
+    SlidersHorizontal, ChevronDown, Download, Trophy, BarChart2,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +14,7 @@ import UsersSection from './UsersSection';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
 import type {
     Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory,
-    RegistrationSubmission, PaymentStatus,
+    RegistrationSubmission, PaymentStatus, Result, ResultStatus,
 } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -34,6 +34,65 @@ const categoryOptions: { value: SportCategory; label: string }[] = [
 
 function formatPrice(n: number) {
     return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
+// ─── CSV export ───────────────────────────────────────────────────────────────
+
+function downloadCSV(race: Race, regs: RegistrationSubmission[]) {
+    const fields = (race.formSchema ?? []).filter(f => !f.readOnly && f.type !== 'file');
+    const headers = ['N°', ...fields.map(f => f.label), 'Quota (€)', 'Pagamento', 'Categoria', 'Data iscrizione'];
+    const rows = regs.map((reg, i) => [
+        i + 1,
+        ...fields.map(f => {
+            const val = reg.formData[f.id];
+            return typeof val === 'boolean' ? (val ? 'Sì' : 'No') : String(val ?? '');
+        }),
+        reg.pricePaid.toFixed(2),
+        reg.paymentStatus ?? 'pending',
+        reg.assignedCategory ?? '',
+        new Date(reg.submittedAt).toLocaleDateString('it-IT'),
+    ]);
+    const csv = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `iscritti-${race.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ─── RaceStatsBar ─────────────────────────────────────────────────────────────
+
+function RaceStatsBar({ regs }: { regs: RegistrationSubmission[] }) {
+    const total     = regs.length;
+    const pending   = regs.filter(r => (r.paymentStatus ?? 'pending') === 'pending').length;
+    const confirmed = regs.filter(r => r.paymentStatus === 'confirmed').length;
+    const revenue   = regs
+        .filter(r => r.paymentStatus === 'confirmed')
+        .reduce((s, r) => s + r.pricePaid, 0);
+
+    const cards = [
+        { label: 'Iscritti totali',      value: total,              color: 'bg-ocean-50 border-ocean-200 text-ocean-700' },
+        { label: 'In attesa pagamento',  value: pending,            color: 'bg-amber-50 border-amber-200 text-amber-700' },
+        { label: 'Pagamenti confermati', value: confirmed,          color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+        { label: 'Incasso confermato',   value: formatPrice(revenue), color: 'bg-slate-50 border-slate-200 text-slate-700' },
+    ];
+
+    return (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {cards.map(c => (
+                <div key={c.label} className={`rounded-xl border px-4 py-3 ${c.color}`}>
+                    <p className="text-xs opacity-70 mb-0.5">{c.label}</p>
+                    <p className="font-display font-700 text-xl leading-none">{c.value}</p>
+                </div>
+            ))}
+        </div>
+    );
 }
 
 const inputCls =
@@ -201,7 +260,7 @@ function CategoryEditor({
 
 // ─── RaceEditor ───────────────────────────────────────────────────────────────
 
-type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti';
+type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati';
 
 function RaceEditor({
     race,
@@ -217,7 +276,9 @@ function RaceEditor({
     const [tab, setTab] = useState<RaceTab>('info');
     const [regKey, setRegKey] = useState(0);
     const [showManualReg, setShowManualReg] = useState(false);
-    const { getRegistrationsByRace, updatePaymentStatus, deleteRegistration } = useAdminStore();
+    const { getRegistrationsByRace, updatePaymentStatus, deleteRegistration, getResults, saveResults } = useAdminStore();
+    const [draftResults, setDraftResults] = useState<Result[]>(() => getResults(race.id));
+    const [resultsSaved, setResultsSaved] = useState(false);
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
         onChange({ ...race, [key]: value });
@@ -251,10 +312,11 @@ function RaceEditor({
     }
 
     const tabs: { key: RaceTab; label: string; icon: React.ReactNode }[] = [
-        { key: 'info', label: 'Dettagli', icon: <Settings className="h-4 w-4" /> },
-        { key: 'form', label: 'Modulo iscrizione', icon: <ClipboardList className="h-4 w-4" /> },
-        { key: 'prices', label: 'Quote', icon: <Euro className="h-4 w-4" /> },
-        { key: 'partecipanti', label: 'Iscritti', icon: <UserCheck className="h-4 w-4" /> },
+        { key: 'info',          label: 'Dettagli',         icon: <Settings    className="h-4 w-4" /> },
+        { key: 'form',          label: 'Modulo iscrizione',icon: <ClipboardList className="h-4 w-4" /> },
+        { key: 'prices',        label: 'Quote',            icon: <Euro        className="h-4 w-4" /> },
+        { key: 'partecipanti',  label: 'Iscritti',         icon: <UserCheck   className="h-4 w-4" /> },
+        { key: 'risultati',     label: 'Risultati',        icon: <Trophy      className="h-4 w-4" /> },
     ];
     void eventId;
 
@@ -351,6 +413,119 @@ function RaceEditor({
                 />
             )}
 
+            {tab === 'risultati' && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-slate-500">
+                            Inserisci la classifica finale. La posizione è determinata dall'ordine delle righe.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    saveResults(race.id, draftResults);
+                                    setResultsSaved(true);
+                                    setTimeout(() => setResultsSaved(false), 2000);
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors"
+                            >
+                                {resultsSaved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Salvato</> : <><Check className="h-3.5 w-3.5" /> Salva classifica</>}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                    <th className="px-3 py-2 w-10">Pos</th>
+                                    <th className="px-3 py-2">N. gara</th>
+                                    <th className="px-3 py-2">Atleta</th>
+                                    <th className="px-3 py-2">Categoria</th>
+                                    <th className="px-3 py-2">Squadra</th>
+                                    <th className="px-3 py-2">Tempo</th>
+                                    <th className="px-3 py-2">Stato</th>
+                                    <th className="px-3 py-2 w-8" />
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {draftResults.map((r, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50">
+                                        <td className="px-3 py-1.5 text-slate-400 font-medium">{idx + 1}</td>
+                                        {(['bib', 'athleteName', 'category', 'team', 'time'] as const).map(field => (
+                                            <td key={field} className="px-1.5 py-1">
+                                                <input
+                                                    type="text"
+                                                    value={(r[field] as string) ?? ''}
+                                                    onChange={e => {
+                                                        const next = [...draftResults];
+                                                        next[idx] = { ...next[idx], [field]: e.target.value };
+                                                        setDraftResults(next);
+                                                    }}
+                                                    className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ocean-400 focus:border-ocean-400"
+                                                    placeholder={field === 'bib' ? '001' : field === 'time' ? '1:23:45' : ''}
+                                                />
+                                            </td>
+                                        ))}
+                                        <td className="px-1.5 py-1">
+                                            <select
+                                                value={r.status}
+                                                onChange={e => {
+                                                    const next = [...draftResults];
+                                                    next[idx] = { ...next[idx], status: e.target.value as ResultStatus };
+                                                    setDraftResults(next);
+                                                }}
+                                                className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ocean-400"
+                                            >
+                                                <option value="finisher">Finisher</option>
+                                                <option value="dnf">DNF</option>
+                                                <option value="dns">DNS</option>
+                                                <option value="dsq">DSQ</option>
+                                            </select>
+                                        </td>
+                                        <td className="px-1.5 py-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setDraftResults(draftResults.filter((_, i) => i !== idx))}
+                                                className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {draftResults.length === 0 && (
+                            <p className="text-center text-slate-400 text-xs py-8 italic">
+                                Nessun risultato inserito. Aggiungi le righe qui sotto.
+                            </p>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setDraftResults([...draftResults, {
+                            position: draftResults.length + 1,
+                            bib: '', athleteName: '', category: '', team: '', time: '', status: 'finisher',
+                        }])}
+                        className="flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-800 transition-colors"
+                    >
+                        <Plus className="h-4 w-4" /> Aggiungi atleta
+                    </button>
+
+                    {draftResults.length > 0 && (
+                        <p className="text-xs text-slate-400">
+                            <BarChart2 className="inline h-3.5 w-3.5 mr-1" />
+                            {draftResults.filter(r => r.status === 'finisher').length} finisher
+                            · {draftResults.filter(r => r.status === 'dnf').length} DNF
+                            · {draftResults.filter(r => r.status === 'dns').length} DNS
+                            · {draftResults.filter(r => r.status === 'dsq').length} DSQ
+                        </p>
+                    )}
+                </div>
+            )}
+
             {tab === 'prices' && (
                 <div className="max-w-2xl">
                     <p className="text-sm text-slate-500 mb-4">
@@ -366,6 +541,9 @@ function RaceEditor({
 
             {tab === 'partecipanti' && (
                 <div className="space-y-5">
+                    {/* Stats per questa gara */}
+                    <RaceStatsBar regs={registrations} />
+
                     {/* Visibilità pubblica campi */}
                     <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
                         <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
@@ -408,13 +586,24 @@ function RaceEditor({
                             <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                 <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
                             </h4>
-                            <button
-                                type="button"
-                                onClick={() => setShowManualReg(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-medium hover:bg-ocean-700 transition-colors"
-                            >
-                                <UserPlus className="h-3.5 w-3.5" /> Iscrivi manualmente
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {registrations.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => downloadCSV(race, registrations)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Download className="h-3.5 w-3.5" /> Scarica CSV
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowManualReg(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-medium hover:bg-ocean-700 transition-colors"
+                                >
+                                    <UserPlus className="h-3.5 w-3.5" /> Iscrivi manualmente
+                                </button>
+                            </div>
                         </div>
                         {registrations.length === 0 ? (
                             <p className="text-sm text-slate-400 italic">Nessuna iscrizione ricevuta per questa gara.</p>

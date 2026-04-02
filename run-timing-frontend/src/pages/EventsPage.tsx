@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
     Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
     ChevronLeft, ChevronRight, Calendar, Map,
@@ -223,8 +223,15 @@ function EventCalendar({ events }: { events: Event[] }) {
 
 export default function EventsPage() {
     const { events } = useAdminStore();
-    const [query,     setQuery]     = useState('');
+    const [searchParams] = useSearchParams();
+    const [query,     setQuery]     = useState(() => searchParams.get('q') ?? '');
     const [category,  setCategory]  = useState<SportCategory | 'all'>('all');
+
+    // keep query in sync if the URL param changes (e.g. from hero search)
+    useEffect(() => {
+        const q = searchParams.get('q');
+        if (q !== null) setQuery(q);
+    }, [searchParams]);
     const [tab,       setTab]       = useState<Tab>('upcoming');
     const [sort,      setSort]      = useState<Sort>('date-asc');
     const [onlyOpen,  setOnlyOpen]  = useState(false);

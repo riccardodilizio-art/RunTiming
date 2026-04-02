@@ -144,7 +144,7 @@ function TableHeader({ isLapRace }: { isLapRace: boolean }) {
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
-    const { events } = useAdminStore();
+    const { events, getResults } = useAdminStore();
     const pastEvents = events.filter(e => new Date(e.date) < new Date());
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [selectedRace,  setSelectedRace]  = useState<Race | null>(null);
@@ -156,7 +156,10 @@ export default function ResultsPage() {
     const [showImport,   setShowImport]   = useState(false);
     const [expandedBib,  setExpandedBib]  = useState<string | null>(null);
 
-    const results = selectedRace ? (mockResults[selectedRace.id] ?? []) : [];
+    const storedResults = selectedRace ? getResults(selectedRace.id) : [];
+    const results = storedResults.length > 0
+        ? storedResults
+        : (selectedRace ? (mockResults[selectedRace.id] ?? []) : []);
     const finishers = results.filter(r => r.status === 'finisher');
     const specials  = selectedRace ? raceClassifications[selectedRace.id]?.specials : undefined;
     const isLapRace = selectedRace?.raceType !== 'linear';
