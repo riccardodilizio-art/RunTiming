@@ -267,6 +267,89 @@ function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s
 
 // ─── CategoryEditor ───────────────────────────────────────────────────────────
 
+const CSV_TEMPLATE = `nome,sesso,eta_min,eta_max
+Promesse M,M,18,22
+Promesse F,F,18,22
+Senior M,M,23,34
+Senior F,F,23,34
+Master 35 M,M,35,39
+Master 35 F,F,35,39
+Master 40 M,M,40,44
+Master 40 F,F,40,44
+Master 45 M,M,45,49
+Master 45 F,F,45,49
+Master 50 M,M,50,54
+Master 50 F,F,50,54
+Master 55 M,M,55,59
+Master 55 F,F,55,59
+Master 60 M,M,60,64
+Master 60 F,F,60,64
+Master 65 M,M,65,`;
+
+/** Parsa un CSV o JSON e restituisce un array di RaceCategory. Lancia un errore in caso di formato invalido. */
+function parseCategoryFile(text: string, filename: string): RaceCategory[] {
+    const isJson = filename.toLowerCase().endsWith('.json');
+
+    if (isJson) {
+        const raw = JSON.parse(text) as Record<string, unknown>[];
+        if (!Array.isArray(raw)) throw new Error('Il file JSON deve contenere un array.');
+        return raw.map((r, i) => {
+            const name = String(r.nome ?? r.name ?? '').trim();
+            if (!name) throw new Error(`Riga ${i + 1}: campo "nome" mancante.`);
+            const genderRaw = String(r.sesso ?? r.gender ?? '').toUpperCase();
+            const gender = (genderRaw === 'M' || genderRaw === 'F') ? genderRaw as 'M' | 'F' : undefined;
+            const minAge = r.eta_min ?? r.minAge;
+            const maxAge = r.eta_max ?? r.maxAge;
+            return {
+                id: newId(),
+                name,
+                gender,
+                minAge: minAge !== undefined && minAge !== '' ? Number(minAge) : undefined,
+                maxAge: maxAge !== undefined && maxAge !== '' ? Number(maxAge) : undefined,
+            };
+        });
+    }
+
+    // CSV
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) throw new Error('Il file CSV deve avere almeno una riga di intestazione e una di dati.');
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const iNome   = headers.indexOf('nome');
+    const iSesso  = headers.indexOf('sesso');
+    const iMin    = headers.indexOf('eta_min');
+    const iMax    = headers.indexOf('eta_max');
+    if (iNome === -1) throw new Error('Colonna "nome" non trovata. Usa il modello CSV come riferimento.');
+
+    return lines.slice(1).map((line, i) => {
+        const cols = line.split(',').map(c => c.trim());
+        const name = cols[iNome] ?? '';
+        if (!name) throw new Error(`Riga ${i + 2}: campo "nome" vuoto.`);
+        const genderRaw = iSesso >= 0 ? (cols[iSesso] ?? '').toUpperCase() : '';
+        const gender = (genderRaw === 'M' || genderRaw === 'F') ? genderRaw as 'M' | 'F' : undefined;
+        const minRaw = iMin >= 0 ? cols[iMin] : '';
+        const maxRaw = iMax >= 0 ? cols[iMax] : '';
+        return {
+            id: newId(),
+            name,
+            gender,
+            minAge: minRaw ? parseInt(minRaw) : undefined,
+            maxAge: maxRaw ? parseInt(maxRaw) : undefined,
+        };
+    });
+}
+
+function downloadCategoryTemplate() {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'categorie-modello.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function CategoryEditor({
     categories,
     onChange,
@@ -274,6 +357,10 @@ function CategoryEditor({
     categories: RaceCategory[];
     onChange: (cats: RaceCategory[]) => void;
 }) {
+    const [importError, setImportError]   = useState('');
+    const [importPreview, setImportPreview] = useState<RaceCategory[] | null>(null);
+    const [importFilename, setImportFilename] = useState('');
+
     function add() {
         onChange([...categories, { id: newId(), name: '', gender: undefined, minAge: undefined, maxAge: undefined }]);
     }
@@ -282,27 +369,128 @@ function CategoryEditor({
         onChange(categories.map(c => c.id === id ? { ...c, [key]: value } : c));
     }
 
+    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        setImportError('');
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const parsed = parseCategoryFile(ev.target?.result as string, file.name);
+                setImportPreview(parsed);
+                setImportFilename(file.name);
+            } catch (err) {
+                setImportError((err as Error).message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function confirmImport(mode: 'replace' | 'append') {
+        if (!importPreview) return;
+        onChange(mode === 'replace' ? importPreview : [...categories, ...importPreview]);
+        setImportPreview(null);
+        setImportFilename('');
+    }
+
     return (
         <div className="mt-6 pt-5 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                 <h4 className="text-sm font-semibold text-slate-700">Categorie agonistiche</h4>
-                <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 transition-colors">
-                    <Plus className="h-3.5 w-3.5" /> Aggiungi categoria
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Download modello */}
+                    <button
+                        type="button"
+                        onClick={downloadCategoryTemplate}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2 py-1 hover:bg-slate-50 transition-colors"
+                        title="Scarica modello CSV"
+                    >
+                        <Download className="h-3.5 w-3.5" /> Modello CSV
+                    </button>
+                    {/* Import file */}
+                    <label className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 border border-ocean-200 rounded px-2 py-1 hover:bg-ocean-50 transition-colors cursor-pointer">
+                        <SlidersHorizontal className="h-3.5 w-3.5" /> Importa CSV / JSON
+                        <input type="file" accept=".csv,.json" className="hidden" onChange={handleFileChange} />
+                    </label>
+                    {/* Aggiungi manuale */}
+                    <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 transition-colors">
+                        <Plus className="h-3.5 w-3.5" /> Aggiungi
+                    </button>
+                </div>
             </div>
             <p className="text-xs text-slate-400 mb-3">
-                Definisci le categorie (es. Senior M, Master 40 F, Junior). Il sistema assegnerà automaticamente
-                l'atleta in base a età e sesso dichiarati al momento dell'iscrizione.
+                Definisci le categorie (es. Senior M, Master 40 F). Il sistema assegna automaticamente l'atleta
+                in base a età e sesso. Puoi importarle da CSV o JSON — scarica il modello per il formato corretto.
             </p>
+
+            {/* Errore importazione */}
+            {importError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-700 text-xs mb-3">
+                    <X className="h-3.5 w-3.5 shrink-0" /> {importError}
+                </div>
+            )}
+
+            {/* Preview importazione */}
+            {importPreview && (
+                <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4 mb-4">
+                    <p className="text-sm font-semibold text-ocean-800 mb-1">
+                        Importate {importPreview.length} categorie da <span className="font-mono">{importFilename}</span>
+                    </p>
+                    <div className="text-xs text-ocean-700 mb-3 max-h-36 overflow-y-auto space-y-0.5">
+                        {importPreview.map(c => (
+                            <div key={c.id} className="flex gap-3">
+                                <span className="font-medium w-40 truncate">{c.name}</span>
+                                <span className="text-ocean-500">{c.gender ?? 'Tutti'}</span>
+                                <span className="text-ocean-500">
+                                    {c.minAge !== undefined ? c.minAge : '—'}–{c.maxAge !== undefined ? c.maxAge : '∞'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                        {categories.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => confirmImport('replace')}
+                                className="px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors"
+                            >
+                                Sostituisci le {categories.length} esistenti
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => confirmImport('append')}
+                            className="px-3 py-1.5 rounded-lg bg-white border border-ocean-300 text-ocean-700 text-xs font-semibold hover:bg-ocean-50 transition-colors"
+                        >
+                            {categories.length > 0 ? 'Aggiungi alle esistenti' : 'Importa'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setImportPreview(null); setImportError(''); }}
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs hover:bg-slate-50 transition-colors"
+                        >
+                            Annulla
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Lista categorie */}
             {categories.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">Nessuna categoria configurata.</p>
             ) : (
                 <div className="space-y-2">
-                    {categories.map((cat, idx) => (
-                        <div key={cat.id} className="grid grid-cols-12 gap-2 items-start">
-                            {/* Nome */}
+                    {/* Header */}
+                    <div className="grid grid-cols-12 gap-2 text-xs text-slate-400 font-medium px-0.5">
+                        <div className="col-span-4">Nome categoria</div>
+                        <div className="col-span-2">Sesso</div>
+                        <div className="col-span-2">Età min</div>
+                        <div className="col-span-2">Età max</div>
+                    </div>
+                    {categories.map(cat => (
+                        <div key={cat.id} className="grid grid-cols-12 gap-2 items-center">
                             <div className="col-span-4">
-                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Nome categoria</label>}
                                 <input
                                     type="text"
                                     value={cat.name}
@@ -311,9 +499,7 @@ function CategoryEditor({
                                     placeholder="es. Senior M"
                                 />
                             </div>
-                            {/* Sesso */}
                             <div className="col-span-2">
-                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Sesso</label>}
                                 <select
                                     value={cat.gender ?? ''}
                                     onChange={e => update(cat.id, 'gender', (e.target.value as RaceCategory['gender']) || undefined)}
@@ -324,9 +510,7 @@ function CategoryEditor({
                                     <option value="F">F</option>
                                 </select>
                             </div>
-                            {/* Età min */}
                             <div className="col-span-2">
-                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Età min</label>}
                                 <input
                                     type="number" min={0}
                                     value={cat.minAge ?? ''}
@@ -335,9 +519,7 @@ function CategoryEditor({
                                     placeholder="—"
                                 />
                             </div>
-                            {/* Età max */}
                             <div className="col-span-2">
-                                {idx === 0 && <label className="block text-xs text-slate-400 mb-1">Età max</label>}
                                 <input
                                     type="number" min={0}
                                     value={cat.maxAge ?? ''}
@@ -346,9 +528,7 @@ function CategoryEditor({
                                     placeholder="—"
                                 />
                             </div>
-                            {/* Delete */}
-                            <div className="col-span-2 flex items-end pb-0.5">
-                                {idx === 0 && <div className="h-5 mb-1" />}
+                            <div className="col-span-2">
                                 <button type="button" onClick={() => remove(cat.id)} className="p-1.5 rounded hover:bg-red-50">
                                     <Trash2 className="h-4 w-4 text-red-400" />
                                 </button>
