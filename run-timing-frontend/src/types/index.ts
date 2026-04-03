@@ -42,6 +42,18 @@ export interface PriceStep {
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected';
 
+/** Stato verifica certificato medico */
+export type CertStatus = 'non_richiesto' | 'in_attesa' | 'verificato' | 'rifiutato';
+
+/** Dati certificato medico inseriti dall'atleta (non-FIDAL) */
+export interface CertInfo {
+    tipo: 'agonistico' | 'non_agonistico' | 'esenzione';
+    scadenza: string;       // ISO date YYYY-MM-DD
+    numero?: string;
+    /** Nome file selezionato (UI only — storage gestito dal backend) */
+    fileName?: string;
+}
+
 export interface RegistrationSubmission {
     id: string;
     eventId: string;
@@ -57,6 +69,9 @@ export interface RegistrationSubmission {
     fidalVerified?: boolean;
     addedByOrganizer?: boolean;
     athleteAccountId?: string;   // collegato all'account atleta se loggato
+    certStatus?: CertStatus;
+    certInfo?: CertInfo;
+    certRejectionReason?: string;
 }
 
 // ─── Athlete account (public users) ──────────────────────────────────────────

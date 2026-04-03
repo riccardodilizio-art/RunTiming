@@ -3,7 +3,7 @@ import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Calendar, MapPin, Users, Image, Route, Tag, UserCheck, Eye, EyeOff,
     LogOut, CheckCircle2, XCircle, UserPlus, Search, LayoutList, LayoutGrid, X,
-    SlidersHorizontal, ChevronDown, Download, Trophy, BarChart2,
+    SlidersHorizontal, ChevronDown, Download, Trophy, BarChart2, ShieldCheck, ShieldX, ShieldAlert,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +14,7 @@ import UsersSection from './UsersSection';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
 import type {
     Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory,
-    RegistrationSubmission, PaymentStatus, Result, ResultStatus,
+    RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus,
 } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,16 +75,19 @@ function RaceStatsBar({ regs }: { regs: RegistrationSubmission[] }) {
     const revenue   = regs
         .filter(r => r.paymentStatus === 'confirmed')
         .reduce((s, r) => s + r.pricePaid, 0);
+    const certDaVerif = regs.filter(r => r.certStatus === 'in_attesa').length;
+    const hasCerts = regs.some(r => r.certStatus !== undefined && r.certStatus !== 'non_richiesto');
 
     const cards = [
-        { label: 'Iscritti totali',      value: total,              color: 'bg-ocean-50 border-ocean-200 text-ocean-700' },
-        { label: 'In attesa pagamento',  value: pending,            color: 'bg-amber-50 border-amber-200 text-amber-700' },
-        { label: 'Pagamenti confermati', value: confirmed,          color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+        { label: 'Iscritti totali',      value: total,                color: 'bg-ocean-50 border-ocean-200 text-ocean-700' },
+        { label: 'In attesa pagamento',  value: pending,              color: 'bg-amber-50 border-amber-200 text-amber-700' },
+        { label: 'Pagamenti confermati', value: confirmed,            color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
         { label: 'Incasso confermato',   value: formatPrice(revenue), color: 'bg-slate-50 border-slate-200 text-slate-700' },
+        ...(hasCerts ? [{ label: 'Cert. da verificare', value: certDaVerif, color: certDaVerif > 0 ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-slate-50 border-slate-200 text-slate-400' }] : []),
     ];
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className={`grid grid-cols-2 gap-3 mb-5 ${hasCerts ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
             {cards.map(c => (
                 <div key={c.label} className={`rounded-xl border px-4 py-3 ${c.color}`}>
                     <p className="text-xs opacity-70 mb-0.5">{c.label}</p>
@@ -276,9 +279,10 @@ function RaceEditor({
     const [tab, setTab] = useState<RaceTab>('info');
     const [regKey, setRegKey] = useState(0);
     const [showManualReg, setShowManualReg] = useState(false);
-    const { getRegistrationsByRace, updatePaymentStatus, deleteRegistration, getResults, saveResults } = useAdminStore();
+    const { getRegistrationsByRace, updatePaymentStatus, updateCertStatus, deleteRegistration, getResults, saveResults } = useAdminStore();
     const [draftResults, setDraftResults] = useState<Result[]>(() => getResults(race.id));
     const [resultsSaved, setResultsSaved] = useState(false);
+    const [certFilter, setCertFilter] = useState<'all' | 'in_attesa'>('all');
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
         onChange({ ...race, [key]: value });
@@ -294,6 +298,11 @@ function RaceEditor({
 
     function handlePaymentStatus(regId: string, status: PaymentStatus) {
         updatePaymentStatus(regId, status);
+        setRegKey(k => k + 1);
+    }
+
+    function handleCertStatus(regId: string, status: CertStatus, reason?: string) {
+        updateCertStatus(regId, status, reason);
         setRegKey(k => k + 1);
     }
 
@@ -582,18 +591,43 @@ function RaceEditor({
 
                     {/* Lista iscrizioni */}
                     <div>
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                 <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
                             </h4>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Filtro certificati */}
+                                {race.requiresMedicalCert && (
+                                    <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCertFilter('all')}
+                                            className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${certFilter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        >
+                                            Tutti
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCertFilter('in_attesa')}
+                                            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${certFilter === 'in_attesa' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        >
+                                            <ShieldAlert className="h-3 w-3" />
+                                            Cert. da verificare
+                                            {registrations.filter(r => r.certStatus === 'in_attesa').length > 0 && (
+                                                <span className="ml-0.5 bg-amber-500 text-white rounded-full text-[10px] w-4 h-4 flex items-center justify-center">
+                                                    {registrations.filter(r => r.certStatus === 'in_attesa').length}
+                                                </span>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
                                 {registrations.length > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => downloadCSV(race, registrations)}
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
                                     >
-                                        <Download className="h-3.5 w-3.5" /> Scarica CSV
+                                        <Download className="h-3.5 w-3.5" /> CSV
                                     </button>
                                 )}
                                 <button
@@ -605,70 +639,98 @@ function RaceEditor({
                                 </button>
                             </div>
                         </div>
-                        {registrations.length === 0 ? (
-                            <p className="text-sm text-slate-400 italic">Nessuna iscrizione ricevuta per questa gara.</p>
-                        ) : (
-                            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                                            <th className="px-3 py-2">N°</th>
-                                            {formFields.filter(f => !f.readOnly).map(f => (
-                                                <th key={f.id} className="px-3 py-2">
-                                                    {f.label}
-                                                    {(race.publicFields ?? []).includes(f.id) && (
-                                                        <Eye className="inline h-3 w-3 ml-1 text-ocean-400" />
-                                                    )}
-                                                </th>
-                                            ))}
-                                            <th className="px-3 py-2">Quota</th>
-                                            <th className="px-3 py-2">Pagamento</th>
-                                            <th className="px-3 py-2">Data</th>
-                                            <th className="px-3 py-2" />
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {registrations.map((reg, idx) => (
-                                            <tr key={reg.id} className="hover:bg-slate-50/50">
-                                                <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
+
+                        {(() => {
+                            const filtered = certFilter === 'in_attesa'
+                                ? registrations.filter(r => r.certStatus === 'in_attesa')
+                                : registrations;
+                            return filtered.length === 0 ? (
+                                <p className="text-sm text-slate-400 italic">
+                                    {certFilter === 'in_attesa'
+                                        ? 'Nessun certificato in attesa di verifica.'
+                                        : 'Nessuna iscrizione ricevuta per questa gara.'}
+                                </p>
+                            ) : (
+                                <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                                <th className="px-3 py-2">N°</th>
                                                 {formFields.filter(f => !f.readOnly).map(f => (
-                                                    <td key={f.id} className="px-3 py-2 text-slate-700">
-                                                        {typeof reg.formData[f.id] === 'boolean'
-                                                            ? (reg.formData[f.id] ? '✓' : '—')
-                                                            : (reg.formData[f.id] as string) || '—'}
-                                                    </td>
+                                                    <th key={f.id} className="px-3 py-2">
+                                                        {f.label}
+                                                        {(race.publicFields ?? []).includes(f.id) && (
+                                                            <Eye className="inline h-3 w-3 ml-1 text-ocean-400" />
+                                                        )}
+                                                    </th>
                                                 ))}
-                                                <td className="px-3 py-2 font-medium text-ocean-700">{formatPrice(reg.pricePaid)}</td>
-                                                <td className="px-3 py-2">
-                                                    <PaymentBadge
-                                                        status={reg.paymentStatus ?? 'pending'}
-                                                        onConfirm={() => handlePaymentStatus(reg.id, 'confirmed')}
-                                                        onReject={() => handlePaymentStatus(reg.id, 'rejected')}
-                                                        onReset={() => handlePaymentStatus(reg.id, 'pending')}
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2 text-slate-400">
-                                                    {new Date(reg.submittedAt).toLocaleDateString('it-IT')}
-                                                    {reg.addedByOrganizer && (
-                                                        <span className="ml-1 text-ocean-500" title="Iscrizione manuale">M</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
-                                                        className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
-                                                        title="Elimina iscrizione"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </td>
+                                                <th className="px-3 py-2">Quota</th>
+                                                <th className="px-3 py-2">Pagamento</th>
+                                                {race.requiresMedicalCert && (
+                                                    <th className="px-3 py-2">Certificato</th>
+                                                )}
+                                                <th className="px-3 py-2">Data</th>
+                                                <th className="px-3 py-2" />
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filtered.map((reg, idx) => (
+                                                <tr key={reg.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
+                                                    {formFields.filter(f => !f.readOnly).map(f => (
+                                                        <td key={f.id} className="px-3 py-2 text-slate-700">
+                                                            {typeof reg.formData[f.id] === 'boolean'
+                                                                ? (reg.formData[f.id] ? '✓' : '—')
+                                                                : (reg.formData[f.id] as string) || '—'}
+                                                        </td>
+                                                    ))}
+                                                    <td className="px-3 py-2 font-medium text-ocean-700">{formatPrice(reg.pricePaid)}</td>
+                                                    <td className="px-3 py-2">
+                                                        <PaymentBadge
+                                                            status={reg.paymentStatus ?? 'pending'}
+                                                            onConfirm={() => handlePaymentStatus(reg.id, 'confirmed')}
+                                                            onReject={() => handlePaymentStatus(reg.id, 'rejected')}
+                                                            onReset={() => handlePaymentStatus(reg.id, 'pending')}
+                                                        />
+                                                    </td>
+                                                    {race.requiresMedicalCert && (
+                                                        <td className="px-3 py-2">
+                                                            <CertBadge
+                                                                status={reg.certStatus ?? 'in_attesa'}
+                                                                certInfo={reg.certInfo}
+                                                                fidalVerified={reg.fidalVerified}
+                                                                onVerify={() => handleCertStatus(reg.id, 'verificato')}
+                                                                onReject={() => {
+                                                                    const reason = prompt('Motivo del rifiuto (opzionale):') ?? undefined;
+                                                                    handleCertStatus(reg.id, 'rifiutato', reason);
+                                                                }}
+                                                                onReset={() => handleCertStatus(reg.id, 'in_attesa')}
+                                                            />
+                                                        </td>
+                                                    )}
+                                                    <td className="px-3 py-2 text-slate-400">
+                                                        {new Date(reg.submittedAt).toLocaleDateString('it-IT')}
+                                                        {reg.addedByOrganizer && (
+                                                            <span className="ml-1 text-ocean-500" title="Iscrizione manuale">M</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
+                                                            className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+                                                            title="Elimina iscrizione"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {showManualReg && (
@@ -741,6 +803,83 @@ function PaymentBadge({
             >
                 <XCircle className="h-3.5 w-3.5" />
             </button>
+        </div>
+    );
+}
+
+// ─── CertBadge ────────────────────────────────────────────────────────────────
+
+function CertBadge({
+    status,
+    certInfo,
+    fidalVerified,
+    onVerify,
+    onReject,
+    onReset,
+}: {
+    status: CertStatus;
+    certInfo?: { tipo: string; scadenza: string; numero?: string; fileName?: string };
+    fidalVerified?: boolean;
+    onVerify: () => void;
+    onReject: () => void;
+    onReset: () => void;
+}) {
+    const today = new Date().toISOString().slice(0, 10);
+    const isExpired = certInfo?.scadenza && certInfo.scadenza < today;
+
+    if (status === 'non_richiesto') {
+        return <span className="text-slate-300 text-xs">—</span>;
+    }
+
+    if (status === 'verificato') {
+        return (
+            <button type="button" onClick={onReset} title="Clicca per riportare in attesa"
+                className="flex items-center gap-1 text-emerald-600 font-medium hover:text-emerald-800">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {fidalVerified ? 'FIDAL' : 'Verificato'}
+            </button>
+        );
+    }
+
+    if (status === 'rifiutato') {
+        return (
+            <button type="button" onClick={onReset} title="Clicca per riportare in attesa"
+                className="flex items-center gap-1 text-red-500 font-medium hover:text-red-700">
+                <ShieldX className="h-3.5 w-3.5" /> Rifiutato
+            </button>
+        );
+    }
+
+    // in_attesa
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center gap-1">
+                <span className={`font-medium flex items-center gap-1 ${isExpired ? 'text-red-500' : 'text-amber-600'}`}>
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    {isExpired ? 'Scaduto' : 'Da verificare'}
+                </span>
+                <button type="button" onClick={onVerify} title="Approva certificato"
+                    className="ml-1 p-0.5 rounded hover:bg-emerald-50 text-slate-400 hover:text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={onReject} title="Rifiuta certificato"
+                    className="p-0.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500">
+                    <XCircle className="h-3.5 w-3.5" />
+                </button>
+            </div>
+            {certInfo && (
+                <div className="text-[10px] text-slate-400 leading-tight">
+                    <span className="capitalize">{certInfo.tipo.replace('_', ' ')}</span>
+                    {certInfo.scadenza && (
+                        <span className={`ml-1 ${isExpired ? 'text-red-400 font-semibold' : ''}`}>
+                            · scad. {new Date(certInfo.scadenza).toLocaleDateString('it-IT')}
+                        </span>
+                    )}
+                    {certInfo.fileName && (
+                        <span className="ml-1 text-ocean-500" title={certInfo.fileName}>· 📎</span>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

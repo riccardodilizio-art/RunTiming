@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { mockEvents } from '../data/mockEvents';
 import type {
-    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus, Result,
+    Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus, CertStatus, Result,
 } from '../types';
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -214,6 +214,15 @@ export function useAdminStore() {
         persistRegistrations(list);
     }
 
+    function updateCertStatus(registrationId: string, status: CertStatus, rejectionReason?: string) {
+        const list = loadRegistrations().map(r =>
+            r.id === registrationId
+                ? { ...r, certStatus: status, certRejectionReason: rejectionReason ?? r.certRejectionReason }
+                : r
+        );
+        persistRegistrations(list);
+    }
+
     // Results
     const [resultsMap, setResultsMap] = useState<Record<string, Result[]>>(() => loadResults());
 
@@ -256,7 +265,7 @@ export function useAdminStore() {
         commission, saveCommission,
         // registrations
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
-        updatePaymentStatus, deleteRegistration,
+        updatePaymentStatus, updateCertStatus, deleteRegistration,
         // results
         saveResults, getResults,
         // users

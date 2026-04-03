@@ -9,7 +9,7 @@ import { useAthleteAuth } from '../context/AthleteAuthContext';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';
-import type { Race, FormField, PriceStep, DiscountCode, RaceCategory } from '../types';
+import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CertInfo } from '../types';
 import { assignCategory } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -668,6 +668,10 @@ export default function RegisterPage() {
     const [submissionId, setSubmissionId] = useState('');
     const [fidalVerified, setFidalVerified] = useState(false);
 
+    // Certificato medico (non-FIDAL)
+    const [certInfo, setCertInfo] = useState<Partial<CertInfo>>({});
+    const [certFileName, setCertFileName] = useState('');
+
     const selectedRace = useMemo(
         () => event?.races.find(r => r.id === selectedRaceId),
         [event, selectedRaceId]
@@ -785,6 +789,10 @@ export default function RegisterPage() {
             if (!selectedRace || !event) return;
             const id = `reg_${Date.now()}`;
             if (appliedDiscount) applyDiscountCode(appliedDiscount.id);
+            const needsCert = selectedRace.requiresMedicalCert;
+            const certStatus = !needsCert ? 'non_richiesto'
+                : fidalVerified ? 'verificato'
+                : 'in_attesa';
             saveRegistration({
                 id,
                 eventId: event.id,
@@ -799,6 +807,10 @@ export default function RegisterPage() {
                 fidalVerified,
                 paymentStatus: 'pending',
                 athleteAccountId: currentAthlete?.id,
+                certStatus,
+                certInfo: certStatus === 'in_attesa' && certInfo.tipo && certInfo.scadenza
+                    ? { ...certInfo as CertInfo, fileName: certFileName || undefined }
+                    : undefined,
             });
             setSubmissionId(id);
         }
@@ -860,14 +872,82 @@ export default function RegisterPage() {
                             {showFidalLookup && (
                                 <FidalLookup onPrefill={handleFidalPrefill} />
                             )}
-                            {/* Cert requirement notice for non-FIDAL */}
+                            {/* Sezione certificato medico (non-FIDAL) */}
                             {selectedRace.requiresMedicalCert && !fidalVerified && (
-                                <div className="mb-4 flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700">
-                                    <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
-                                    <span>
-                                        Questa gara richiede il <strong>certificato medico agonistico</strong>.
-                                        Puoi caricare il documento tramite il campo apposito nel modulo, oppure usa la ricerca FIDAL per verificare automaticamente.
-                                    </span>
+                                <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
+                                        <p className="text-sm font-semibold text-amber-800">
+                                            Certificato medico richiesto
+                                        </p>
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        Questa gara richiede il certificato medico agonistico. Inserisci i dati del tuo certificato —
+                                        l'organizzatore lo verificherà prima della conferma dell'iscrizione.
+                                    </p>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">Tipo certificato *</label>
+                                            <select
+                                                value={certInfo.tipo ?? ''}
+                                                onChange={e => setCertInfo(c => ({ ...c, tipo: e.target.value as CertInfo['tipo'] }))}
+                                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                            >
+                                                <option value="">Seleziona</option>
+                                                <option value="agonistico">Agonistico</option>
+                                                <option value="non_agonistico">Non agonistico</option>
+                                                <option value="esenzione">Esenzione</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">Scadenza *</label>
+                                            <input
+                                                type="date"
+                                                value={certInfo.scadenza ?? ''}
+                                                onChange={e => setCertInfo(c => ({ ...c, scadenza: e.target.value }))}
+                                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                            />
+                                            {certInfo.scadenza && certInfo.scadenza < new Date().toISOString().slice(0, 10) && (
+                                                <p className="text-xs text-red-500 mt-1">⚠ Certificato scaduto — rinnova prima di iscriverti.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-700 mb-1">Numero certificato (opzionale)</label>
+                                        <input
+                                            type="text"
+                                            value={certInfo.numero ?? ''}
+                                            onChange={e => setCertInfo(c => ({ ...c, numero: e.target.value }))}
+                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                            placeholder="Es. CERT-2024-001234"
+                                        />
+                                    </div>
+
+                                    {/* Upload UI — funzionale con backend */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                                            Copia del certificato (PDF o immagine)
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer w-fit px-3 py-2 rounded-lg border border-dashed border-slate-300 hover:border-ocean-400 hover:bg-ocean-50 text-sm text-slate-500 transition-colors">
+                                            <ShieldCheck className="h-4 w-4 text-slate-400" />
+                                            {certFileName ? (
+                                                <span className="text-ocean-700 font-medium">{certFileName}</span>
+                                            ) : (
+                                                <span>Seleziona file…</span>
+                                            )}
+                                            <input
+                                                type="file"
+                                                accept="application/pdf,image/*"
+                                                className="hidden"
+                                                onChange={e => setCertFileName(e.target.files?.[0]?.name ?? '')}
+                                            />
+                                        </label>
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            Il documento sarà caricato sul server al momento dell'invio (funzionalità attiva con backend).
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                             {fields.length === 0 ? (
