@@ -14,6 +14,7 @@ import AccountsSection from './AccountsSection';
 import DiscountSection from './DiscountSection';
 import UsersSection from './UsersSection';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
+import { CATEGORY_PRESETS, PRESET_GROUPS } from '../../data/categoryPresets';
 import type {
     Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory,
     RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, CommissionConfig,
@@ -267,25 +268,6 @@ function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s
 
 // ─── CategoryEditor ───────────────────────────────────────────────────────────
 
-const CSV_TEMPLATE = `nome,sesso,eta_min,eta_max
-Promesse M,M,18,22
-Promesse F,F,18,22
-Senior M,M,23,34
-Senior F,F,23,34
-Master 35 M,M,35,39
-Master 35 F,F,35,39
-Master 40 M,M,40,44
-Master 40 F,F,40,44
-Master 45 M,M,45,49
-Master 45 F,F,45,49
-Master 50 M,M,50,54
-Master 50 F,F,50,54
-Master 55 M,M,55,59
-Master 55 F,F,55,59
-Master 60 M,M,60,64
-Master 60 F,F,60,64
-Master 65 M,M,65,`;
-
 /** Parsa un CSV o JSON e restituisce un array di RaceCategory. Lancia un errore in caso di formato invalido. */
 function parseCategoryFile(text: string, filename: string): RaceCategory[] {
     const isJson = filename.toLowerCase().endsWith('.json');
@@ -338,18 +320,6 @@ function parseCategoryFile(text: string, filename: string): RaceCategory[] {
     });
 }
 
-function downloadCategoryTemplate() {
-    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = 'categorie-modello.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
 function CategoryEditor({
     categories,
     onChange,
@@ -357,9 +327,10 @@ function CategoryEditor({
     categories: RaceCategory[];
     onChange: (cats: RaceCategory[]) => void;
 }) {
-    const [importError, setImportError]   = useState('');
+    const [importError, setImportError]     = useState('');
     const [importPreview, setImportPreview] = useState<RaceCategory[] | null>(null);
-    const [importFilename, setImportFilename] = useState('');
+    const [importLabel, setImportLabel]     = useState('');
+    const [showPresetPanel, setShowPresetPanel] = useState(false);
 
     function add() {
         onChange([...categories, { id: newId(), name: '', gender: undefined, minAge: undefined, maxAge: undefined }]);
@@ -367,6 +338,15 @@ function CategoryEditor({
     function remove(id: string) { onChange(categories.filter(c => c.id !== id)); }
     function update<K extends keyof RaceCategory>(id: string, key: K, value: RaceCategory[K]) {
         onChange(categories.map(c => c.id === id ? { ...c, [key]: value } : c));
+    }
+
+    function applyPreset(presetId: string) {
+        const preset = CATEGORY_PRESETS.find(p => p.id === presetId);
+        if (!preset) return;
+        setImportPreview(preset.categories.map(c => ({ ...c, id: newId() })));
+        setImportLabel(preset.label);
+        setShowPresetPanel(false);
+        setImportError('');
     }
 
     function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -379,7 +359,7 @@ function CategoryEditor({
             try {
                 const parsed = parseCategoryFile(ev.target?.result as string, file.name);
                 setImportPreview(parsed);
-                setImportFilename(file.name);
+                setImportLabel(file.name);
             } catch (err) {
                 setImportError((err as Error).message);
             }
@@ -391,26 +371,26 @@ function CategoryEditor({
         if (!importPreview) return;
         onChange(mode === 'replace' ? importPreview : [...categories, ...importPreview]);
         setImportPreview(null);
-        setImportFilename('');
+        setImportLabel('');
     }
 
     return (
         <div className="mt-6 pt-5 border-t border-slate-200">
+            {/* Header */}
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                 <h4 className="text-sm font-semibold text-slate-700">Categorie agonistiche</h4>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* Download modello */}
+                    {/* Preset standard */}
                     <button
                         type="button"
-                        onClick={downloadCategoryTemplate}
-                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2 py-1 hover:bg-slate-50 transition-colors"
-                        title="Scarica modello CSV"
+                        onClick={() => { setShowPresetPanel(v => !v); setImportError(''); }}
+                        className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 border border-ocean-200 rounded px-2 py-1 hover:bg-ocean-50 transition-colors"
                     >
-                        <Download className="h-3.5 w-3.5" /> Modello CSV
+                        <ClipboardList className="h-3.5 w-3.5" /> Usa preset standard
                     </button>
-                    {/* Import file */}
-                    <label className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 border border-ocean-200 rounded px-2 py-1 hover:bg-ocean-50 transition-colors cursor-pointer">
-                        <SlidersHorizontal className="h-3.5 w-3.5" /> Importa CSV / JSON
+                    {/* Import file CSV/JSON */}
+                    <label className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2 py-1 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <SlidersHorizontal className="h-3.5 w-3.5" /> Importa CSV/JSON
                         <input type="file" accept=".csv,.json" className="hidden" onChange={handleFileChange} />
                     </label>
                     {/* Aggiungi manuale */}
@@ -420,9 +400,42 @@ function CategoryEditor({
                 </div>
             </div>
             <p className="text-xs text-slate-400 mb-3">
-                Definisci le categorie (es. Senior M, Master 40 F). Il sistema assegna automaticamente l'atleta
-                in base a età e sesso. Puoi importarle da CSV o JSON — scarica il modello per il formato corretto.
+                Seleziona un preset (FIDAL, UISP, …) o importa un file CSV/JSON personalizzato.
+                Puoi anche aggiungere categorie manualmente.
             </p>
+
+            {/* Pannello preset */}
+            {showPresetPanel && (
+                <div className="mb-4 rounded-xl border border-ocean-200 bg-ocean-50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-ocean-800">Scegli un preset di categorie</p>
+                        <button type="button" onClick={() => setShowPresetPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className="space-y-4">
+                        {PRESET_GROUPS.map(group => (
+                            <div key={group}>
+                                <p className="text-xs font-bold text-ocean-600 uppercase tracking-wider mb-2">{group}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {CATEGORY_PRESETS.filter(p => p.group === group).map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() => applyPreset(preset.id)}
+                                            className="text-left p-3 rounded-lg bg-white border border-ocean-100 hover:border-ocean-400 hover:bg-ocean-50 transition-all group"
+                                        >
+                                            <p className="text-xs font-semibold text-slate-800 group-hover:text-ocean-700">{preset.label}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">{preset.description}</p>
+                                            <p className="text-xs text-ocean-500 mt-1">{preset.categories.length} categorie</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Errore importazione */}
             {importError && (
@@ -431,19 +444,19 @@ function CategoryEditor({
                 </div>
             )}
 
-            {/* Preview importazione */}
+            {/* Preview (preset o file) */}
             {importPreview && (
                 <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4 mb-4">
                     <p className="text-sm font-semibold text-ocean-800 mb-1">
-                        Importate {importPreview.length} categorie da <span className="font-mono">{importFilename}</span>
+                        {importPreview.length} categorie — <span className="font-normal">{importLabel}</span>
                     </p>
-                    <div className="text-xs text-ocean-700 mb-3 max-h-36 overflow-y-auto space-y-0.5">
+                    <div className="text-xs text-ocean-700 mb-3 max-h-40 overflow-y-auto space-y-0.5">
                         {importPreview.map(c => (
                             <div key={c.id} className="flex gap-3">
                                 <span className="font-medium w-40 truncate">{c.name}</span>
-                                <span className="text-ocean-500">{c.gender ?? 'Tutti'}</span>
+                                <span className="text-ocean-500 w-8">{c.gender ?? 'M+F'}</span>
                                 <span className="text-ocean-500">
-                                    {c.minAge !== undefined ? c.minAge : '—'}–{c.maxAge !== undefined ? c.maxAge : '∞'}
+                                    {c.minAge ?? '—'}–{c.maxAge ?? '∞'}
                                 </span>
                             </div>
                         ))}
@@ -463,7 +476,7 @@ function CategoryEditor({
                             onClick={() => confirmImport('append')}
                             className="px-3 py-1.5 rounded-lg bg-white border border-ocean-300 text-ocean-700 text-xs font-semibold hover:bg-ocean-50 transition-colors"
                         >
-                            {categories.length > 0 ? 'Aggiungi alle esistenti' : 'Importa'}
+                            {categories.length > 0 ? 'Aggiungi alle esistenti' : 'Applica'}
                         </button>
                         <button
                             type="button"
