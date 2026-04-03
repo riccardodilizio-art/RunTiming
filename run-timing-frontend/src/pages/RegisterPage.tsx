@@ -4,7 +4,7 @@ import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
     CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck, User,
 } from 'lucide-react';
-import { useAdminStore, saveRegistration } from '../hooks/useAdminStore';
+import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/useAdminStore';
 import { useAthleteAuth } from '../context/AthleteAuthContext';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
@@ -765,6 +765,15 @@ export default function RegisterPage() {
         setFormData(data);
     }, []);
 
+    // Controllo doppia iscrizione: atleta loggato già iscritto a questo evento
+    const alreadyRegistered = useMemo(() => {
+        if (!currentAthlete || !event) return false;
+        return loadRegistrations().some(
+            r => r.eventId === event.id && r.athleteAccountId === currentAthlete.id
+        );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentAthlete?.id, event?.id]);
+
     if (!event) {
         return (
             <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -864,9 +873,27 @@ export default function RegisterPage() {
                     <p className="text-slate-500 text-sm mt-0.5">{formatDate(event.date)} · {event.city}</p>
                 </div>
 
-                {step < STEPS.length - 1 && <StepBar current={step} />}
+                {/* Blocco doppia iscrizione */}
+                {alreadyRegistered && step < 4 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 flex items-start gap-4">
+                        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold text-amber-800">Sei già iscritto a questo evento</p>
+                            <p className="text-sm text-amber-700 mt-1">
+                                Il tuo account è già registrato per una gara di questa manifestazione.
+                                Non è possibile effettuare una seconda iscrizione per lo stesso evento.
+                            </p>
+                            <Link to="/profilo" className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-ocean-600 hover:text-ocean-800">
+                                <User className="h-4 w-4" /> Vai al tuo profilo per gestire l'iscrizione
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {!alreadyRegistered && step < STEPS.length - 1 && <StepBar current={step} />}
 
                 {/* Athlete login banner */}
+                {!alreadyRegistered && <>
                 {currentAthlete && step < 4 && (
                     <div className="flex items-center gap-2 mb-4 bg-ocean-50 border border-ocean-200 rounded-xl px-4 py-2.5 text-sm text-ocean-800">
                         <User className="h-4 w-4 shrink-0" />
@@ -1033,7 +1060,8 @@ export default function RegisterPage() {
                         )}
                     </div>
                 )}
-            </div>
+            </>}
+        </div>
 
             {/* ── Modal post-FIDAL: crea account ── */}
             {showAccountModal && step === 4 && (

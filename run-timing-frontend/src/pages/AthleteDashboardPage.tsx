@@ -1,17 +1,64 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
-    Calendar, MapPin, Clock,
+    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle,
 } from 'lucide-react';
 import { useAthleteAuth } from '../context/AthleteAuthContext';
-import { loadRegistrations } from '../hooks/useAdminStore';
-import { loadResults } from '../hooks/useAdminStore';
+import { loadRegistrations, loadResults, useAdminStore } from '../hooks/useAdminStore';
 import { mockEvents } from '../data/mockEvents';
+import DynamicForm from '../components/registration/DynamicForm';
+import type { RegistrationSubmission, Event as EventType } from '../types';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+
+// ── Edit registration modal ───────────────────────────────────────────────────
+
+function EditRegModal({ reg, formData, onChange, onSave, onClose, events }: {
+    reg: RegistrationSubmission;
+    formData: Record<string, string | boolean>;
+    onChange: (data: Record<string, string | boolean>) => void;
+    onSave: () => void;
+    onClose: () => void;
+    events: EventType[];
+}) {
+    const race = events.flatMap(e => e.races).find(r => r.id === reg.raceId);
+    const fields = (race?.formSchema ?? []).filter(f => !f.readOnly);
+    return (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                    <div>
+                        <h3 className="font-semibold text-slate-800">Modifica iscrizione</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{race?.name ?? reg.raceId}</p>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="overflow-y-auto px-6 py-4 flex-1">
+                    {fields.length === 0 ? (
+                        <p className="text-sm text-slate-400 italic">Nessun campo modificabile per questa gara.</p>
+                    ) : (
+                        <DynamicForm fields={fields} data={formData} onChange={onChange} errors={{}} />
+                    )}
+                </div>
+                <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
+                    <button onClick={onSave}
+                        className="flex-1 flex items-center justify-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                        <Check className="w-4 h-4" /> Salva modifiche
+                    </button>
+                    <button onClick={onClose}
+                        className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                        Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +122,13 @@ export default function AthleteDashboardPage() {
     const [saveError, setSaveError] = useState('');
     const [saveOk, setSaveOk] = useState(false);
 
+    // Edit/delete registrations
+    const [regKey, setRegKey] = useState(0); // triggers re-read
+    const [editingReg, setEditingReg] = useState<RegistrationSubmission | null>(null);
+    const [editFormData, setEditFormData] = useState<Record<string, string | boolean>>({});
+    const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
+    const { updateRegistration, deleteRegistration, events } = useAdminStore();
+
     // edit form state mirrors currentAthlete fields
     const [editForm, setEditForm] = useState(() => ({
         name:           currentAthlete?.name ?? '',
@@ -95,10 +149,33 @@ export default function AthleteDashboardPage() {
     const raceLookup = useMemo(() => buildRaceLookup(), []);
     const resultsMap = useMemo(() => loadResults(), []);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const myRegistrations = useMemo(
         () => loadRegistrations().filter(r => r.athleteAccountId === currentAthlete.id),
-        [currentAthlete.id]
+        [currentAthlete.id, regKey]
     );
+
+    const handleFormChange = useCallback((data: Record<string, string | boolean>) => {
+        setEditFormData(data);
+    }, []);
+
+    function openEdit(reg: RegistrationSubmission) {
+        setEditingReg(reg);
+        setEditFormData({ ...reg.formData });
+    }
+
+    function saveEdit() {
+        if (!editingReg) return;
+        updateRegistration(editingReg.id, { formData: editFormData });
+        setEditingReg(null);
+        setRegKey(k => k + 1);
+    }
+
+    function confirmDelete(regId: string) {
+        deleteRegistration(regId);
+        setDeletingRegId(null);
+        setRegKey(k => k + 1);
+    }
 
     /** Enrich registrations with event/race info and optional result */
     const enrichedRegs = useMemo(() => {
@@ -337,62 +414,83 @@ export default function AthleteDashboardPage() {
                             </div>
                         ) : (
                             <ul className="divide-y divide-slate-100">
-                                {enrichedRegs.map(({ reg, info, myResult }) => (
-                                    <li key={reg.id} className="px-5 py-4 flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                                            <Flag className="w-5 h-5 text-slate-400" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-slate-800">{info?.eventTitle ?? reg.eventId}</p>
-                                            <p className="text-sm text-slate-500 mt-0.5">{info?.raceName}</p>
-                                            <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
-                                                {info?.date && (
-                                                    <span className="flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {new Date(info.date).toLocaleDateString('it-IT')}
-                                                    </span>
-                                                )}
-                                                {info?.city && (
-                                                    <span className="flex items-center gap-1">
-                                                        <MapPin className="w-3 h-3" /> {info.city}
-                                                    </span>
-                                                )}
-                                                {info?.distanceKm ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <TrendingUp className="w-3 h-3" /> {info.distanceKm} km
-                                                    </span>
-                                                ) : null}
+                                {enrichedRegs.map(({ reg, info, myResult }) => {
+                                    const eventPast = info?.date ? new Date(info.date) < new Date() : false;
+                                    const canModify = !myResult && !eventPast;
+                                    return (
+                                        <li key={reg.id} className="px-5 py-4 flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                                                <Flag className="w-5 h-5 text-slate-400" />
                                             </div>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                            {myResult ? (
-                                                <>
-                                                    <p className="font-bold text-slate-800 text-lg">
-                                                        {myResult.position}°
-                                                        {myResult.position <= 3 && <Star className="w-3.5 h-3.5 text-yellow-400 inline ml-0.5" />}
-                                                    </p>
-                                                    <p className="text-sm text-slate-500 flex items-center justify-end gap-1 mt-0.5">
-                                                        <Clock className="w-3 h-3" /> {myResult.time}
-                                                    </p>
-                                                    {info?.distanceKm && timeToSeconds(myResult.time) > 0 && (
-                                                        <p className="text-xs text-slate-400">
-                                                            {(() => {
-                                                                const spm = timeToSeconds(myResult.time) / info.distanceKm;
-                                                                const m = Math.floor(spm / 60);
-                                                                const s = Math.round(spm % 60);
-                                                                return `${m}:${String(s).padStart(2,'0')} min/km`;
-                                                            })()}
-                                                        </p>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-slate-800">{info?.eventTitle ?? reg.eventId}</p>
+                                                <p className="text-sm text-slate-500 mt-0.5">{info?.raceName}</p>
+                                                <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
+                                                    {info?.date && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {new Date(info.date).toLocaleDateString('it-IT')}
+                                                        </span>
                                                     )}
-                                                </>
-                                            ) : (
-                                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[reg.paymentStatus]}`}>
-                                                    {statusLabels[reg.paymentStatus]}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
+                                                    {info?.city && (
+                                                        <span className="flex items-center gap-1">
+                                                            <MapPin className="w-3 h-3" /> {info.city}
+                                                        </span>
+                                                    )}
+                                                    {info?.distanceKm ? (
+                                                        <span className="flex items-center gap-1">
+                                                            <TrendingUp className="w-3 h-3" /> {info.distanceKm} km
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                {canModify && (
+                                                    <div className="flex gap-2 mt-2">
+                                                        <button
+                                                            onClick={() => openEdit(reg)}
+                                                            className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 font-medium"
+                                                        >
+                                                            <Pencil className="w-3 h-3" /> Modifica
+                                                        </button>
+                                                        <span className="text-slate-200">|</span>
+                                                        <button
+                                                            onClick={() => setDeletingRegId(reg.id)}
+                                                            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" /> Ritira iscrizione
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                {myResult ? (
+                                                    <>
+                                                        <p className="font-bold text-slate-800 text-lg">
+                                                            {myResult.position}°
+                                                            {myResult.position <= 3 && <Star className="w-3.5 h-3.5 text-yellow-400 inline ml-0.5" />}
+                                                        </p>
+                                                        <p className="text-sm text-slate-500 flex items-center justify-end gap-1 mt-0.5">
+                                                            <Clock className="w-3 h-3" /> {myResult.time}
+                                                        </p>
+                                                        {info?.distanceKm && timeToSeconds(myResult.time) > 0 && (
+                                                            <p className="text-xs text-slate-400">
+                                                                {(() => {
+                                                                    const spm = timeToSeconds(myResult.time) / info.distanceKm;
+                                                                    const m = Math.floor(spm / 60);
+                                                                    const s = Math.round(spm % 60);
+                                                                    return `${m}:${String(s).padStart(2,'0')} min/km`;
+                                                                })()}
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[reg.paymentStatus]}`}>
+                                                        {statusLabels[reg.paymentStatus]}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         )}
                     </div>
@@ -532,6 +630,45 @@ export default function AthleteDashboardPage() {
                     </div>
                 )}
             </div>
+
+            {/* ── Modal modifica iscrizione ── */}
+            {editingReg && <EditRegModal
+                reg={editingReg}
+                formData={editFormData}
+                onChange={handleFormChange}
+                onSave={saveEdit}
+                onClose={() => setEditingReg(null)}
+                events={events}
+            />}
+
+            {/* ── Modal conferma ritiro iscrizione ── */}
+            {deletingRegId && (
+                <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-slate-800">Ritirare l'iscrizione?</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">
+                                    L'iscrizione verrà eliminata. Se hai già pagato contatta l'organizzatore per il rimborso.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => confirmDelete(deletingRegId)}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                                Sì, ritira iscrizione
+                            </button>
+                            <button onClick={() => setDeletingRegId(null)}
+                                className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                                Annulla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
