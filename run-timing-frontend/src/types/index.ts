@@ -4,7 +4,7 @@ export type SportCategory = 'running' | 'cycling' | 'triathlon' | 'swimming' | '
 
 export type CatalogKey =
     | 'nome' | 'cognome' | 'data_nascita' | 'anno_nascita' | 'sesso'
-    | 'email' | 'telefono'
+    | 'email' | 'telefono' | 'codice_fiscale'
     | 'societa' | 'codice_societa'
     | 'tessera_fidal' | 'tessera_runcard' | 'tessera_fci'
     | 'tessera_csi' | 'tessera_uisp' | 'tessera_fitri' | 'tessera_fin'
@@ -82,12 +82,19 @@ export interface AthleteAccount {
     password: string;           // plain text — backend lo hashierà
     name: string;
     surname: string;
-    birthYear: number;
+    birthDate: string;          // ISO YYYY-MM-DD (anno calcolato da questo)
     gender: 'M' | 'F';
     phone?: string;
     club?: string;
+    codFiscale?: string;
     fidalTessera?: string;
     runcardTessera?: string;
+    /** Certificato medico — verificato una volta, valido per tutte le gare */
+    certType?: 'agonistico' | 'non_agonistico' | 'esenzione';
+    certExpiry?: string;        // ISO YYYY-MM-DD
+    certNumber?: string;
+    certStatus?: CertStatus;    // verificato dall'admin una volta sola
+    certFileName?: string;      // UI-only fino al backend
     createdAt: string;
 }
 

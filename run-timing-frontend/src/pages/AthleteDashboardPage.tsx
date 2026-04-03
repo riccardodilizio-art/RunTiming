@@ -477,7 +477,10 @@ export default function AthleteDashboardPage() {
                                 {[
                                     ['Email',       currentAthlete.email],
                                     ['Nome',        `${currentAthlete.name} ${currentAthlete.surname}`],
-                                    ['Anno nascita', String(currentAthlete.birthYear)],
+                                    ['Data di nascita', currentAthlete.birthDate
+                                        ? new Date(currentAthlete.birthDate).toLocaleDateString('it-IT')
+                                        : '—'],
+                                    ['Codice fiscale', currentAthlete.codFiscale ?? '—'],
                                     ['Sesso',       currentAthlete.gender === 'M' ? 'Maschile' : 'Femminile'],
                                     ['Telefono',    currentAthlete.phone ?? '-'],
                                     ['Società',     currentAthlete.club ?? '-'],
@@ -490,6 +493,41 @@ export default function AthleteDashboardPage() {
                                     </div>
                                 ))}
                             </dl>
+                        )}
+
+                        {/* Stato certificato */}
+                        {!editing && currentAthlete.certType && (
+                            <div className="mt-5 pt-4 border-t border-slate-100">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Certificato medico</p>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-800 capitalize">
+                                            {currentAthlete.certType.replace('_', ' ')}
+                                            {currentAthlete.certNumber && ` · ${currentAthlete.certNumber}`}
+                                        </p>
+                                        {currentAthlete.certExpiry && (
+                                            <p className={`text-xs mt-0.5 ${
+                                                currentAthlete.certExpiry < new Date().toISOString().slice(0, 10)
+                                                    ? 'text-red-500 font-semibold'
+                                                    : 'text-slate-500'
+                                            }`}>
+                                                Scadenza: {new Date(currentAthlete.certExpiry).toLocaleDateString('it-IT')}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                        currentAthlete.certStatus === 'verificato'
+                                            ? 'bg-green-100 text-green-700'
+                                            : currentAthlete.certStatus === 'rifiutato'
+                                            ? 'bg-red-100 text-red-700'
+                                            : 'bg-amber-100 text-amber-700'
+                                    }`}>
+                                        {currentAthlete.certStatus === 'verificato' ? '✓ Verificato'
+                                            : currentAthlete.certStatus === 'rifiutato' ? '✗ Rifiutato'
+                                            : '⏳ In attesa di verifica'}
+                                    </span>
+                                </div>
+                            </div>
                         )}
                     </div>
                 )}

@@ -654,7 +654,7 @@ export default function RegisterPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { getEvent, commission, validateDiscountCode, applyDiscountCode } = useAdminStore();
-    const { currentAthlete } = useAthleteAuth();
+    const { currentAthlete, register: registerAthlete } = useAthleteAuth();
 
     const event = slug ? getEvent(slug) : undefined;
     const initialRaceId = searchParams.get('race') ?? event?.races[0]?.id ?? '';
@@ -668,9 +668,25 @@ export default function RegisterPage() {
     const [submissionId, setSubmissionId] = useState('');
     const [fidalVerified, setFidalVerified] = useState(false);
 
-    // Certificato medico (non-FIDAL)
+    // Scelta FIDAL / non-FIDAL (null = non ancora scelto)
+    const [isFidal, setIsFidal] = useState<boolean | null>(null);
+
+    // Certificato medico (non-FIDAL senza account)
     const [certInfo, setCertInfo] = useState<Partial<CertInfo>>({});
     const [certFileName, setCertFileName] = useState('');
+
+    // Certificato già verificato nell'account atleta?
+    const today = new Date().toISOString().slice(0, 10);
+    const certValidFromAccount =
+        currentAthlete?.certStatus === 'verificato' &&
+        currentAthlete?.certExpiry &&
+        currentAthlete.certExpiry >= today;
+
+    // Modal post-FIDAL: crea account con solo email+password
+    const [showAccountModal, setShowAccountModal] = useState(false);
+    const [accountEmail, setAccountEmail] = useState('');
+    const [accountPassword, setAccountPassword] = useState('');
+    const [accountError, setAccountError] = useState('');
 
     const selectedRace = useMemo(
         () => event?.races.find(r => r.id === selectedRaceId),
@@ -692,14 +708,19 @@ export default function RegisterPage() {
     // Prefill form da account atleta loggato (applicato quando cambiano i fields)
     useEffect(() => {
         if (!currentAthlete || fields.length === 0) return;
+        const birthYear = currentAthlete.birthDate
+            ? new Date(currentAthlete.birthDate).getFullYear()
+            : undefined;
         const updates: Record<string, string | boolean> = {};
         fields.forEach(f => {
             if (f.catalogKey === 'nome')            updates[f.id] = currentAthlete.name;
             if (f.catalogKey === 'cognome')         updates[f.id] = currentAthlete.surname;
             if (f.catalogKey === 'email')           updates[f.id] = currentAthlete.email;
-            if (f.catalogKey === 'telefono' && currentAthlete.phone)   updates[f.id] = currentAthlete.phone;
-            if (f.catalogKey === 'societa' && currentAthlete.club)     updates[f.id] = currentAthlete.club;
-            if (f.catalogKey === 'anno_nascita')    updates[f.id] = String(currentAthlete.birthYear);
+            if (f.catalogKey === 'telefono' && currentAthlete.phone)      updates[f.id] = currentAthlete.phone;
+            if (f.catalogKey === 'societa' && currentAthlete.club)        updates[f.id] = currentAthlete.club;
+            if (f.catalogKey === 'codice_fiscale' && currentAthlete.codFiscale) updates[f.id] = currentAthlete.codFiscale;
+            if (f.catalogKey === 'anno_nascita' && birthYear)   updates[f.id] = String(birthYear);
+            if (f.catalogKey === 'data_nascita' && currentAthlete.birthDate)    updates[f.id] = currentAthlete.birthDate;
             if (f.catalogKey === 'sesso')           updates[f.id] = currentAthlete.gender;
             if (f.catalogKey === 'tessera_fidal' && currentAthlete.fidalTessera)
                 updates[f.id] = currentAthlete.fidalTessera;
@@ -728,12 +749,6 @@ export default function RegisterPage() {
         setFormData(prev => ({ ...prev, ...updates }));
         setFidalVerified(true);
     }
-
-    // Mostra il widget FIDAL se la gara richiede cert o ha campo tessera nel modulo
-    const showFidalLookup = !fidalVerified && (
-        selectedRace?.requiresMedicalCert ||
-        fields.some(f => f.catalogKey === 'tessera_fidal' || f.catalogKey === 'tessera_runcard')
-    );
 
     // Price calculation
     const basePrice = useMemo(() => selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace]);
@@ -792,6 +807,7 @@ export default function RegisterPage() {
             const needsCert = selectedRace.requiresMedicalCert;
             const certStatus = !needsCert ? 'non_richiesto'
                 : fidalVerified ? 'verificato'
+                : certValidFromAccount ? 'verificato'   // cert già ok nell'account
                 : 'in_attesa';
             saveRegistration({
                 id,
@@ -813,6 +829,10 @@ export default function RegisterPage() {
                     : undefined,
             });
             setSubmissionId(id);
+            // Proponi creazione account post-FIDAL
+            if (isFidal && !currentAthlete) {
+                setTimeout(() => setShowAccountModal(true), 600);
+            }
         }
         setStep(s => s + 1);
     }
@@ -824,6 +844,9 @@ export default function RegisterPage() {
 
     const isLastStep = step === STEPS.length - 2; // step 3 = pagamento
     const nextLabel = isLastStep ? (isFree ? 'Conferma iscrizione' : 'Paga e conferma') : 'Continua';
+    // Il pulsante Continua è disabilitato in step 1 se l'atleta non ha ancora scelto FIDAL/non-FIDAL
+    // e non è loggato, oppure ha scelto non-FIDAL (deve prima registrarsi)
+    const step1Blocked = step === 1 && !currentAthlete && (isFidal === null || isFidal === false);
 
     return (
         <main className="min-h-screen bg-slate-50 py-8 px-4">
@@ -849,15 +872,6 @@ export default function RegisterPage() {
                         <span>Stai iscrivendo come <strong>{currentAthlete.name} {currentAthlete.surname}</strong> — i tuoi dati verranno pre-compilati automaticamente.</span>
                     </div>
                 )}
-                {!currentAthlete && step < 4 && (
-                    <div className="flex items-center gap-2 mb-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600">
-                        <User className="h-4 w-4 shrink-0" />
-                        <span>
-                            <Link to="/accedi" className="text-ocean-600 font-medium hover:underline">Accedi</Link> o{' '}
-                            <Link to="/registrati" className="text-ocean-600 font-medium hover:underline">registrati</Link> per salvare questa gara nel tuo profilo.
-                        </span>
-                    </div>
-                )}
 
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-7">
@@ -868,12 +882,86 @@ export default function RegisterPage() {
                     {step === 1 && selectedRace && (
                         <div>
                             <h2 className="font-semibold text-slate-700 text-base mb-4">{selectedRace.name}</h2>
-                            {/* FIDAL lookup widget */}
-                            {showFidalLookup && (
-                                <FidalLookup onPrefill={handleFidalPrefill} />
+
+                            {/* ── Scelta FIDAL / non-FIDAL (solo se non già loggato) ── */}
+                            {!currentAthlete && isFidal === null && (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-slate-600">Per procedere con l'iscrizione, seleziona la tua situazione:</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button type="button" onClick={() => setIsFidal(true)}
+                                            className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <ShieldCheck className="h-5 w-5 text-ocean-600" />
+                                                <span className="font-semibold text-slate-800">Sono tesserato FIDAL / RunCard</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                Inserisci il numero tessera o cerca per nome — il sistema caricherà automaticamente i tuoi dati e il certificato medico.
+                                            </p>
+                                        </button>
+                                        <button type="button" onClick={() => setIsFidal(false)}
+                                            className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <User className="h-5 w-5 text-slate-500" />
+                                                <span className="font-semibold text-slate-800">Non sono tesserato FIDAL</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                Ti chiediamo di registrarti sulla piattaforma per inserire i tuoi dati e il certificato medico una volta sola.
+                                            </p>
+                                        </button>
+                                    </div>
+                                </div>
                             )}
-                            {/* Sezione certificato medico (non-FIDAL) */}
-                            {selectedRace.requiresMedicalCert && !fidalVerified && (
+
+                            {/* ── Non-FIDAL senza account: redirect a registrazione ── */}
+                            {!currentAthlete && isFidal === false && (
+                                <div className="space-y-4">
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                        <p className="font-semibold mb-1">Registrazione account richiesta</p>
+                                        <p className="text-xs">
+                                            Per gli atleti non tesserati FIDAL è necessario creare un account gratuito.
+                                            Potrai inserire i tuoi dati e il certificato medico <strong>una sola volta</strong> —
+                                            verranno caricati automaticamente in tutte le iscrizioni future.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <Link
+                                            to={`/registrati?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}&from=iscrizione`}
+                                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
+                                        >
+                                            <User className="h-4 w-4" /> Crea account gratuito
+                                        </Link>
+                                        <Link
+                                            to={`/accedi?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}`}
+                                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                                        >
+                                            Ho già un account
+                                        </Link>
+                                    </div>
+                                    <button type="button" onClick={() => setIsFidal(null)}
+                                        className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                                        <ChevronLeft className="h-3 w-3" /> Torna indietro
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* ── FIDAL: mostra lookup ── */}
+                            {(isFidal === true || currentAthlete) && (
+                                <>
+                                    {/* FIDAL lookup widget (non mostrato se già loggato) */}
+                                    {isFidal === true && !currentAthlete && (
+                                        <FidalLookup onPrefill={handleFidalPrefill} />
+                                    )}
+
+                                    {/* Certificato già valido dall'account */}
+                                    {certValidFromAccount && selectedRace.requiresMedicalCert && (
+                                        <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-800">
+                                            <ShieldCheck className="h-4 w-4 shrink-0" />
+                                            Certificato medico già verificato nel tuo account — nessun documento aggiuntivo richiesto.
+                                        </div>
+                                    )}
+
+                            {/* Sezione certificato medico (non-FIDAL senza cert in account) */}
+                            {selectedRace.requiresMedicalCert && !fidalVerified && !certValidFromAccount && (
                                 <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
                                     <div className="flex items-center gap-2">
                                         <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
@@ -950,10 +1038,12 @@ export default function RegisterPage() {
                                     </div>
                                 </div>
                             )}
-                            {fields.length === 0 ? (
-                                <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
-                            ) : (
-                                <DynamicForm fields={fields} data={formData} onChange={handleFormChange} errors={errors} />
+                                    {fields.length === 0 ? (
+                                        <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
+                                    ) : (
+                                        <DynamicForm fields={fields} data={formData} onChange={handleFormChange} errors={errors} />
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
@@ -1002,18 +1092,91 @@ export default function RegisterPage() {
                             <ChevronLeft className="h-4 w-4" />
                             {step === 0 ? 'Indietro' : 'Modifica'}
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleNext}
-                            disabled={step === 0 && !selectedRaceId}
-                            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 disabled:opacity-40 transition-colors"
-                        >
-                            {nextLabel}
-                            {!isLastStep && <ChevronRight className="h-4 w-4" />}
-                        </button>
+                        {!step1Blocked && (
+                            <button
+                                type="button"
+                                onClick={handleNext}
+                                disabled={step === 0 && !selectedRaceId}
+                                className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 disabled:opacity-40 transition-colors"
+                            >
+                                {nextLabel}
+                                {!isLastStep && <ChevronRight className="h-4 w-4" />}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
+
+            {/* ── Modal post-FIDAL: crea account ── */}
+            {showAccountModal && step === 4 && (
+                <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+                        <h3 className="font-display font-700 text-lg text-slate-800 mb-1">
+                            Salva le tue gare
+                        </h3>
+                        <p className="text-sm text-slate-500 mb-4">
+                            Crea un account gratuito per accedere al tuo storico gare e ai tuoi risultati.
+                            I tuoi dati sono già pronti — ti servono solo email e password.
+                        </p>
+                        {accountError && (
+                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-700 text-sm mb-3">
+                                <AlertCircle className="h-4 w-4 shrink-0" /> {accountError}
+                            </div>
+                        )}
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input type="email" value={accountEmail}
+                                    onChange={e => setAccountEmail(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    placeholder="mario@esempio.it" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                <input type="password" value={accountPassword}
+                                    onChange={e => setAccountPassword(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    placeholder="Almeno 6 caratteri" />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-5">
+                            <button type="button"
+                                onClick={() => {
+                                    setAccountError('');
+                                    if (!accountEmail || !accountPassword) { setAccountError('Compila email e password.'); return; }
+                                    if (accountPassword.length < 6) { setAccountError('Password troppo corta (min. 6 caratteri).'); return; }
+                                    // Recupera i dati dal formData
+                                    const nameField   = fields.find(f => f.catalogKey === 'nome');
+                                    const surnField   = fields.find(f => f.catalogKey === 'cognome');
+                                    const sexField    = fields.find(f => f.catalogKey === 'sesso');
+                                    const birthField  = fields.find(f => f.catalogKey === 'data_nascita' || f.catalogKey === 'anno_nascita');
+                                    const res = registerAthlete({
+                                        email:    accountEmail.trim(),
+                                        password: accountPassword,
+                                        name:     nameField ? String(formData[nameField.id] ?? '') : '',
+                                        surname:  surnField ? String(formData[surnField.id] ?? '') : '',
+                                        birthDate: birthField ? String(formData[birthField.id] ?? '') : '',
+                                        gender:   (sexField ? String(formData[sexField.id]) : 'M') as 'M' | 'F',
+                                        fidalTessera: fields.find(f => f.catalogKey === 'tessera_fidal')
+                                            ? String(formData[fields.find(f => f.catalogKey === 'tessera_fidal')!.id] ?? '') || undefined
+                                            : undefined,
+                                        certStatus: 'verificato', // FIDAL → cert già verificato
+                                    });
+                                    if ('error' in res) { setAccountError(res.error); return; }
+                                    setShowAccountModal(false);
+                                    navigate('/profilo');
+                                }}
+                                className="flex-1 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                                Crea account
+                            </button>
+                            <button type="button" onClick={() => setShowAccountModal(false)}
+                                className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                                Non ora
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

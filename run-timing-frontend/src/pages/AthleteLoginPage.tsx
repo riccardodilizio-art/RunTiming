@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, AlertCircle, Timer } from 'lucide-react';
 import { useAthleteAuth } from '../context/AthleteAuthContext';
 
@@ -8,9 +8,9 @@ const inputCls =
 
 export default function AthleteLoginPage() {
     const navigate  = useNavigate();
-    const location  = useLocation();
+    const [searchParams] = useSearchParams();
     const { login } = useAthleteAuth();
-    const from = (location.state as { from?: Location })?.from?.pathname ?? '/profilo';
+    const redirectTo = searchParams.get('redirect') ?? '/profilo';
 
     const [email,   setEmail]   = useState('');
     const [password, setPassword] = useState('');
@@ -29,7 +29,7 @@ export default function AthleteLoginPage() {
                 setError('Email o password non corretti.');
                 return;
             }
-            navigate(from, { replace: true });
+            navigate(redirectTo, { replace: true });
         }, 300);
     }
 
@@ -85,7 +85,9 @@ export default function AthleteLoginPage() {
 
                 <p className="text-center text-sm text-slate-500 mt-4">
                     Non hai un account?{' '}
-                    <Link to="/registrati" className="text-ocean-600 font-medium hover:underline">
+                    <Link
+                        to={`/registrati${redirectTo !== '/profilo' ? `?redirect=${encodeURIComponent(redirectTo)}&from=iscrizione` : ''}`}
+                        className="text-ocean-600 font-medium hover:underline">
                         Registrati gratuitamente
                     </Link>
                 </p>
