@@ -214,6 +214,11 @@ export function useAdminStore() {
         persistRegistrations(list);
     }
 
+    function updateRegistration(id: string, updates: Partial<RegistrationSubmission>) {
+        const list = loadRegistrations().map(r => r.id === id ? { ...r, ...updates } : r);
+        persistRegistrations(list);
+    }
+
     function updateCertStatus(registrationId: string, status: CertStatus, rejectionReason?: string) {
         const list = loadRegistrations().map(r =>
             r.id === registrationId
@@ -265,7 +270,7 @@ export function useAdminStore() {
         commission, saveCommission,
         // registrations
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
-        updatePaymentStatus, updateCertStatus, deleteRegistration,
+        updatePaymentStatus, updateCertStatus, updateRegistration, deleteRegistration,
         // results
         saveResults, getResults,
         // users
