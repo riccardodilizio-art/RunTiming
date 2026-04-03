@@ -9,7 +9,7 @@ import { useAthleteAuth } from '../context/AthleteAuthContext';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';
-import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CertInfo } from '../types';
+import type { Race, FormField, PriceStep, DiscountCode, RaceCategory } from '../types';
 import { assignCategory } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -671,9 +671,6 @@ export default function RegisterPage() {
     // Scelta FIDAL / non-FIDAL (null = non ancora scelto)
     const [isFidal, setIsFidal] = useState<boolean | null>(null);
 
-    // Certificato medico (non-FIDAL senza account)
-    const [certInfo, setCertInfo] = useState<Partial<CertInfo>>({});
-    const [certFileName, setCertFileName] = useState('');
 
     // Certificato già verificato nell'account atleta?
     const today = new Date().toISOString().slice(0, 10);
@@ -824,8 +821,9 @@ export default function RegisterPage() {
                 paymentStatus: 'pending',
                 athleteAccountId: currentAthlete?.id,
                 certStatus,
-                certInfo: certStatus === 'in_attesa' && certInfo.tipo && certInfo.scadenza
-                    ? { ...certInfo as CertInfo, fileName: certFileName || undefined }
+                // certInfo: popolato dal backend tramite l'account atleta
+                certInfo: currentAthlete?.certType && currentAthlete?.certExpiry
+                    ? { tipo: currentAthlete.certType, scadenza: currentAthlete.certExpiry, numero: currentAthlete.certNumber }
                     : undefined,
             });
             setSubmissionId(id);
@@ -844,9 +842,12 @@ export default function RegisterPage() {
 
     const isLastStep = step === STEPS.length - 2; // step 3 = pagamento
     const nextLabel = isLastStep ? (isFree ? 'Conferma iscrizione' : 'Paga e conferma') : 'Continua';
-    // Il pulsante Continua è disabilitato in step 1 se l'atleta non ha ancora scelto FIDAL/non-FIDAL
-    // e non è loggato, oppure ha scelto non-FIDAL (deve prima registrarsi)
-    const step1Blocked = step === 1 && !currentAthlete && (isFidal === null || isFidal === false);
+    // Blocca "Continua" in step 1 solo per gare competitive quando l'atleta
+    // non ha ancora scelto FIDAL/non-FIDAL, o ha scelto non-FIDAL senza account
+    const step1Blocked = step === 1
+        && !!selectedRace?.requiresMedicalCert
+        && !currentAthlete
+        && (isFidal === null || isFidal === false);
 
     return (
         <main className="min-h-screen bg-slate-50 py-8 px-4">
@@ -883,167 +884,94 @@ export default function RegisterPage() {
                         <div>
                             <h2 className="font-semibold text-slate-700 text-base mb-4">{selectedRace.name}</h2>
 
-                            {/* ── Scelta FIDAL / non-FIDAL (solo se non già loggato) ── */}
-                            {!currentAthlete && isFidal === null && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-slate-600">Per procedere con l'iscrizione, seleziona la tua situazione:</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <button type="button" onClick={() => setIsFidal(true)}
-                                            className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <ShieldCheck className="h-5 w-5 text-ocean-600" />
-                                                <span className="font-semibold text-slate-800">Sono tesserato FIDAL / RunCard</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500">
-                                                Inserisci il numero tessera o cerca per nome — il sistema caricherà automaticamente i tuoi dati e il certificato medico.
-                                            </p>
-                                        </button>
-                                        <button type="button" onClick={() => setIsFidal(false)}
-                                            className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <User className="h-5 w-5 text-slate-500" />
-                                                <span className="font-semibold text-slate-800">Non sono tesserato FIDAL</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500">
-                                                Ti chiediamo di registrarti sulla piattaforma per inserire i tuoi dati e il certificato medico una volta sola.
-                                            </p>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ── Non-FIDAL senza account: redirect a registrazione ── */}
-                            {!currentAthlete && isFidal === false && (
-                                <div className="space-y-4">
-                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                                        <p className="font-semibold mb-1">Registrazione account richiesta</p>
-                                        <p className="text-xs">
-                                            Per gli atleti non tesserati FIDAL è necessario creare un account gratuito.
-                                            Potrai inserire i tuoi dati e il certificato medico <strong>una sola volta</strong> —
-                                            verranno caricati automaticamente in tutte le iscrizioni future.
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        <Link
-                                            to={`/registrati?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}&from=iscrizione`}
-                                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
-                                        >
-                                            <User className="h-4 w-4" /> Crea account gratuito
-                                        </Link>
-                                        <Link
-                                            to={`/accedi?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}`}
-                                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
-                                        >
-                                            Ho già un account
-                                        </Link>
-                                    </div>
-                                    <button type="button" onClick={() => setIsFidal(null)}
-                                        className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
-                                        <ChevronLeft className="h-3 w-3" /> Torna indietro
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* ── FIDAL: mostra lookup ── */}
-                            {(isFidal === true || currentAthlete) && (
+                            {/* ── Logica FIDAL/cert solo per gare competitive ── */}
+                            {selectedRace.requiresMedicalCert && (
                                 <>
-                                    {/* FIDAL lookup widget (non mostrato se già loggato) */}
+                                    {/* Scelta FIDAL / non-FIDAL (solo se non già loggato) */}
+                                    {!currentAthlete && isFidal === null && (
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-slate-600">Per procedere con l'iscrizione, seleziona la tua situazione:</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <button type="button" onClick={() => setIsFidal(true)}
+                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <ShieldCheck className="h-5 w-5 text-ocean-600" />
+                                                        <span className="font-semibold text-slate-800">Sono tesserato FIDAL / RunCard</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500">
+                                                        Inserisci il numero tessera o cerca per nome — il sistema caricherà automaticamente i tuoi dati e il certificato medico.
+                                                    </p>
+                                                </button>
+                                                <button type="button" onClick={() => setIsFidal(false)}
+                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <User className="h-5 w-5 text-slate-500" />
+                                                        <span className="font-semibold text-slate-800">Non sono tesserato FIDAL</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500">
+                                                        Ti chiediamo di registrarti sulla piattaforma per inserire i tuoi dati e il certificato medico una volta sola.
+                                                    </p>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Non-FIDAL senza account: redirect a registrazione */}
+                                    {!currentAthlete && isFidal === false && (
+                                        <div className="space-y-4">
+                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                                <p className="font-semibold mb-1">Registrazione account richiesta</p>
+                                                <p className="text-xs">
+                                                    Per gli atleti non tesserati FIDAL è necessario creare un account gratuito.
+                                                    Potrai inserire i tuoi dati e il certificato medico <strong>una sola volta</strong> —
+                                                    verranno caricati automaticamente in tutte le iscrizioni future.
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row gap-3">
+                                                <Link
+                                                    to={`/registrati?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}&from=iscrizione`}
+                                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
+                                                >
+                                                    <User className="h-4 w-4" /> Crea account gratuito
+                                                </Link>
+                                                <Link
+                                                    to={`/accedi?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}`}
+                                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                                                >
+                                                    Ho già un account
+                                                </Link>
+                                            </div>
+                                            <button type="button" onClick={() => setIsFidal(null)}
+                                                className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                                                <ChevronLeft className="h-3 w-3" /> Torna indietro
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* FIDAL lookup */}
                                     {isFidal === true && !currentAthlete && (
                                         <FidalLookup onPrefill={handleFidalPrefill} />
                                     )}
 
-                                    {/* Certificato già valido dall'account */}
-                                    {certValidFromAccount && selectedRace.requiresMedicalCert && (
+                                    {/* Cert già verificato nell'account */}
+                                    {(isFidal === true || currentAthlete) && certValidFromAccount && (
                                         <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-800">
                                             <ShieldCheck className="h-4 w-4 shrink-0" />
                                             Certificato medico già verificato nel tuo account — nessun documento aggiuntivo richiesto.
                                         </div>
                                     )}
-
-                            {/* Sezione certificato medico (non-FIDAL senza cert in account) */}
-                            {selectedRace.requiresMedicalCert && !fidalVerified && !certValidFromAccount && (
-                                <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
-                                        <p className="text-sm font-semibold text-amber-800">
-                                            Certificato medico richiesto
-                                        </p>
-                                    </div>
-                                    <p className="text-xs text-slate-500">
-                                        Questa gara richiede il certificato medico agonistico. Inserisci i dati del tuo certificato —
-                                        l'organizzatore lo verificherà prima della conferma dell'iscrizione.
-                                    </p>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 mb-1">Tipo certificato *</label>
-                                            <select
-                                                value={certInfo.tipo ?? ''}
-                                                onChange={e => setCertInfo(c => ({ ...c, tipo: e.target.value as CertInfo['tipo'] }))}
-                                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ocean-500"
-                                            >
-                                                <option value="">Seleziona</option>
-                                                <option value="agonistico">Agonistico</option>
-                                                <option value="non_agonistico">Non agonistico</option>
-                                                <option value="esenzione">Esenzione</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 mb-1">Scadenza *</label>
-                                            <input
-                                                type="date"
-                                                value={certInfo.scadenza ?? ''}
-                                                onChange={e => setCertInfo(c => ({ ...c, scadenza: e.target.value }))}
-                                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
-                                            />
-                                            {certInfo.scadenza && certInfo.scadenza < new Date().toISOString().slice(0, 10) && (
-                                                <p className="text-xs text-red-500 mt-1">⚠ Certificato scaduto — rinnova prima di iscriverti.</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 mb-1">Numero certificato (opzionale)</label>
-                                        <input
-                                            type="text"
-                                            value={certInfo.numero ?? ''}
-                                            onChange={e => setCertInfo(c => ({ ...c, numero: e.target.value }))}
-                                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
-                                            placeholder="Es. CERT-2024-001234"
-                                        />
-                                    </div>
-
-                                    {/* Upload UI — funzionale con backend */}
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 mb-1">
-                                            Copia del certificato (PDF o immagine)
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer w-fit px-3 py-2 rounded-lg border border-dashed border-slate-300 hover:border-ocean-400 hover:bg-ocean-50 text-sm text-slate-500 transition-colors">
-                                            <ShieldCheck className="h-4 w-4 text-slate-400" />
-                                            {certFileName ? (
-                                                <span className="text-ocean-700 font-medium">{certFileName}</span>
-                                            ) : (
-                                                <span>Seleziona file…</span>
-                                            )}
-                                            <input
-                                                type="file"
-                                                accept="application/pdf,image/*"
-                                                className="hidden"
-                                                onChange={e => setCertFileName(e.target.files?.[0]?.name ?? '')}
-                                            />
-                                        </label>
-                                        <p className="text-xs text-slate-400 mt-1">
-                                            Il documento sarà caricato sul server al momento dell'invio (funzionalità attiva con backend).
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                                    {fields.length === 0 ? (
-                                        <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
-                                    ) : (
-                                        <DynamicForm fields={fields} data={formData} onChange={handleFormChange} errors={errors} />
-                                    )}
                                 </>
+                            )}
+
+                            {/* Form dati — mostrato se:
+                                - gara non competitiva (sempre)
+                                - gara competitiva + FIDAL scelto o già loggato */}
+                            {(!selectedRace.requiresMedicalCert || isFidal === true || currentAthlete) && (
+                                fields.length === 0 ? (
+                                    <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
+                                ) : (
+                                    <DynamicForm fields={fields} data={formData} onChange={handleFormChange} errors={errors} />
+                                )
                             )}
                         </div>
                     )}
