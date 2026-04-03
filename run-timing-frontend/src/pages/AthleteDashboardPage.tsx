@@ -122,6 +122,13 @@ export default function AthleteDashboardPage() {
     const [saveError, setSaveError] = useState('');
     const [saveOk, setSaveOk] = useState(false);
 
+    // Cert re-upload (when rejected)
+    const [showCertReupload, setShowCertReupload] = useState(false);
+    const [newCertType, setNewCertType]   = useState<'agonistico' | 'non_agonistico' | 'esenzione'>('agonistico');
+    const [newCertExpiry, setNewCertExpiry] = useState('');
+    const [newCertNumber, setNewCertNumber] = useState('');
+    const [newCertFile, setNewCertFile]   = useState('');
+
     // Edit/delete registrations
     const [regKey, setRegKey] = useState(0); // triggers re-read
     const [editingReg, setEditingReg] = useState<RegistrationSubmission | null>(null);
@@ -270,6 +277,20 @@ export default function AthleteDashboardPage() {
         });
         setEditing(false);
         setSaveError('');
+    }
+
+    function handleCertReupload(e: React.FormEvent) {
+        e.preventDefault();
+        if (!newCertExpiry) return;
+        updateProfile({
+            certType:            newCertType,
+            certExpiry:          newCertExpiry,
+            certNumber:          newCertNumber.trim() || undefined,
+            certFileName:        newCertFile.trim() || undefined,
+            certStatus:          'in_attesa',
+            certRejectionReason: undefined,
+        });
+        setShowCertReupload(false);
     }
 
     // ── render ────────────────────────────────────────────────────────────────
@@ -625,6 +646,81 @@ export default function AthleteDashboardPage() {
                                             : '⏳ In attesa di verifica'}
                                     </span>
                                 </div>
+
+                                {/* Cert rifiutato: motivo + ri-caricamento */}
+                                {currentAthlete.certStatus === 'rifiutato' && (
+                                    <div className="mt-3">
+                                        {currentAthlete.certRejectionReason && (
+                                            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 text-sm text-red-700 mb-3">
+                                                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="font-medium">Certificato rifiutato</p>
+                                                    <p className="text-xs mt-0.5">{currentAthlete.certRejectionReason}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {!showCertReupload ? (
+                                            <button
+                                                onClick={() => {
+                                                    setNewCertType(currentAthlete.certType ?? 'agonistico');
+                                                    setNewCertExpiry(currentAthlete.certExpiry ?? '');
+                                                    setNewCertNumber(currentAthlete.certNumber ?? '');
+                                                    setNewCertFile('');
+                                                    setShowCertReupload(true);
+                                                }}
+                                                className="flex items-center gap-1.5 text-sm font-medium text-ocean-600 hover:text-ocean-800 transition-colors"
+                                            >
+                                                <Edit3 className="h-3.5 w-3.5" /> Ricarica certificato corretto
+                                            </button>
+                                        ) : (
+                                            <form onSubmit={handleCertReupload} className="space-y-3 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Nuovo certificato</p>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">Tipo certificato</label>
+                                                    <select
+                                                        value={newCertType}
+                                                        onChange={e => setNewCertType(e.target.value as typeof newCertType)}
+                                                        className={inputCls}
+                                                    >
+                                                        <option value="agonistico">Agonistico</option>
+                                                        <option value="non_agonistico">Non agonistico</option>
+                                                        <option value="esenzione">Esenzione</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">Scadenza <span className="text-red-500">*</span></label>
+                                                    <input type="date" required value={newCertExpiry}
+                                                        min={new Date().toISOString().slice(0, 10)}
+                                                        onChange={e => setNewCertExpiry(e.target.value)}
+                                                        className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">Numero certificato</label>
+                                                    <input type="text" value={newCertNumber}
+                                                        onChange={e => setNewCertNumber(e.target.value)}
+                                                        placeholder="Facoltativo"
+                                                        className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-700 mb-1">File certificato (PDF / immagine)</label>
+                                                    <input type="file" accept="application/pdf,image/*"
+                                                        onChange={e => setNewCertFile(e.target.files?.[0]?.name ?? '')}
+                                                        className="block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100" />
+                                                </div>
+                                                <div className="flex gap-2 pt-1">
+                                                    <button type="submit"
+                                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors">
+                                                        <Check className="h-3.5 w-3.5" /> Invia per verifica
+                                                    </button>
+                                                    <button type="button" onClick={() => setShowCertReupload(false)}
+                                                        className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs hover:bg-slate-50 transition-colors">
+                                                        Annulla
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

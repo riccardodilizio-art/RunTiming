@@ -15,6 +15,12 @@ function persistAccounts(list: AthleteAccount[]) {
     localStorage.setItem(LS_ACCOUNTS_KEY, JSON.stringify(list));
 }
 
+/** Admin-side: aggiorna un account atleta senza richiedere il contesto React */
+export function updateAthleteAccount(id: string, updates: Partial<AthleteAccount>) {
+    const list = loadAthleteAccounts().map(a => a.id === id ? { ...a, ...updates } : a);
+    persistAccounts(list);
+}
+
 function loadSession(): AthleteAccount | null {
     try { const r = localStorage.getItem(LS_SESSION_KEY); return r ? JSON.parse(r) : null; }
     catch { return null; }

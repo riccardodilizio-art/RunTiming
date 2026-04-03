@@ -93,8 +93,9 @@ export interface AthleteAccount {
     certType?: 'agonistico' | 'non_agonistico' | 'esenzione';
     certExpiry?: string;        // ISO YYYY-MM-DD
     certNumber?: string;
-    certStatus?: CertStatus;    // verificato dall'admin una volta sola
-    certFileName?: string;      // UI-only fino al backend
+    certStatus?: CertStatus;            // verificato dall'admin una volta sola
+    certFileName?: string;              // UI-only fino al backend
+    certRejectionReason?: string;       // motivo del rifiuto da parte dell'admin
     createdAt: string;
 }
 

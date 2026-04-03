@@ -68,6 +68,23 @@ function persistRegistrations(list: RegistrationSubmission[]) {
     localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
 }
 
+/**
+ * Admin-side: sincronizza il certStatus su tutte le iscrizioni di un atleta.
+ * Chiamato quando l'admin approva o rifiuta il certificato sull'account.
+ */
+export function syncAthleteRegistrationsCert(
+    athleteAccountId: string,
+    certStatus: CertStatus,
+    certRejectionReason?: string,
+) {
+    const list = loadRegistrations().map(r => {
+        if (r.athleteAccountId !== athleteAccountId) return r;
+        if (r.certStatus === 'non_richiesto' || r.certStatus === undefined) return r;
+        return { ...r, certStatus, certRejectionReason };
+    });
+    persistRegistrations(list);
+}
+
 // ─── Users (organizers) ───────────────────────────────────────────────────────
 
 const LS_USERS_KEY = 'rt_users';
