@@ -9,6 +9,7 @@ import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
 import { calcCommissionAmount } from '../../utils/commission';
 import { useAuth } from '../../context/AuthContext';
 import FormBuilder from '../../components/admin/FormBuilder';
+import DynamicForm from '../../components/registration/DynamicForm';
 import AccountsSection from './AccountsSection';
 import DiscountSection from './DiscountSection';
 import UsersSection from './UsersSection';
@@ -378,10 +379,13 @@ function RaceEditor({
     const [tab, setTab] = useState<RaceTab>('info');
     const [regKey, setRegKey] = useState(0);
     const [showManualReg, setShowManualReg] = useState(false);
-    const { getRegistrationsByRace, updatePaymentStatus, updateCertStatus, deleteRegistration, getResults, saveResults } = useAdminStore();
+    const { getRegistrationsByRace, updatePaymentStatus, updateCertStatus, updateRegistration, deleteRegistration, getResults, saveResults } = useAdminStore();
     const [draftResults, setDraftResults] = useState<Result[]>(() => getResults(race.id));
     const [resultsSaved, setResultsSaved] = useState(false);
     const [certFilter, setCertFilter] = useState<'all' | 'in_attesa'>('all');
+    const [regSearch, setRegSearch] = useState('');
+    const [editingAdminReg, setEditingAdminReg] = useState<RegistrationSubmission | null>(null);
+    const [editAdminFormData, setEditAdminFormData] = useState<Record<string, string | boolean>>({});
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
         onChange({ ...race, [key]: value });
@@ -407,6 +411,18 @@ function RaceEditor({
 
     function handleDeleteReg(regId: string) {
         deleteRegistration(regId);
+        setRegKey(k => k + 1);
+    }
+
+    function openAdminEdit(reg: RegistrationSubmission) {
+        setEditingAdminReg(reg);
+        setEditAdminFormData({ ...reg.formData });
+    }
+
+    function handleAdminEditSave() {
+        if (!editingAdminReg) return;
+        updateRegistration(editingAdminReg.id, { formData: editAdminFormData });
+        setEditingAdminReg(null);
         setRegKey(k => k + 1);
     }
     const formFields = race.formSchema ?? [];
@@ -713,6 +729,22 @@ function RaceEditor({
                                 <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
                             </h4>
                             <div className="flex items-center gap-2 flex-wrap">
+                                {/* Ricerca libera */}
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Cerca iscritto…"
+                                        value={regSearch}
+                                        onChange={e => setRegSearch(e.target.value)}
+                                        className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-ocean-500 w-44"
+                                    />
+                                    {regSearch && (
+                                        <button onClick={() => setRegSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
                                 {/* Filtro certificati */}
                                 {race.requiresMedicalCert && (
                                     <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
@@ -758,12 +790,23 @@ function RaceEditor({
                         </div>
 
                         {(() => {
-                            const filtered = certFilter === 'in_attesa'
-                                ? registrations.filter(r => r.certStatus === 'in_attesa')
-                                : registrations;
+                            const q = regSearch.toLowerCase().trim();
+                            const filtered = registrations
+                                .filter(r => certFilter === 'in_attesa' ? r.certStatus === 'in_attesa' : true)
+                                .filter(r => {
+                                    if (!q) return true;
+                                    // cerca in tutti i valori del form + categoria assegnata
+                                    const haystack = [
+                                        ...Object.values(r.formData).map(v => String(v ?? '')),
+                                        r.assignedCategory ?? '',
+                                    ].join(' ').toLowerCase();
+                                    return haystack.includes(q);
+                                });
                             return filtered.length === 0 ? (
                                 <p className="text-sm text-slate-400 italic">
-                                    {certFilter === 'in_attesa'
+                                    {q
+                                        ? `Nessun risultato per "${regSearch}".`
+                                        : certFilter === 'in_attesa'
                                         ? 'Nessun certificato in attesa di verifica.'
                                         : 'Nessuna iscrizione ricevuta per questa gara.'}
                                 </p>
@@ -832,14 +875,24 @@ function RaceEditor({
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
-                                                            className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
-                                                            title="Elimina iscrizione"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </button>
+                                                        <div className="flex items-center gap-0.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openAdminEdit(reg)}
+                                                                className="p-1 rounded hover:bg-ocean-50 text-slate-400 hover:text-ocean-600"
+                                                                title="Modifica iscrizione"
+                                                            >
+                                                                <Edit2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
+                                                                className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+                                                                title="Elimina iscrizione"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -858,6 +911,52 @@ function RaceEditor({
                             onSaved={() => setRegKey(k => k + 1)}
                         />
                     )}
+
+                    {/* Modal modifica iscrizione (admin) */}
+                    {editingAdminReg && (() => {
+                        const fields = (race.formSchema ?? []).filter(f => !f.readOnly);
+                        return (
+                            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                                        <div>
+                                            <h3 className="font-semibold text-slate-800">Modifica iscrizione</h3>
+                                            <p className="text-xs text-slate-500 mt-0.5">{race.name}</p>
+                                        </div>
+                                        <button onClick={() => setEditingAdminReg(null)} className="text-slate-400 hover:text-slate-600">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="overflow-y-auto px-6 py-4 flex-1">
+                                        {fields.length === 0 ? (
+                                            <p className="text-sm text-slate-400 italic">Nessun campo modificabile per questa gara.</p>
+                                        ) : (
+                                            <DynamicForm
+                                                fields={fields}
+                                                data={editAdminFormData}
+                                                onChange={setEditAdminFormData}
+                                                errors={{}}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
+                                        <button
+                                            onClick={handleAdminEditSave}
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
+                                        >
+                                            <Check className="h-4 w-4" /> Salva modifiche
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingAdminReg(null)}
+                                            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm hover:bg-slate-50 transition-colors"
+                                        >
+                                            Annulla
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
         </div>
