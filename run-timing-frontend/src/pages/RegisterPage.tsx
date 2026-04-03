@@ -5,6 +5,7 @@ import {
     CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck, User,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/useAdminStore';
+import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/AthleteAuthContext';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
@@ -14,12 +15,12 @@ import { assignCategory } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getActivePrice(race: Race): { price: number; label: string } {
+function getActivePrice(race: Race): { price: number; label: string; step: PriceStep | undefined } {
     const today = new Date().toISOString().slice(0, 10);
     const steps = (race.priceSteps ?? []).filter(s => s.deadline >= today);
-    if (steps.length === 0) return { price: race.price, label: 'Prezzo base' };
+    if (steps.length === 0) return { price: race.price, label: 'Prezzo base', step: undefined };
     const best = steps.reduce<PriceStep>((a, b) => b.price < a.price ? b : a, steps[0]);
-    return { price: best.price, label: best.label };
+    return { price: best.price, label: best.label, step: best };
 }
 
 function formatPrice(n: number) {
@@ -748,16 +749,22 @@ export default function RegisterPage() {
     }
 
     // Price calculation
-    const basePrice = useMemo(() => selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace]);
+    const activeStep = useMemo(() => selectedRace ? getActivePrice(selectedRace).step : undefined, [selectedRace]);
+    const basePrice  = useMemo(() => selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace]);
     const discountAmount = useMemo(
         () => appliedDiscount ? calcDiscount(basePrice, appliedDiscount) : 0,
         [appliedDiscount, basePrice]
     );
+    // Commissione effettiva: step > gara > evento > globale
+    const effectiveCommission = useMemo(
+        () => resolveCommission(commission, event, selectedRace ?? undefined, activeStep),
+        [commission, event, selectedRace, activeStep]
+    );
     const commissionAmount = useMemo(() => {
-        if (commission.appliedTo !== 'buyer') return 0;
+        if (effectiveCommission.appliedTo !== 'buyer') return 0;
         const afterDiscount = Math.max(0, basePrice - discountAmount);
-        return Math.round((commission.fixedFee + afterDiscount * commission.percentFee / 100) * 100) / 100;
-    }, [commission, basePrice, discountAmount]);
+        return calcCommissionAmount(effectiveCommission, afterDiscount);
+    }, [effectiveCommission, basePrice, discountAmount]);
     const totalPrice = Math.max(0, basePrice - discountAmount + commissionAmount);
     const isFree = totalPrice <= 0;
 

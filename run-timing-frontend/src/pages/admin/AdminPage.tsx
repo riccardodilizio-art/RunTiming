@@ -6,6 +6,7 @@ import {
     SlidersHorizontal, ChevronDown, Download, Trophy, BarChart2, ShieldCheck, ShieldX, ShieldAlert,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
+import { calcCommissionAmount } from '../../utils/commission';
 import { useAuth } from '../../context/AuthContext';
 import FormBuilder from '../../components/admin/FormBuilder';
 import AccountsSection from './AccountsSection';
@@ -14,7 +15,7 @@ import UsersSection from './UsersSection';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
 import type {
     Event, Race, FormField, PriceStep, SportCategory, RouteInfo, ElevationPoint, RaceCategory,
-    RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus,
+    RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, CommissionConfig,
 } from '../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,6 +102,97 @@ function RaceStatsBar({ regs }: { regs: RegistrationSubmission[] }) {
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
 
+// ─── CommissionOverrideEditor ─────────────────────────────────────────────────
+
+/**
+ * Componente riutilizzabile per impostare una commissione opzionale a qualsiasi livello
+ * (evento, gara, step di quota). Se non abilitata, eredita dal livello superiore.
+ */
+function CommissionOverrideEditor({
+    commission,
+    onChange,
+    inheritLabel,
+    examplePrice = 10,
+}: {
+    commission: CommissionConfig | undefined;
+    onChange: (c: CommissionConfig | undefined) => void;
+    inheritLabel: string;     // es. "Eredita dalla gara" / "Eredita dall'evento"
+    examplePrice?: number;
+}) {
+    const enabled = commission !== undefined;
+
+    function enable() {
+        onChange({ fixedFee: 0, percentFee: 0, appliedTo: 'buyer' });
+    }
+    function disable() { onChange(undefined); }
+    function set<K extends keyof CommissionConfig>(key: K, value: CommissionConfig[K]) {
+        if (!commission) return;
+        onChange({ ...commission, [key]: value });
+    }
+
+    const preview = enabled && commission
+        ? calcCommissionAmount(commission, examplePrice)
+        : null;
+
+    return (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={e => e.target.checked ? enable() : disable()}
+                        className="accent-ocean-600 h-4 w-4"
+                    />
+                    <span className="text-sm font-medium text-slate-700">Commissione personalizzata</span>
+                </label>
+                {!enabled && (
+                    <span className="text-xs text-slate-400 italic">{inheritLabel}</span>
+                )}
+            </div>
+            {enabled && commission && (
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Quota fissa (€)</label>
+                        <input
+                            type="number" min={0} step={0.1}
+                            value={commission.fixedFee}
+                            onChange={e => set('fixedFee', parseFloat(e.target.value) || 0)}
+                            className={inputCls}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Percentuale (%)</label>
+                        <input
+                            type="number" min={0} step={0.1} max={100}
+                            value={commission.percentFee}
+                            onChange={e => set('percentFee', parseFloat(e.target.value) || 0)}
+                            className={inputCls}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">A carico di</label>
+                        <select
+                            value={commission.appliedTo}
+                            onChange={e => set('appliedTo', e.target.value as CommissionConfig['appliedTo'])}
+                            className={inputCls}
+                        >
+                            <option value="buyer">Atleta</option>
+                            <option value="organizer">Organizzatore</option>
+                        </select>
+                    </div>
+                    {preview !== null && (
+                        <p className="col-span-3 text-xs text-slate-400">
+                            Es. quota {formatPrice(examplePrice)} → commissione {formatPrice(preview)}
+                            {commission.appliedTo === 'buyer' ? ' (a carico atleta)' : ' (dedotta all\'organizzatore)'}
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── PriceStepEditor ──────────────────────────────────────────────────────────
 
 function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s: PriceStep[]) => void }) {
@@ -114,44 +206,51 @@ function PriceStepEditor({ steps, onChange }: { steps: PriceStep[]; onChange: (s
 
     return (
         <div className="space-y-3">
-            {steps.map((step, idx) => (
-                <div key={step.id} className="grid grid-cols-12 gap-2 items-start">
-                    <div className="col-span-4">
-                        {idx === 0 && <label className="block text-xs text-slate-500 mb-1">Etichetta</label>}
-                        <input
-                            type="text"
-                            value={step.label}
-                            onChange={e => update(step.id, 'label', e.target.value)}
-                            className={inputCls}
-                            placeholder="es. Early Bird"
-                        />
+            {steps.map(step => (
+                <div key={step.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                    {/* Riga principale */}
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-4">
+                            <label className="block text-xs text-slate-500 mb-1">Etichetta</label>
+                            <input
+                                type="text"
+                                value={step.label}
+                                onChange={e => update(step.id, 'label', e.target.value)}
+                                className={inputCls}
+                                placeholder="es. Early Bird"
+                            />
+                        </div>
+                        <div className="col-span-3">
+                            <label className="block text-xs text-slate-500 mb-1">Prezzo (€)</label>
+                            <input
+                                type="number" min={0} step={0.5}
+                                value={step.price}
+                                onChange={e => update(step.id, 'price', parseFloat(e.target.value) || 0)}
+                                className={inputCls}
+                            />
+                        </div>
+                        <div className="col-span-4">
+                            <label className="block text-xs text-slate-500 mb-1">Scadenza</label>
+                            <input
+                                type="date"
+                                value={step.deadline}
+                                onChange={e => update(step.id, 'deadline', e.target.value)}
+                                className={inputCls}
+                            />
+                        </div>
+                        <div className="col-span-1 flex justify-end pt-4">
+                            <button type="button" onClick={() => remove(step.id)} className="p-1.5 rounded hover:bg-red-50">
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                            </button>
+                        </div>
                     </div>
-                    <div className="col-span-3">
-                        {idx === 0 && <label className="block text-xs text-slate-500 mb-1">Prezzo (€)</label>}
-                        <input
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            value={step.price}
-                            onChange={e => update(step.id, 'price', parseFloat(e.target.value) || 0)}
-                            className={inputCls}
-                        />
-                    </div>
-                    <div className="col-span-4">
-                        {idx === 0 && <label className="block text-xs text-slate-500 mb-1">Scadenza</label>}
-                        <input
-                            type="date"
-                            value={step.deadline}
-                            onChange={e => update(step.id, 'deadline', e.target.value)}
-                            className={inputCls}
-                        />
-                    </div>
-                    <div className="col-span-1 flex items-end pb-0.5">
-                        {idx === 0 && <div className="h-5 mb-1" />}
-                        <button type="button" onClick={() => remove(step.id)} className="p-1.5 rounded hover:bg-red-50">
-                            <Trash2 className="h-4 w-4 text-red-400" />
-                        </button>
-                    </div>
+                    {/* Commissione per questo step */}
+                    <CommissionOverrideEditor
+                        commission={step.commission}
+                        onChange={c => update(step.id, 'commission', c)}
+                        inheritLabel="Eredita dalla gara o dall'evento"
+                        examplePrice={step.price || 10}
+                    />
                 </div>
             ))}
             <button
@@ -536,15 +635,33 @@ function RaceEditor({
             )}
 
             {tab === 'prices' && (
-                <div className="max-w-2xl">
-                    <p className="text-sm text-slate-500 mb-4">
-                        Definisci le quote per scaglioni temporali. Il prezzo attivo sarà quello con scadenza più vicina non ancora passata.
-                        Se non ci sono quote attive si usa il prezzo base ({formatPrice(race.price)}).
-                    </p>
-                    <PriceStepEditor
-                        steps={race.priceSteps ?? []}
-                        onChange={(steps: PriceStep[]) => set('priceSteps', steps)}
-                    />
+                <div className="max-w-2xl space-y-6">
+                    {/* Commissione a livello di gara */}
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <Euro className="h-4 w-4 text-ocean-500" /> Commissione per questa gara
+                        </h4>
+                        <CommissionOverrideEditor
+                            commission={race.commission}
+                            onChange={c => set('commission', c)}
+                            inheritLabel="Eredita dalla commissione dell'evento o globale"
+                            examplePrice={race.price || 10}
+                        />
+                    </div>
+
+                    {/* Quote scaglionate */}
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Quote scaglionate</h4>
+                        <p className="text-sm text-slate-500 mb-3">
+                            Il prezzo attivo sarà quello con scadenza più vicina non ancora passata.
+                            Se nessuno step è attivo si usa il prezzo base ({formatPrice(race.price)}).
+                            Ogni step può avere la propria commissione che sovrascrive quella della gara.
+                        </p>
+                        <PriceStepEditor
+                            steps={race.priceSteps ?? []}
+                            onChange={(steps: PriceStep[]) => set('priceSteps', steps)}
+                        />
+                    </div>
                 </div>
             )}
 
@@ -1350,6 +1467,23 @@ function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Even
                                 </p>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Commissione a livello di evento */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-3">
+                            <Euro className="h-4 w-4 text-ocean-600" /> Commissione evento
+                        </h3>
+                        <p className="text-sm text-slate-500 mb-3">
+                            Si applica a tutte le gare di questo evento che non hanno una commissione specifica.
+                            Puoi sovrascriverla per singola gara o per singolo step di quota.
+                        </p>
+                        <CommissionOverrideEditor
+                            commission={draft.commission}
+                            onChange={c => set('commission', c)}
+                            inheritLabel="Usa la commissione globale (impostata in Sconti)"
+                            examplePrice={20}
+                        />
                     </div>
 
                     {/* Percorso altimetrico */}

@@ -38,6 +38,8 @@ export interface PriceStep {
     label: string;
     price: number;
     deadline: string;
+    /** Commissione specifica per questo step (sovrascrive gara/evento/globale) */
+    commission?: CommissionConfig;
 }
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected';
@@ -173,6 +175,8 @@ export interface Race {
     priceSteps?: PriceStep[];
     publicFields?: string[];
     categories?: RaceCategory[];   // categorie agonistiche per questa gara
+    /** Commissione specifica per questa gara (sovrascrive evento/globale) */
+    commission?: CommissionConfig;
 }
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';
@@ -232,6 +236,8 @@ export interface Event {
     description?: string;
     regulationUrl?: string;
     routeInfo?: RouteInfo;
+    /** Commissione specifica per questo evento (sovrascrive globale) */
+    commission?: CommissionConfig;
 }
 
 export interface Athlete {
