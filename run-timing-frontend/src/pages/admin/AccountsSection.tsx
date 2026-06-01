@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
     ShieldCheck, ShieldX, ShieldAlert, Search, User, Mail, X,
 } from 'lucide-react';
-import { loadAthleteAccounts, updateAthleteAccount } from '../../context/AthleteAuthContext';
+import { loadAthleteAccounts, updateAthleteAccount } from '../../context/athleteAccounts';
 import { syncAthleteRegistrationsCert } from '../../hooks/useAdminStore';
 import type { AthleteAccount, CertStatus } from '../../types';
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Users, Eye, Search, X } from 'lucide-react';
-import { useAdminStore, loadRegistrations } from '../hooks/useAdminStore';
+import { useAdminStore } from '../hooks/useAdminStore';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import type { FormField, RegistrationSubmission } from '../types';
 
@@ -164,14 +164,14 @@ function RaceTable({
 
 export default function ParticipantsPage() {
     const { slug } = useParams<{ slug: string }>();
-    const { getEvent } = useAdminStore();
+    const { getEvent, registrations } = useAdminStore();
     const event = getEvent(slug ?? '');
 
     const [filters, setFilters] = useState<Filters>({ text: '', category: '', societa: '' });
 
     const allRegistrations = useMemo(
-        () => loadRegistrations().filter(r => r.eventId === event?.id),
-        [event?.id]
+        () => registrations.filter(r => r.eventId === event?.id),
+        [registrations, event?.id]
     );
 
     // Collect all unique categories and società across all races for the filter dropdowns

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Timer, LayoutDashboard, LogOut, ChevronDown, User } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useAthleteAuth } from '../../context/AthleteAuthContext';
+import { useAuth } from '../../context/useAuth';
+import { useAthleteAuth } from '../../context/useAthleteAuth';
 
 const navLinks = [
     { label: 'Home',          href: '/' },

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useSyncExternalStore } from 'react';
 import { mockEvents } from '../data/mockEvents';
 import type {
     Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus, CertStatus, Result,
@@ -47,25 +47,47 @@ function loadCommission(): CommissionConfig {
 }
 function persistCommission(c: CommissionConfig) { localStorage.setItem(LS_COMMISSION_KEY, JSON.stringify(c)); }
 
-// ─── Registrations ────────────────────────────────────────────────────────────
+// ─── Registrations (shared store) ───────────────────────────────────────────────
+//
+// A tiny module-level store backed by localStorage. Unlike per-component
+// `useState`, this is shared across every `useAdminStore()` consumer and
+// notifies subscribers on every mutation, so the UI stays in sync without
+// manual re-read hacks. (When the backend lands, swap the LS calls for fetch.)
 
 const LS_REG_KEY = 'rt_registrations';
 
-export function loadRegistrations(): RegistrationSubmission[] {
+function readRegistrationsFromLS(): RegistrationSubmission[] {
     try { const raw = localStorage.getItem(LS_REG_KEY); return raw ? JSON.parse(raw) : []; }
     catch { return []; }
 }
 
-export function saveRegistration(sub: RegistrationSubmission) {
-    try {
-        const list = loadRegistrations();
-        list.push(sub);
-        localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
-    } catch { /* ignore */ }
+let registrationsCache: RegistrationSubmission[] | null = null;
+const regListeners = new Set<() => void>();
+
+function getRegistrationsSnapshot(): RegistrationSubmission[] {
+    if (registrationsCache === null) registrationsCache = readRegistrationsFromLS();
+    return registrationsCache;
 }
 
-function persistRegistrations(list: RegistrationSubmission[]) {
-    localStorage.setItem(LS_REG_KEY, JSON.stringify(list));
+function subscribeRegistrations(cb: () => void): () => void {
+    regListeners.add(cb);
+    return () => { regListeners.delete(cb); };
+}
+
+/** Replace the registration list, persist it, and notify all subscribers. */
+function commitRegistrations(list: RegistrationSubmission[]) {
+    registrationsCache = list;
+    try { localStorage.setItem(LS_REG_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+    regListeners.forEach(l => l());
+}
+
+/** Read the current registrations (kept for non-reactive call sites). */
+export function loadRegistrations(): RegistrationSubmission[] {
+    return getRegistrationsSnapshot();
+}
+
+export function saveRegistration(sub: RegistrationSubmission) {
+    commitRegistrations([...getRegistrationsSnapshot(), sub]);
 }
 
 /**
@@ -77,12 +99,12 @@ export function syncAthleteRegistrationsCert(
     certStatus: CertStatus,
     certRejectionReason?: string,
 ) {
-    const list = loadRegistrations().map(r => {
+    const list = getRegistrationsSnapshot().map(r => {
         if (r.athleteAccountId !== athleteAccountId) return r;
         if (r.certStatus === 'non_richiesto' || r.certStatus === undefined) return r;
         return { ...r, certStatus, certRejectionReason };
     });
-    persistRegistrations(list);
+    commitRegistrations(list);
 }
 
 // ─── Users (organizers) ───────────────────────────────────────────────────────
@@ -206,43 +228,41 @@ export function useAdminStore() {
         persistCommission(c);
     }
 
-    // Registrations
+    // Registrations (reactive — re-renders on any mutation, anywhere)
+    const registrations = useSyncExternalStore(subscribeRegistrations, getRegistrationsSnapshot);
+
     function getRegistrations(): RegistrationSubmission[] {
-        return loadRegistrations();
+        return registrations;
     }
 
     function getRegistrationsByEvent(eventId: string): RegistrationSubmission[] {
-        return loadRegistrations().filter(r => r.eventId === eventId);
+        return registrations.filter(r => r.eventId === eventId);
     }
 
     function getRegistrationsByRace(raceId: string): RegistrationSubmission[] {
-        return loadRegistrations().filter(r => r.raceId === raceId);
+        return registrations.filter(r => r.raceId === raceId);
     }
 
     function updatePaymentStatus(registrationId: string, status: PaymentStatus) {
-        const list = loadRegistrations().map(r =>
+        commitRegistrations(registrations.map(r =>
             r.id === registrationId ? { ...r, paymentStatus: status } : r
-        );
-        persistRegistrations(list);
+        ));
     }
 
     function deleteRegistration(registrationId: string) {
-        const list = loadRegistrations().filter(r => r.id !== registrationId);
-        persistRegistrations(list);
+        commitRegistrations(registrations.filter(r => r.id !== registrationId));
     }
 
     function updateRegistration(id: string, updates: Partial<RegistrationSubmission>) {
-        const list = loadRegistrations().map(r => r.id === id ? { ...r, ...updates } : r);
-        persistRegistrations(list);
+        commitRegistrations(registrations.map(r => r.id === id ? { ...r, ...updates } : r));
     }
 
     function updateCertStatus(registrationId: string, status: CertStatus, rejectionReason?: string) {
-        const list = loadRegistrations().map(r =>
+        commitRegistrations(registrations.map(r =>
             r.id === registrationId
                 ? { ...r, certStatus: status, certRejectionReason: rejectionReason ?? r.certRejectionReason }
                 : r
-        );
-        persistRegistrations(list);
+        ));
     }
 
     // Results
@@ -286,6 +306,7 @@ export function useAdminStore() {
         // commissions
         commission, saveCommission,
         // registrations
+        registrations,
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
         updatePaymentStatus, updateCertStatus, updateRegistration, deleteRegistration,
         // results

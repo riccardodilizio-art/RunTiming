@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/useAdminStore';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
-import { useAthleteAuth } from '../context/AthleteAuthContext';
+import { useAthleteAuth } from '../context/useAthleteAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';

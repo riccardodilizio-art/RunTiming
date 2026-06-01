@@ -1,12 +1,12 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
     Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle,
 } from 'lucide-react';
-import { useAthleteAuth } from '../context/AthleteAuthContext';
-import { loadRegistrations, loadResults, useAdminStore } from '../hooks/useAdminStore';
+import { useAthleteAuth } from '../context/useAthleteAuth';
+import { loadResults, useAdminStore } from '../hooks/useAdminStore';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
 import type { RegistrationSubmission, Event as EventType } from '../types';
@@ -86,7 +86,7 @@ function buildRaceLookup() {
     const map: Record<string, { eventTitle: string; raceName: string; date: string; city: string; distanceKm: number }> = {};
 
     // load admin overrides
-    let allEvents = [...mockEvents];
+    const allEvents = [...mockEvents];
     try {
         const overrides = JSON.parse(localStorage.getItem('rt_admin_events') ?? '[]');
         for (const ov of overrides) {
@@ -130,11 +130,10 @@ export default function AthleteDashboardPage() {
     const [newCertFile, setNewCertFile]   = useState('');
 
     // Edit/delete registrations
-    const [regKey, setRegKey] = useState(0); // triggers re-read
     const [editingReg, setEditingReg] = useState<RegistrationSubmission | null>(null);
     const [editFormData, setEditFormData] = useState<Record<string, string | boolean>>({});
     const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
-    const { updateRegistration, deleteRegistration, events } = useAdminStore();
+    const { updateRegistration, deleteRegistration, events, registrations } = useAdminStore();
 
     // edit form state mirrors currentAthlete fields
     const [editForm, setEditForm] = useState(() => ({
@@ -146,20 +145,20 @@ export default function AthleteDashboardPage() {
         runcardTessera: currentAthlete?.runcardTessera ?? '',
     }));
 
-    if (!currentAthlete) {
-        navigate('/accedi', { replace: true });
-        return null;
-    }
+    // Redirect to login if not authenticated (in an effect — never during render)
+    useEffect(() => {
+        if (!currentAthlete) navigate('/accedi', { replace: true });
+    }, [currentAthlete, navigate]);
 
     // ── data ─────────────────────────────────────────────────────────────────
 
     const raceLookup = useMemo(() => buildRaceLookup(), []);
     const resultsMap = useMemo(() => loadResults(), []);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const athleteId = currentAthlete?.id;
     const myRegistrations = useMemo(
-        () => loadRegistrations().filter(r => r.athleteAccountId === currentAthlete.id),
-        [currentAthlete.id, regKey]
+        () => registrations.filter(r => r.athleteAccountId === athleteId),
+        [registrations, athleteId]
     );
 
     const handleFormChange = useCallback((data: Record<string, string | boolean>) => {
@@ -175,17 +174,16 @@ export default function AthleteDashboardPage() {
         if (!editingReg) return;
         updateRegistration(editingReg.id, { formData: editFormData });
         setEditingReg(null);
-        setRegKey(k => k + 1);
     }
 
     function confirmDelete(regId: string) {
         deleteRegistration(regId);
         setDeletingRegId(null);
-        setRegKey(k => k + 1);
     }
 
     /** Enrich registrations with event/race info and optional result */
     const enrichedRegs = useMemo(() => {
+        if (!currentAthlete) return [];
         return myRegistrations.map(reg => {
             const info = raceLookup[reg.raceId];
             const raceResults = resultsMap[reg.raceId] ?? [];
@@ -237,6 +235,9 @@ export default function AthleteDashboardPage() {
             podiums,
         };
     }, [enrichedRegs, myRegistrations]);
+
+    // All hooks are above this line; safe to bail out now (effect handles redirect).
+    if (!currentAthlete) return null;
 
     // ── handlers ──────────────────────────────────────────────────────────────
 

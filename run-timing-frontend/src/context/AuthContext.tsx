@@ -1,9 +1,10 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { AppUser, UserRole } from '../types';
+import { useState, useCallback, type ReactNode } from 'react';
+import type { AppUser } from '../types';
+import { AuthContext } from './useAuth';
 
 // ─── Default admin user (always exists) ──────────────────────────────────────
 
-export const DEFAULT_ADMIN: AppUser = {
+const DEFAULT_ADMIN: AppUser = {
     id: 'admin',
     username: 'admin',
     password: 'admin123',
@@ -29,18 +30,7 @@ function persistSession(user: AppUser | null) {
     else localStorage.removeItem(LS_SESSION_KEY);
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-
-interface AuthContextValue {
-    currentUser: AppUser | null;
-    isAdmin: boolean;
-    isOrganizer: boolean;
-    login: (username: string, password: string, users: AppUser[]) => AppUser | null;
-    logout: () => void;
-    canManageEvent: (eventId: string) => boolean;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<AppUser | null>(() => loadSession());
@@ -77,11 +67,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         </AuthContext.Provider>
     );
 }
-
-export function useAuth(): AuthContextValue {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-    return ctx;
-}
-
-export type { UserRole };
