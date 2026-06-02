@@ -4,6 +4,7 @@ import { AthleteAuthProvider } from './context/AthleteAuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import ScrollToTop from './components/layout/ScrollToTop';
 import HomePage from './pages/HomePage';
 import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
@@ -23,7 +24,10 @@ export default function App() {
         <AuthProvider>
             <AthleteAuthProvider>
                 <BrowserRouter>
+                    <ScrollToTop />
+                    <div className="min-h-screen flex flex-col">
                     <Navbar />
+                    <div className="flex-1 flex flex-col">
                     <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/events" element={<EventsPage />} />
@@ -43,7 +47,9 @@ export default function App() {
                         } />
                         <Route path="/organizer" element={<OrganizerPage />} />
                     </Routes>
+                    </div>
                     <Footer />
+                    </div>
                 </BrowserRouter>
             </AthleteAuthProvider>
         </AuthProvider>
