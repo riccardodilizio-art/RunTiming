@@ -36,14 +36,14 @@ export default function RouteInfoEditor({
         <div className="bg-white rounded-xl border border-slate-200 p-5">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                    <Route className="h-4 w-4 text-ocean-600" /> Percorso altimetrico
+                    <Route className="h-4 w-4 text-brand-600" /> Percorso altimetrico
                 </h3>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
                         type="checkbox"
                         checked={enabled}
                         onChange={e => onChange(e.target.checked ? ri : undefined)}
-                        className="accent-ocean-600 h-4 w-4"
+                        className="accent-brand-600 h-4 w-4"
                     />
                     <span className="text-sm text-slate-600">Includi dati altimetrici</span>
                 </label>

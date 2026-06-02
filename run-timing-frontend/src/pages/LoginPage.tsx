@@ -5,7 +5,7 @@ import { useAuth } from '../context/useAuth';
 import { loadUsers } from '../hooks/useAdminStore';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -40,7 +40,7 @@ export default function LoginPage() {
             <div className="w-full max-w-sm">
                 {/* Logo / header */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-ocean-600 mb-4">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 mb-4">
                         <LogIn className="w-7 h-7 text-white" />
                     </div>
                     <h1 className="font-display font-700 text-2xl text-slate-800">Accesso area riservata</h1>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-ocean-600 hover:bg-ocean-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
                     >
                         {loading ? (
                             <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />

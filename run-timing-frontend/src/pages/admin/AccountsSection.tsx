@@ -65,7 +65,7 @@ function RejectModal({
                         value={reason}
                         onChange={e => setReason(e.target.value)}
                         placeholder="es. Certificato scaduto, tipo di certificato non idoneo alla gara..."
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
                 <div className="flex gap-3">
@@ -157,7 +157,7 @@ export default function AccountsSection() {
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {[
-                    { label: 'Account totali',      value: accounts.length, color: 'bg-ocean-50 border-ocean-200 text-ocean-700' },
+                    { label: 'Account totali',      value: accounts.length, color: 'bg-brand-50 border-brand-200 text-brand-700' },
                     { label: 'Cert. da verificare', value: pendingCount,    color: pendingCount  > 0 ? 'bg-amber-50 border-amber-200 text-amber-700'   : 'bg-slate-50 border-slate-200 text-slate-400' },
                     { label: 'Cert. verificati',    value: verifiedCount,   color: verifiedCount > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400' },
                     { label: 'Cert. rifiutati',     value: rejectedCount,   color: rejectedCount > 0 ? 'bg-red-50 border-red-200 text-red-700'           : 'bg-slate-50 border-slate-200 text-slate-400' },
@@ -171,7 +171,7 @@ export default function AccountsSection() {
 
             {/* Notifica email simulata */}
             {emailSentFor && (
-                <div className="mb-4 flex items-center gap-2 bg-ocean-50 border border-ocean-200 text-ocean-800 rounded-xl px-4 py-3 text-sm">
+                <div className="mb-4 flex items-center gap-2 bg-brand-50 border border-brand-200 text-brand-800 rounded-xl px-4 py-3 text-sm">
                     <Mail className="h-4 w-4 shrink-0" />
                     <span>
                         Notifica email inviata all'atleta con il motivo del rifiuto e le istruzioni per ricaricare il certificato.
@@ -188,7 +188,7 @@ export default function AccountsSection() {
                         placeholder="Cerca per nome, email, società..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -203,8 +203,8 @@ export default function AccountsSection() {
                             onClick={() => setCertFilter(f.key)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                                 certFilter === f.key
-                                    ? 'bg-ocean-600 text-white border-ocean-600'
-                                    : 'bg-white text-slate-600 border-slate-300 hover:border-ocean-400'
+                                    ? 'bg-brand-600 text-white border-brand-600'
+                                    : 'bg-white text-slate-600 border-slate-300 hover:border-brand-400'
                             }`}
                         >
                             {f.label}
@@ -241,15 +241,15 @@ export default function AccountsSection() {
                                     {/* Atleta */}
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-ocean-100 flex items-center justify-center shrink-0">
-                                                <span className="text-ocean-700 text-xs font-semibold">
+                                            <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+                                                <span className="text-brand-700 text-xs font-semibold">
                                                     {a.name[0]}{a.surname[0]}
                                                 </span>
                                             </div>
                                             <div>
                                                 <p className="font-medium text-slate-800">{a.surname} {a.name}</p>
                                                 <p className="text-xs text-slate-400">{a.email}</p>
-                                                {a.club && <p className="text-xs text-ocean-600">{a.club}</p>}
+                                                {a.club && <p className="text-xs text-brand-600">{a.club}</p>}
                                             </div>
                                         </div>
                                     </td>

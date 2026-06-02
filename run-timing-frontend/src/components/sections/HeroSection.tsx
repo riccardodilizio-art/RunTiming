@@ -41,7 +41,7 @@ export default function HeroSection() {
     return (
         <section
             className="relative overflow-hidden"
-            style={{ background: '#0a3c6e' }}
+            style={{ background: 'linear-gradient(165deg, #e8430a 0%, #b8350a 40%, #7a2510 100%)' }}
         >
             {/* ── White arch ────────────────────────────────────────────────── */}
             {/*  Positioned above the photos; its curved bottom edge frames them */}
@@ -82,12 +82,12 @@ export default function HeroSection() {
                 <h1 className="font-display font-800 text-3xl sm:text-4xl md:text-5xl text-white mb-3 leading-tight tracking-tight uppercase">
                     La tua prossima gara<br className="hidden sm:block" /> ti aspetta
                 </h1>
-                <p className="text-sky-200/80 text-sm sm:text-base mb-8 max-w-md mx-auto">
+                <p className="text-orange-200/85 text-sm sm:text-base mb-8 max-w-md mx-auto">
                     Iscriviti, segui i risultati live e gestisci la tua manifestazione sportiva in un'unica piattaforma italiana.
                 </p>
 
                 {/* Search */}
-                <form onSubmit={handleSearch} className="flex items-center max-w-lg mx-auto mb-6 bg-white rounded-full shadow-2xl overflow-hidden border-2 border-transparent focus-within:border-sky-300 transition-all">
+                <form onSubmit={handleSearch} className="flex items-center max-w-lg mx-auto mb-6 bg-white rounded-full shadow-2xl overflow-hidden border-2 border-transparent focus-within:border-brand-300 transition-all">
                     <Search className="w-5 h-5 text-slate-400 ml-4 shrink-0" />
                     <input
                         type="text"
@@ -98,7 +98,7 @@ export default function HeroSection() {
                     />
                     <button
                         type="submit"
-                        className="m-1.5 px-5 py-2.5 bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-semibold rounded-full flex items-center gap-1.5 transition-colors shrink-0"
+                        className="m-1.5 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-full flex items-center gap-1.5 transition-colors shrink-0"
                     >
                         Cerca <ArrowRight className="w-3.5 h-3.5" />
                     </button>

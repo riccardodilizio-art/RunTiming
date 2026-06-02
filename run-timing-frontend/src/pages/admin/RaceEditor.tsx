@@ -96,7 +96,7 @@ export default function RaceEditor({
 
     return (
         <div>
-            <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-ocean-600 hover:text-ocean-800 mb-4">
+            <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-800 mb-4">
                 <ChevronLeft className="h-4 w-4" /> Torna alle distanze
             </button>
             <h3 className="font-semibold text-slate-800 text-lg mb-4">{race.name}</h3>
@@ -110,7 +110,7 @@ export default function RaceEditor({
                         onClick={() => setTab(t.key)}
                         className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                             tab === t.key
-                                ? 'border-ocean-600 text-ocean-700'
+                                ? 'border-brand-600 text-brand-700'
                                 : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                     >
@@ -159,7 +159,7 @@ export default function RaceEditor({
                             type="checkbox"
                             checked={race.requiresMedicalCert}
                             onChange={e => set('requiresMedicalCert', e.target.checked)}
-                            className="accent-ocean-600 h-4 w-4"
+                            className="accent-brand-600 h-4 w-4"
                         />
                         <label htmlFor="requiresMedicalCert" className="text-sm text-slate-700">Certificato agonistico richiesto</label>
                     </div>
@@ -169,7 +169,7 @@ export default function RaceEditor({
                             type="checkbox"
                             checked={race.isOpen}
                             onChange={e => set('isOpen', e.target.checked)}
-                            className="accent-ocean-600 h-4 w-4"
+                            className="accent-brand-600 h-4 w-4"
                         />
                         <label htmlFor="isOpen" className="text-sm text-slate-700">Iscrizioni aperte</label>
                     </div>
@@ -201,7 +201,7 @@ export default function RaceEditor({
                                     setResultsSaved(true);
                                     setTimeout(() => setResultsSaved(false), 2000);
                                 }}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors"
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors"
                             >
                                 {resultsSaved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Salvato</> : <><Check className="h-3.5 w-3.5" /> Salva classifica</>}
                             </button>
@@ -236,7 +236,7 @@ export default function RaceEditor({
                                                         next[idx] = { ...next[idx], [field]: e.target.value };
                                                         setDraftResults(next);
                                                     }}
-                                                    className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ocean-400 focus:border-ocean-400"
+                                                    className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 focus:border-brand-400"
                                                     placeholder={field === 'bib' ? '001' : field === 'time' ? '1:23:45' : ''}
                                                 />
                                             </td>
@@ -249,7 +249,7 @@ export default function RaceEditor({
                                                     next[idx] = { ...next[idx], status: e.target.value as ResultStatus };
                                                     setDraftResults(next);
                                                 }}
-                                                className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ocean-400"
+                                                className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                                             >
                                                 <option value="finisher">Finisher</option>
                                                 <option value="dnf">DNF</option>
@@ -283,7 +283,7 @@ export default function RaceEditor({
                             position: draftResults.length + 1,
                             bib: '', athleteName: '', category: '', team: '', time: '', status: 'finisher',
                         }])}
-                        className="flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-800 transition-colors"
+                        className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-800 transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Aggiungi atleta
                     </button>
@@ -305,7 +305,7 @@ export default function RaceEditor({
                     {/* Commissione a livello di gara */}
                     <div>
                         <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                            <Euro className="h-4 w-4 text-ocean-500" /> Commissione per questa gara
+                            <Euro className="h-4 w-4 text-brand-500" /> Commissione per questa gara
                         </h4>
                         <CommissionOverrideEditor
                             commission={race.commission}
@@ -339,7 +339,7 @@ export default function RaceEditor({
                     {/* Visibilità pubblica campi */}
                     <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
                         <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
-                            <Eye className="h-4 w-4 text-ocean-500" /> Campi visibili pubblicamente
+                            <Eye className="h-4 w-4 text-brand-500" /> Campi visibili pubblicamente
                         </h4>
                         <p className="text-xs text-slate-400 mb-3">
                             Seleziona quali informazioni degli iscritti sono visibili nella pagina pubblica della manifestazione.
@@ -356,11 +356,11 @@ export default function RaceEditor({
                                                 type="checkbox"
                                                 checked={isPublic}
                                                 onChange={() => togglePublicField(f.id)}
-                                                className="accent-ocean-600 h-4 w-4"
+                                                className="accent-brand-600 h-4 w-4"
                                             />
-                                            <span className="text-sm text-slate-700 group-hover:text-ocean-700 flex items-center gap-1">
+                                            <span className="text-sm text-slate-700 group-hover:text-brand-700 flex items-center gap-1">
                                                 {isPublic
-                                                    ? <Eye className="h-3.5 w-3.5 text-ocean-500" />
+                                                    ? <Eye className="h-3.5 w-3.5 text-brand-500" />
                                                     : <EyeOff className="h-3.5 w-3.5 text-slate-300" />
                                                 }
                                                 {f.label}
@@ -376,7 +376,7 @@ export default function RaceEditor({
                     <div>
                         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                <Users className="h-4 w-4 text-ocean-500" /> Iscritti ({registrations.length})
+                                <Users className="h-4 w-4 text-brand-500" /> Iscritti ({registrations.length})
                             </h4>
                             <div className="flex items-center gap-2 flex-wrap">
                                 {/* Ricerca libera */}
@@ -387,7 +387,7 @@ export default function RaceEditor({
                                         placeholder="Cerca iscritto…"
                                         value={regSearch}
                                         onChange={e => setRegSearch(e.target.value)}
-                                        className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-ocean-500 w-44"
+                                        className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 w-44"
                                     />
                                     {regSearch && (
                                         <button onClick={() => setRegSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -432,7 +432,7 @@ export default function RaceEditor({
                                 <button
                                     type="button"
                                     onClick={() => setShowManualReg(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-medium hover:bg-ocean-700 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors"
                                 >
                                     <UserPlus className="h-3.5 w-3.5" /> Iscrivi manualmente
                                 </button>
@@ -470,7 +470,7 @@ export default function RaceEditor({
                                                     <th key={f.id} className="px-3 py-2">
                                                         {f.label}
                                                         {(race.publicFields ?? []).includes(f.id) && (
-                                                            <Eye className="inline h-3 w-3 ml-1 text-ocean-400" />
+                                                            <Eye className="inline h-3 w-3 ml-1 text-brand-400" />
                                                         )}
                                                     </th>
                                                 ))}
@@ -494,7 +494,7 @@ export default function RaceEditor({
                                                                 : (reg.formData[f.id] as string) || '—'}
                                                         </td>
                                                     ))}
-                                                    <td className="px-3 py-2 font-medium text-ocean-700">{formatPrice(reg.pricePaid)}</td>
+                                                    <td className="px-3 py-2 font-medium text-brand-700">{formatPrice(reg.pricePaid)}</td>
                                                     <td className="px-3 py-2">
                                                         <PaymentBadge
                                                             status={reg.paymentStatus ?? 'pending'}
@@ -521,7 +521,7 @@ export default function RaceEditor({
                                                     <td className="px-3 py-2 text-slate-400">
                                                         {new Date(reg.submittedAt).toLocaleDateString('it-IT')}
                                                         {reg.addedByOrganizer && (
-                                                            <span className="ml-1 text-ocean-500" title="Iscrizione manuale">M</span>
+                                                            <span className="ml-1 text-brand-500" title="Iscrizione manuale">M</span>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-2">
@@ -529,7 +529,7 @@ export default function RaceEditor({
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openAdminEdit(reg)}
-                                                                className="p-1 rounded hover:bg-ocean-50 text-slate-400 hover:text-ocean-600"
+                                                                className="p-1 rounded hover:bg-brand-50 text-slate-400 hover:text-brand-600"
                                                                 title="Modifica iscrizione"
                                                             >
                                                                 <Edit2 className="h-3.5 w-3.5" />
@@ -592,7 +592,7 @@ export default function RaceEditor({
                                     <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
                                         <button
                                             onClick={handleAdminEditSave}
-                                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"
                                         >
                                             <Check className="h-4 w-4" /> Salva modifiche
                                         </button>

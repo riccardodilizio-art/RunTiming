@@ -58,11 +58,11 @@ export default function Navbar() {
 
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-ocean-600 rounded-md flex items-center justify-center">
+                        <div className="w-7 h-7 bg-brand-600 rounded-md flex items-center justify-center">
                             <Timer className="w-4 h-4 text-white" />
                         </div>
                         <span className="font-display font-700 text-lg text-slate-800 tracking-wide">
-                            Run<span className="text-ocean-600">Timing</span>
+                            Run<span className="text-brand-600">Timing</span>
                         </span>
                     </Link>
 
@@ -74,7 +74,7 @@ export default function Navbar() {
                                 to={link.href}
                                 className={`text-sm font-medium transition-colors ${
                                     location.pathname === link.href
-                                        ? 'text-ocean-600'
+                                        ? 'text-brand-600'
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
@@ -92,8 +92,8 @@ export default function Navbar() {
                                     onClick={() => setAdminMenuOpen(v => !v)}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-700"
                                 >
-                                    <div className="w-6 h-6 rounded-full bg-ocean-100 flex items-center justify-center">
-                                        <span className="text-ocean-700 text-xs font-bold">
+                                    <div className="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center">
+                                        <span className="text-brand-700 text-xs font-bold">
                                             {currentUser.displayName.charAt(0).toUpperCase()}
                                         </span>
                                     </div>
@@ -107,7 +107,7 @@ export default function Navbar() {
                                             to="/admin"
                                             className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                                         >
-                                            <LayoutDashboard className="w-4 h-4 text-ocean-500" />
+                                            <LayoutDashboard className="w-4 h-4 text-brand-500" />
                                             Pannello di gestione
                                         </Link>
                                         <div className="border-t border-slate-100 my-1" />
@@ -128,8 +128,8 @@ export default function Navbar() {
                                     onClick={() => setAthleteMenuOpen(v => !v)}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-700"
                                 >
-                                    <div className="w-6 h-6 rounded-full bg-ocean-100 flex items-center justify-center">
-                                        <span className="text-ocean-700 text-xs font-bold">
+                                    <div className="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center">
+                                        <span className="text-brand-700 text-xs font-bold">
                                             {currentAthlete.name.charAt(0).toUpperCase()}
                                         </span>
                                     </div>
@@ -143,7 +143,7 @@ export default function Navbar() {
                                             to="/profilo"
                                             className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                                         >
-                                            <User className="w-4 h-4 text-ocean-500" />
+                                            <User className="w-4 h-4 text-brand-500" />
                                             Il mio profilo
                                         </Link>
                                         <div className="border-t border-slate-100 my-1" />
@@ -168,7 +168,7 @@ export default function Navbar() {
                                 </Link>
                                 <Link
                                     to="/registrati"
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-semibold transition-colors"
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors"
                                 >
                                     Registrati
                                 </Link>
@@ -195,7 +195,7 @@ export default function Navbar() {
                             key={link.href}
                             to={link.href}
                             className={`block py-2 text-sm font-medium transition-colors ${
-                                location.pathname === link.href ? 'text-ocean-600' : 'text-slate-600 hover:text-slate-900'
+                                location.pathname === link.href ? 'text-brand-600' : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
                             {link.label}
@@ -205,8 +205,8 @@ export default function Navbar() {
                         {currentUser ? (
                             <>
                                 <Link to="/admin"
-                                    className="flex items-center gap-2 py-2 text-sm font-medium text-slate-700 hover:text-ocean-600 transition-colors">
-                                    <LayoutDashboard className="w-4 h-4 text-ocean-500" />
+                                    className="flex items-center gap-2 py-2 text-sm font-medium text-slate-700 hover:text-brand-600 transition-colors">
+                                    <LayoutDashboard className="w-4 h-4 text-brand-500" />
                                     Pannello — {currentUser.displayName}
                                 </Link>
                                 <button onClick={handleAdminLogout}
@@ -217,8 +217,8 @@ export default function Navbar() {
                         ) : currentAthlete ? (
                             <>
                                 <Link to="/profilo"
-                                    className="flex items-center gap-2 py-2 text-sm font-medium text-slate-700 hover:text-ocean-600 transition-colors">
-                                    <User className="w-4 h-4 text-ocean-500" />
+                                    className="flex items-center gap-2 py-2 text-sm font-medium text-slate-700 hover:text-brand-600 transition-colors">
+                                    <User className="w-4 h-4 text-brand-500" />
                                     {currentAthlete.name} {currentAthlete.surname}
                                 </Link>
                                 <button onClick={handleAthleteLogout}
@@ -233,7 +233,7 @@ export default function Navbar() {
                                     Accedi
                                 </Link>
                                 <Link to="/registrati"
-                                    className="block py-2 text-sm font-semibold text-ocean-600 hover:text-ocean-800 transition-colors">
+                                    className="block py-2 text-sm font-semibold text-brand-600 hover:text-brand-800 transition-colors">
                                     Registrati
                                 </Link>
                             </div>

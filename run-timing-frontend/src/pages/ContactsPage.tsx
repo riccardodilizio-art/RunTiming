@@ -49,9 +49,9 @@ export default function ContactsPage() {
         <main className="min-h-screen bg-slate-50">
 
             {/* Header */}
-            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #0a3c6e 0%, #0168c8 100%)' }}>
+            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #7a2510 0%, #e8430a 100%)' }}>
                 <h1 className="font-display font-800 text-3xl md:text-4xl text-white mb-1">Contatti</h1>
-                <p className="text-sky-200 text-sm">Siamo qui per aiutarti</p>
+                <p className="text-orange-100 text-sm">Siamo qui per aiutarti</p>
             </div>
 
             <div className="max-w-5xl mx-auto px-4 py-10">
@@ -75,8 +75,8 @@ export default function ContactsPage() {
                             ].map(({ icon: Icon, label, value }) => (
                                 <div key={label} className="flex items-start gap-3 bg-white border border-slate-200 rounded-xl p-4"
                                      style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
-                                    <div className="w-8 h-8 bg-ocean-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <Icon className="w-4 h-4 text-ocean-600" />
+                                    <div className="w-8 h-8 bg-brand-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <Icon className="w-4 h-4 text-brand-600" />
                                     </div>
                                     <div>
                                         <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">{label}</p>
@@ -86,10 +86,10 @@ export default function ContactsPage() {
                             ))}
                         </div>
 
-                        <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4">
-                            <p className="text-ocean-700 text-xs font-medium mb-1">Orari di supporto</p>
-                            <p className="text-ocean-600 text-sm">Lun – Ven: 9:00 – 18:00</p>
-                            <p className="text-ocean-600 text-sm">Sab: 9:00 – 13:00</p>
+                        <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
+                            <p className="text-brand-700 text-xs font-medium mb-1">Orari di supporto</p>
+                            <p className="text-brand-600 text-sm">Lun – Ven: 9:00 – 18:00</p>
+                            <p className="text-brand-600 text-sm">Sab: 9:00 – 13:00</p>
                         </div>
                     </div>
 
@@ -109,7 +109,7 @@ export default function ContactsPage() {
                                     </p>
                                     <button
                                         onClick={() => { setSent(false); setForm(EMPTY); }}
-                                        className="text-ocean-600 hover:text-ocean-700 text-sm font-medium underline"
+                                        className="text-brand-600 hover:text-brand-700 text-sm font-medium underline"
                                     >
                                         Invia un altro messaggio
                                     </button>
@@ -134,7 +134,7 @@ export default function ContactsPage() {
                                                 className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none transition-colors ${
                                                     errors.name
                                                         ? 'border-red-300 focus:border-red-400 bg-red-50'
-                                                        : 'border-slate-300 focus:border-ocean-400'
+                                                        : 'border-slate-300 focus:border-brand-400'
                                                 }`}
                                             />
                                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -153,7 +153,7 @@ export default function ContactsPage() {
                                                 className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none transition-colors ${
                                                     errors.email
                                                         ? 'border-red-300 focus:border-red-400 bg-red-50'
-                                                        : 'border-slate-300 focus:border-ocean-400'
+                                                        : 'border-slate-300 focus:border-brand-400'
                                                 }`}
                                             />
                                             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
@@ -171,7 +171,7 @@ export default function ContactsPage() {
                                             className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-700 focus:outline-none transition-colors appearance-none bg-white ${
                                                 errors.subject
                                                     ? 'border-red-300 focus:border-red-400 bg-red-50'
-                                                    : 'border-slate-300 focus:border-ocean-400'
+                                                    : 'border-slate-300 focus:border-brand-400'
                                             }`}
                                         >
                                             <option value="">Seleziona un argomento...</option>
@@ -195,7 +195,7 @@ export default function ContactsPage() {
                                             className={`w-full border rounded-lg px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none transition-colors resize-none ${
                                                 errors.message
                                                     ? 'border-red-300 focus:border-red-400 bg-red-50'
-                                                    : 'border-slate-300 focus:border-ocean-400'
+                                                    : 'border-slate-300 focus:border-brand-400'
                                             }`}
                                         />
                                         {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
@@ -204,7 +204,7 @@ export default function ContactsPage() {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="flex items-center gap-2 bg-ocean-600 hover:bg-ocean-700 disabled:bg-ocean-300 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm"
+                                        className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm"
                                     >
                                         {loading ? (
                                             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

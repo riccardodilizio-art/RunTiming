@@ -64,7 +64,7 @@ export default function PriceStepEditor({ steps, onChange }: { steps: PriceStep[
             <button
                 type="button"
                 onClick={add}
-                className="flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-800 transition-colors"
+                className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-800 transition-colors"
             >
                 <Plus className="h-4 w-4" /> Aggiungi quota
             </button>

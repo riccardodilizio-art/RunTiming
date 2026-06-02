@@ -72,7 +72,7 @@ export default function AdminPage() {
             {/* Top bar */}
             <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Settings className="h-5 w-5 text-ocean-600" />
+                    <Settings className="h-5 w-5 text-brand-600" />
                     <span className="font-semibold text-slate-800 text-lg">
                         {isAdmin ? 'Admin Panel' : 'Pannello Organizzatore'}
                     </span>
@@ -107,7 +107,7 @@ export default function AdminPage() {
                                 onClick={() => setSection(item.key)}
                                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
                                     section === item.key
-                                        ? 'border-ocean-600 text-ocean-700'
+                                        ? 'border-brand-600 text-brand-700'
                                         : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                             >

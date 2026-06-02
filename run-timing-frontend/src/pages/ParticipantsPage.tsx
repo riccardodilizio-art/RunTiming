@@ -50,7 +50,7 @@ function FilterBar({
                             value={filters.text}
                             onChange={e => onChange({ ...filters, text: e.target.value })}
                             placeholder="Cognome, nome, città..."
-                            className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                            className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                     </div>
                 </div>
@@ -62,7 +62,7 @@ function FilterBar({
                         <select
                             value={filters.category}
                             onChange={e => onChange({ ...filters, category: e.target.value })}
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                             <option value="">Tutte le categorie</option>
                             {categoryOptions.map(c => (
@@ -79,7 +79,7 @@ function FilterBar({
                         <select
                             value={filters.societa}
                             onChange={e => onChange({ ...filters, societa: e.target.value })}
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                             <option value="">Tutte le società</option>
                             {societaOptions.map(s => (
@@ -146,7 +146,7 @@ function RaceTable({
                             {showCategory && (
                                 <td className="px-4 py-3">
                                     {reg.assignedCategory ? (
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-ocean-100 text-ocean-700 font-medium">
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-medium">
                                             {reg.assignedCategory}
                                         </span>
                                     ) : '—'}
@@ -201,7 +201,7 @@ export default function ParticipantsPage() {
             <main className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-slate-700 font-semibold text-xl mb-2">Evento non trovato</p>
-                    <Link to="/events" className="text-ocean-600 hover:underline text-sm">← Torna agli eventi</Link>
+                    <Link to="/events" className="text-brand-600 hover:underline text-sm">← Torna agli eventi</Link>
                 </div>
             </main>
         );
@@ -222,7 +222,7 @@ export default function ParticipantsPage() {
                 <div className="max-w-5xl mx-auto px-4 py-5">
                     <Link
                         to={`/events/${event.slug}`}
-                        className="inline-flex items-center gap-1 text-slate-400 hover:text-ocean-600 text-sm mb-3 transition-colors"
+                        className="inline-flex items-center gap-1 text-slate-400 hover:text-brand-600 text-sm mb-3 transition-colors"
                     >
                         <ChevronLeft className="w-4 h-4" /> Torna all'evento
                     </Link>
@@ -247,7 +247,7 @@ export default function ParticipantsPage() {
                         <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
                         <p className="text-base font-medium">Lista iscritti non disponibile</p>
                         <p className="text-sm mt-1">L'organizzatore non ha reso pubblici i dati degli iscritti.</p>
-                        <Link to={`/events/${event.slug}`} className="mt-4 inline-block text-ocean-600 hover:underline text-sm">
+                        <Link to={`/events/${event.slug}`} className="mt-4 inline-block text-brand-600 hover:underline text-sm">
                             ← Torna all'evento
                         </Link>
                     </div>
@@ -298,7 +298,7 @@ export default function ParticipantsPage() {
                                                     )}
                                                     <span className="text-slate-400">iscritti</span>
                                                 </span>
-                                                <span className="flex items-center gap-1 text-xs text-ocean-500">
+                                                <span className="flex items-center gap-1 text-xs text-brand-500">
                                                     <Eye className="h-3.5 w-3.5" />
                                                     {visibleFields.length} campi
                                                 </span>

@@ -28,13 +28,13 @@ const STEPS = [
 
 const OPTIONS = [
     {
-        icon: <Settings className="w-6 h-6 text-ocean-600" />,
+        icon: <Settings className="w-6 h-6 text-brand-600" />,
         title: 'Gestione completa affidata a noi',
         desc: 'Pensiamo a tutto: dalla creazione dell\'evento alla gestione degli iscritti. Tu ricevi report e aggiornamenti senza dover fare nulla.',
         tags: ['Zero operatività', 'Ideale per chi non ha tempo'],
     },
     {
-        icon: <Users className="w-6 h-6 text-ocean-600" />,
+        icon: <Users className="w-6 h-6 text-brand-600" />,
         title: 'Accesso diretto per te',
         desc: 'Se lo desideri, possiamo fornirti delle credenziali personali. Potrai accedere al pannello per consultare la lista iscritti, aggiungere atleti manualmente e tenere sotto controllo la tua gara.',
         tags: ['Pannello organizzatore', 'Lista iscritti in tempo reale'],
@@ -50,11 +50,11 @@ export default function OrganizerPage() {
             {/* Hero */}
             <section
                 className="relative overflow-hidden py-20 px-4 text-center"
-                style={{ background: 'linear-gradient(135deg, #041e3e 0%, #0a3c6e 50%, #0168c8 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #2b0a02 0%, #7a2510 50%, #e8430a 100%)' }}
             >
                 <div
                     className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
-                    style={{ background: 'radial-gradient(circle, #38bdf8, transparent 70%)' }}
+                    style={{ background: 'radial-gradient(circle, #fb8038, transparent 70%)' }}
                 />
                 <div
                     className="absolute inset-0 opacity-[0.04] pointer-events-none"
@@ -64,7 +64,7 @@ export default function OrganizerPage() {
                     <h1 className="font-display font-800 text-4xl sm:text-5xl text-white mb-4 leading-tight">
                         Organizzi una gara?<br />
                         <span style={{
-                            background: 'linear-gradient(90deg, #38bdf8, #7dd3fc)',
+                            background: 'linear-gradient(90deg, #fb8038, #fdac74)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
@@ -72,13 +72,13 @@ export default function OrganizerPage() {
                             Affidati a RunTiming.
                         </span>
                     </h1>
-                    <p className="text-sky-200/80 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+                    <p className="text-orange-200/85 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
                         Gestiamo noi la parte tecnica: iscrizioni online, moduli personalizzati,
                         pagamenti e pubblicazione dei risultati. Tu ti concentri sulla gara.
                     </p>
                     <Link
                         to="/contacts"
-                        className="inline-flex items-center gap-2 bg-white text-ocean-700 font-semibold px-7 py-3 rounded-xl text-sm hover:bg-sky-50 transition-colors"
+                        className="inline-flex items-center gap-2 bg-white text-brand-700 font-semibold px-7 py-3 rounded-xl text-sm hover:bg-orange-50 transition-colors"
                     >
                         Richiedi un preventivo gratuito <ArrowRight className="w-4 h-4" />
                     </Link>
@@ -89,7 +89,7 @@ export default function OrganizerPage() {
             <section className="py-20 px-4">
                 <div className="max-w-5xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-ocean-600 text-xs font-semibold uppercase tracking-widest mb-2">Come funziona</p>
+                        <p className="text-brand-600 text-xs font-semibold uppercase tracking-widest mb-2">Come funziona</p>
                         <h2 className="font-display font-800 text-3xl text-slate-800">Semplice, veloce, senza pensieri</h2>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -101,11 +101,11 @@ export default function OrganizerPage() {
                                          style={{ left: 'calc(50% + 2rem)', width: 'calc(100% - 2rem)' }} />
                                 )}
                                 <div
-                                    className="relative z-10 bg-white border border-slate-200 rounded-2xl p-6 flex-1 hover:border-ocean-200 hover:shadow-sm transition-all"
+                                    className="relative z-10 bg-white border border-slate-200 rounded-2xl p-6 flex-1 hover:border-brand-200 hover:shadow-sm transition-all"
                                     style={{ boxShadow: '2px 4px 12px 0 #f1f5f9' }}
                                 >
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-12 h-12 rounded-xl bg-ocean-50 border border-ocean-100 flex items-center justify-center text-ocean-600 shrink-0">
+                                        <div className="w-12 h-12 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shrink-0">
                                             {step.icon}
                                         </div>
                                         <span className="font-display font-800 text-4xl text-slate-100 select-none leading-none">
@@ -125,7 +125,7 @@ export default function OrganizerPage() {
             <section className="py-16 px-4 bg-white border-y border-slate-100">
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center mb-10">
-                        <p className="text-ocean-600 text-xs font-semibold uppercase tracking-widest mb-2">Flessibilità</p>
+                        <p className="text-brand-600 text-xs font-semibold uppercase tracking-widest mb-2">Flessibilità</p>
                         <h2 className="font-display font-800 text-3xl text-slate-800">Scegli come lavorare con noi</h2>
                         <p className="text-slate-500 text-sm mt-2 max-w-lg mx-auto">
                             In entrambi i casi siamo noi a configurare la tua gara sulla piattaforma.
@@ -135,16 +135,16 @@ export default function OrganizerPage() {
                         {OPTIONS.map((opt, i) => (
                             <div
                                 key={i}
-                                className="bg-slate-50 border border-slate-200 rounded-2xl p-6 hover:border-ocean-200 hover:bg-ocean-50/20 transition-all"
+                                className="bg-slate-50 border border-slate-200 rounded-2xl p-6 hover:border-brand-200 hover:bg-brand-50/20 transition-all"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-ocean-50 border border-ocean-100 flex items-center justify-center mb-4">
+                                <div className="w-11 h-11 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center mb-4">
                                     {opt.icon}
                                 </div>
                                 <h3 className="font-semibold text-slate-800 text-sm mb-2">{opt.title}</h3>
                                 <p className="text-slate-500 text-xs leading-relaxed mb-4">{opt.desc}</p>
                                 <div className="flex flex-wrap gap-2">
                                     {opt.tags.map(tag => (
-                                        <span key={tag} className="text-xs px-2.5 py-1 bg-ocean-100 text-ocean-700 rounded-full font-medium">
+                                        <span key={tag} className="text-xs px-2.5 py-1 bg-brand-100 text-brand-700 rounded-full font-medium">
                                             {tag}
                                         </span>
                                     ))}
@@ -158,8 +158,8 @@ export default function OrganizerPage() {
             {/* CTA */}
             <section className="py-20 px-4 text-center">
                 <div className="max-w-md mx-auto">
-                    <div className="w-14 h-14 bg-ocean-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                        <Mail className="w-7 h-7 text-ocean-600" />
+                    <div className="w-14 h-14 bg-brand-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                        <Mail className="w-7 h-7 text-brand-600" />
                     </div>
                     <h2 className="font-display font-800 text-2xl text-slate-800 mb-3">
                         Pronto a portare la tua gara online?
@@ -169,7 +169,7 @@ export default function OrganizerPage() {
                     </p>
                     <Link
                         to="/contacts"
-                        className="inline-flex items-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-7 py-3 rounded-xl text-sm transition-colors"
+                        className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-7 py-3 rounded-xl text-sm transition-colors"
                     >
                         Contattaci ora <ArrowRight className="w-4 h-4" />
                     </Link>

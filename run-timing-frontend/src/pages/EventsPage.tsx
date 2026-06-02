@@ -148,12 +148,12 @@ function EventCalendar({ events }: { events: Event[] }) {
                             onClick={() => dayEvents.length ? setSelectedDay(isSelected ? null : day) : null}
                             className={`h-16 p-1.5 flex flex-col border-b border-slate-100 transition-colors
                                 ${isLastRow ? 'border-b-0' : ''}
-                                ${dayEvents.length ? 'cursor-pointer hover:bg-ocean-50/40' : ''}
-                                ${isSelected ? 'bg-ocean-50' : ''}`}
+                                ${dayEvents.length ? 'cursor-pointer hover:bg-brand-50/40' : ''}
+                                ${isSelected ? 'bg-brand-50' : ''}`}
                         >
                             {/* Day number */}
                             <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
-                                ${isToday ? 'bg-ocean-600 text-white font-semibold' : 'text-slate-600'}`}>
+                                ${isToday ? 'bg-brand-600 text-white font-semibold' : 'text-slate-600'}`}>
                                 {day}
                             </span>
 
@@ -161,7 +161,7 @@ function EventCalendar({ events }: { events: Event[] }) {
                             <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden">
                                 {dayEvents.slice(0, 2).map(e => (
                                     <span key={e.id}
-                                        className="text-[9px] leading-tight bg-ocean-100 text-ocean-700 px-1 rounded truncate font-medium">
+                                        className="text-[9px] leading-tight bg-brand-100 text-brand-700 px-1 rounded truncate font-medium">
                                         {e.title}
                                     </span>
                                 ))}
@@ -192,11 +192,11 @@ function EventCalendar({ events }: { events: Event[] }) {
                     <div className="space-y-2">
                         {selectedEvents.map(e => (
                             <Link key={e.id} to={`/events/${e.slug}`}
-                                className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-ocean-300 transition-colors group">
+                                className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-brand-300 transition-colors group">
                                 <img src={e.coverImage} alt={e.title}
                                      className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-800 group-hover:text-ocean-600 truncate">
+                                    <p className="text-sm font-semibold text-slate-800 group-hover:text-brand-600 truncate">
                                         {e.title}
                                     </p>
                                     <p className="text-xs text-slate-400 truncate">
@@ -283,11 +283,11 @@ export default function EventsPage() {
         <main className="min-h-screen bg-slate-50">
 
             {/* Header */}
-            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #0a3c6e 0%, #0168c8 100%)' }}>
+            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #7a2510 0%, #e8430a 100%)' }}>
                 <h1 className="font-display font-800 text-3xl md:text-4xl text-white mb-1">
                     Tutti gli eventi
                 </h1>
-                <p className="text-sky-200 text-sm">
+                <p className="text-orange-100 text-sm">
                     Cerca e iscriviti alle gare sportive in tutta Italia
                 </p>
             </div>
@@ -303,7 +303,7 @@ export default function EventsPage() {
                             placeholder="Cerca per nome, città o organizzatore..."
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            className="w-full bg-white border border-slate-300 focus:border-ocean-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
+                            className="w-full bg-white border border-slate-300 focus:border-brand-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
                         />
                         {query && (
                             <button
@@ -323,7 +323,7 @@ export default function EventsPage() {
                             <select
                                 value={sort}
                                 onChange={e => setSort(e.target.value as Sort)}
-                                className="appearance-none bg-white border border-slate-300 rounded-lg pl-8 pr-8 py-2.5 text-sm text-slate-600 focus:outline-none focus:border-ocean-400 cursor-pointer"
+                                className="appearance-none bg-white border border-slate-300 rounded-lg pl-8 pr-8 py-2.5 text-sm text-slate-600 focus:outline-none focus:border-brand-400 cursor-pointer"
                             >
                                 {SORT_OPTIONS.map(o => (
                                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -336,28 +336,28 @@ export default function EventsPage() {
                     <div className="flex bg-white border border-slate-300 rounded-lg overflow-hidden">
                         <button
                             onClick={() => setView('list')}
-                            className={`px-3 py-2.5 transition-colors ${view === 'list' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-2.5 transition-colors ${view === 'list' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             aria-label="Vista lista"
                         >
                             <LayoutList className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setView('grid')}
-                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'grid' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'grid' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             aria-label="Vista griglia"
                         >
                             <LayoutGrid className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setView('calendar')}
-                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'calendar' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'calendar' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             aria-label="Vista calendario"
                         >
                             <Calendar className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setView('map')}
-                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'map' ? 'bg-ocean-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-2.5 border-l border-slate-200 transition-colors ${view === 'map' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             aria-label="Vista mappa"
                         >
                             <Map className="w-4 h-4" />
@@ -375,8 +375,8 @@ export default function EventsPage() {
                                 onClick={() => setCategory(c.value)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                     category === c.value
-                                        ? 'bg-ocean-600 text-white'
-                                        : 'bg-white border border-slate-200 text-slate-600 hover:border-ocean-300 hover:text-ocean-600'
+                                        ? 'bg-brand-600 text-white'
+                                        : 'bg-white border border-slate-200 text-slate-600 hover:border-brand-300 hover:text-brand-600'
                                 }`}
                             >
                                 {c.label}
@@ -401,7 +401,7 @@ export default function EventsPage() {
                                 onClick={() => setTab(t.value)}
                                 className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                                     tab === t.value
-                                        ? 'border-ocean-600 text-ocean-600'
+                                        ? 'border-brand-600 text-brand-600'
                                         : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                             >
@@ -413,8 +413,8 @@ export default function EventsPage() {
                         onClick={() => setOnlyOpen(v => !v)}
                         className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors mb-1 ${
                             onlyOpen
-                                ? 'bg-ocean-600 text-white border-ocean-600'
-                                : 'bg-white border-slate-300 text-slate-500 hover:border-ocean-300 hover:text-ocean-600'
+                                ? 'bg-brand-600 text-white border-brand-600'
+                                : 'bg-white border-slate-300 text-slate-500 hover:border-brand-300 hover:text-brand-600'
                         }`}
                     >
                         {onlyOpen && <X className="w-3 h-3" />}
@@ -427,25 +427,25 @@ export default function EventsPage() {
                     <div className="flex items-center justify-between mb-4 min-h-[24px]">
                         <div className="flex flex-wrap gap-1.5">
                             {category !== 'all' && (
-                                <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full">
                                     {categoryLabels[category]}
-                                    <button onClick={() => setCategory('all')} className="hover:text-ocean-900">
+                                    <button onClick={() => setCategory('all')} className="hover:text-brand-900">
                                         <X className="w-3 h-3" />
                                     </button>
                                 </span>
                             )}
                             {onlyOpen && (
-                                <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full">
                                     Solo aperte
-                                    <button onClick={() => setOnlyOpen(false)} className="hover:text-ocean-900">
+                                    <button onClick={() => setOnlyOpen(false)} className="hover:text-brand-900">
                                         <X className="w-3 h-3" />
                                     </button>
                                 </span>
                             )}
                             {sort !== 'date-asc' && (
-                                <span className="flex items-center gap-1 bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs px-2.5 py-1 rounded-full">
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full">
                                     {SORT_OPTIONS.find(o => o.value === sort)?.label}
-                                    <button onClick={() => setSort('date-asc')} className="hover:text-ocean-900">
+                                    <button onClick={() => setSort('date-asc')} className="hover:text-brand-900">
                                         <X className="w-3 h-3" />
                                     </button>
                                 </span>
@@ -499,7 +499,7 @@ export default function EventsPage() {
                             </p>
                             <button
                                 onClick={resetFilters}
-                                className="bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+                                className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
                             >
                                 Azzera filtri
                             </button>

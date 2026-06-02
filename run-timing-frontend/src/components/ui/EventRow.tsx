@@ -39,7 +39,7 @@ export default function EventRow({ event }: { event: Event }) {
 
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                    <span className="flex items-center gap-1 text-xs text-ocean-600 font-medium">
+                    <span className="flex items-center gap-1 text-xs text-brand-600 font-medium">
                         <Calendar className="w-3 h-3" />
                         {formatDate(event.date)}
                     </span>
@@ -50,7 +50,7 @@ export default function EventRow({ event }: { event: Event }) {
                         </span>
                     )}
                 </div>
-                <h3 className="font-semibold text-slate-800 text-base leading-snug group-hover:text-ocean-600 transition-colors truncate">
+                <h3 className="font-semibold text-slate-800 text-base leading-snug group-hover:text-brand-600 transition-colors truncate">
                     {event.title}
                 </h3>
                 <div className="flex flex-wrap items-center gap-3 mt-1">
@@ -66,7 +66,7 @@ export default function EventRow({ event }: { event: Event }) {
             </div>
 
             <div className="flex-shrink-0 text-right">
-                <span className="font-semibold text-ocean-700 text-sm">{priceRange(event)}</span>
+                <span className="font-semibold text-brand-700 text-sm">{priceRange(event)}</span>
                 <div className="text-slate-400 text-xs mt-0.5">
                     {totalParticipants(event).toLocaleString('it-IT')} iscritti
                 </div>

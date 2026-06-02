@@ -12,7 +12,7 @@ import DynamicForm from '../components/registration/DynamicForm';
 import type { RegistrationSubmission, Event as EventType } from '../types';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 // ── Edit registration modal ───────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ function EditRegModal({ reg, formData, onChange, onSave, onClose, events }: {
                 </div>
                 <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
                     <button onClick={onSave}
-                        className="flex-1 flex items-center justify-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                        className="flex-1 flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
                         <Check className="w-4 h-4" /> Salva modifiche
                     </button>
                     <button onClick={onClose}
@@ -319,8 +319,8 @@ export default function AthleteDashboardPage() {
             <div className="max-w-5xl mx-auto px-4 py-8">
                 {/* Profile header */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6 flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-full bg-ocean-100 flex items-center justify-center shrink-0">
-                        <User className="w-8 h-8 text-ocean-600" />
+                    <div className="w-16 h-16 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+                        <User className="w-8 h-8 text-brand-600" />
                     </div>
                     <div className="min-w-0">
                         <h1 className="font-display font-700 text-xl text-slate-800">
@@ -328,7 +328,7 @@ export default function AthleteDashboardPage() {
                         </h1>
                         <p className="text-sm text-slate-500">{currentAthlete.email}</p>
                         {currentAthlete.club && (
-                            <p className="text-sm text-ocean-600 font-medium mt-0.5">{currentAthlete.club}</p>
+                            <p className="text-sm text-brand-600 font-medium mt-0.5">{currentAthlete.club}</p>
                         )}
                     </div>
                     {saveOk && (
@@ -344,7 +344,7 @@ export default function AthleteDashboardPage() {
                         <button key={t} onClick={() => setTab(t)}
                             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                                 tab === t
-                                    ? 'bg-ocean-600 text-white'
+                                    ? 'bg-brand-600 text-white'
                                     : 'text-slate-500 hover:text-slate-800'
                             }`}>
                             {{ overview: 'Panoramica', races: 'Gare', settings: 'Profilo' }[t]}
@@ -360,8 +360,8 @@ export default function AthleteDashboardPage() {
                             {statCards.map(({ icon: Icon, label, value }) => (
                                 <div key={label}
                                     className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-2">
-                                    <div className="w-9 h-9 rounded-lg bg-ocean-50 flex items-center justify-center">
-                                        <Icon className="w-5 h-5 text-ocean-600" />
+                                    <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center">
+                                        <Icon className="w-5 h-5 text-brand-600" />
                                     </div>
                                     <div>
                                         <p className="text-2xl font-bold text-slate-800">{value}</p>
@@ -376,14 +376,14 @@ export default function AthleteDashboardPage() {
                             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                                 <h2 className="font-semibold text-slate-800">Ultime gare</h2>
                                 <button onClick={() => setTab('races')}
-                                    className="text-ocean-600 text-sm font-medium hover:underline flex items-center gap-1">
+                                    className="text-brand-600 text-sm font-medium hover:underline flex items-center gap-1">
                                     Vedi tutte <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                             {enrichedRegs.length === 0 ? (
                                 <div className="px-5 py-10 text-center text-slate-400 text-sm">
                                     Non hai ancora gare registrate.<br />
-                                    <Link to="/gare" className="text-ocean-600 hover:underline mt-1 inline-block">
+                                    <Link to="/gare" className="text-brand-600 hover:underline mt-1 inline-block">
                                         Sfoglia gli eventi
                                     </Link>
                                 </div>
@@ -432,7 +432,7 @@ export default function AthleteDashboardPage() {
                         {enrichedRegs.length === 0 ? (
                             <div className="px-5 py-12 text-center text-slate-400 text-sm">
                                 Nessuna gara trovata.{' '}
-                                <Link to="/gare" className="text-ocean-600 hover:underline">Sfoglia gli eventi</Link>
+                                <Link to="/gare" className="text-brand-600 hover:underline">Sfoglia gli eventi</Link>
                             </div>
                         ) : (
                             <ul className="divide-y divide-slate-100">
@@ -469,7 +469,7 @@ export default function AthleteDashboardPage() {
                                                     <div className="flex gap-2 mt-2">
                                                         <button
                                                             onClick={() => openEdit(reg)}
-                                                            className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 font-medium"
+                                                            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium"
                                                         >
                                                             <Pencil className="w-3 h-3" /> Modifica
                                                         </button>
@@ -525,7 +525,7 @@ export default function AthleteDashboardPage() {
                             <h2 className="font-semibold text-slate-800">Dati personali</h2>
                             {!editing && (
                                 <button onClick={() => setEditing(true)}
-                                    className="flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-700 font-medium">
+                                    className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium">
                                     <Edit3 className="w-4 h-4" /> Modifica
                                 </button>
                             )}
@@ -583,7 +583,7 @@ export default function AthleteDashboardPage() {
                                 </div>
                                 <div className="flex gap-3 pt-2">
                                     <button type="submit"
-                                        className="flex items-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors">
+                                        className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors">
                                         <Check className="w-4 h-4" /> Salva modifiche
                                     </button>
                                     <button type="button" onClick={cancelEdit}
@@ -669,7 +669,7 @@ export default function AthleteDashboardPage() {
                                                     setNewCertFile('');
                                                     setShowCertReupload(true);
                                                 }}
-                                                className="flex items-center gap-1.5 text-sm font-medium text-ocean-600 hover:text-ocean-800 transition-colors"
+                                                className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors"
                                             >
                                                 <Edit3 className="h-3.5 w-3.5" /> Ricarica certificato corretto
                                             </button>
@@ -706,11 +706,11 @@ export default function AthleteDashboardPage() {
                                                     <label className="block text-xs font-medium text-slate-700 mb-1">File certificato (PDF / immagine)</label>
                                                     <input type="file" accept="application/pdf,image/*"
                                                         onChange={e => setNewCertFile(e.target.files?.[0]?.name ?? '')}
-                                                        className="block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100" />
+                                                        className="block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100" />
                                                 </div>
                                                 <div className="flex gap-2 pt-1">
                                                     <button type="submit"
-                                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors">
+                                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors">
                                                         <Check className="h-3.5 w-3.5" /> Invia per verifica
                                                     </button>
                                                     <button type="button" onClick={() => setShowCertReupload(false)}

@@ -77,7 +77,7 @@ export default function ManualRegModal({
                                         type="checkbox"
                                         checked={(formData[f.id] as boolean) ?? false}
                                         onChange={e => setField(f.id, e.target.checked)}
-                                        className="accent-ocean-600"
+                                        className="accent-brand-600"
                                     />
                                     <span className="text-sm text-slate-700">{f.helperText ?? f.label}</span>
                                 </label>
@@ -133,7 +133,7 @@ export default function ManualRegModal({
                         Annulla
                     </button>
                     <button onClick={handleSave}
-                        className="px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 flex items-center gap-1.5">
+                        className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 flex items-center gap-1.5">
                         <Check className="w-4 h-4" /> Salva iscrizione
                     </button>
                 </div>

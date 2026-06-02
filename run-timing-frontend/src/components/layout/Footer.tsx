@@ -9,11 +9,11 @@ export default function Footer() {
 
                     <div>
                         <Link to="/" className="flex items-center gap-2 mb-3">
-                            <div className="w-7 h-7 bg-ocean-500 rounded-md flex items-center justify-center">
+                            <div className="w-7 h-7 bg-brand-500 rounded-md flex items-center justify-center">
                                 <Timer className="w-4 h-4 text-white" />
                             </div>
                             <span className="font-display font-700 text-lg text-white">
-                                Run<span className="text-ocean-400">Timing</span>
+                                Run<span className="text-brand-400">Timing</span>
                             </span>
                         </Link>
                         <p className="text-slate-500 text-sm max-w-xs leading-relaxed">

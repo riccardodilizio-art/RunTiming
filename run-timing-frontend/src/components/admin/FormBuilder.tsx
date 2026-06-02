@@ -119,13 +119,13 @@ export default function FormBuilder({ schema, onChange }: Props) {
                                                 className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                                     used
                                                         ? 'text-slate-300 cursor-default bg-slate-50'
-                                                        : 'text-slate-700 hover:bg-ocean-50 hover:text-ocean-700 cursor-pointer'
+                                                        : 'text-slate-700 hover:bg-brand-50 hover:text-brand-700 cursor-pointer'
                                                 }`}
                                             >
                                                 <span>{entry.label}</span>
                                                 {used
                                                     ? <span className="text-xs text-slate-300">già aggiunto</span>
-                                                    : <Plus className="h-3.5 w-3.5 text-ocean-500" />}
+                                                    : <Plus className="h-3.5 w-3.5 text-brand-500" />}
                                             </button>
                                         );
                                     })}
@@ -142,13 +142,13 @@ export default function FormBuilder({ schema, onChange }: Props) {
                             value={customLabel}
                             onChange={e => setCustomLabel(e.target.value)}
                             placeholder="Etichetta del campo"
-                            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
                         />
                         <div className="flex gap-2">
                             <select
                                 value={customType}
                                 onChange={e => setCustomType(e.target.value as FieldType)}
-                                className="flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                                className="flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
                             >
                                 {FIELD_TYPES.map(t => (
                                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -158,7 +158,7 @@ export default function FormBuilder({ schema, onChange }: Props) {
                                 type="button"
                                 onClick={addCustomField}
                                 disabled={!customLabel.trim()}
-                                className="px-3 py-1.5 rounded bg-ocean-600 text-white text-sm disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+                                className="px-3 py-1.5 rounded bg-brand-600 text-white text-sm disabled:opacity-40 hover:bg-brand-700 transition-colors"
                             >
                                 <Plus className="h-4 w-4" />
                             </button>
@@ -193,7 +193,7 @@ export default function FormBuilder({ schema, onChange }: Props) {
                                         type="text"
                                         value={field.label}
                                         onChange={e => updateLabel(field.id, e.target.value)}
-                                        className="w-full text-sm font-medium text-slate-700 border-b border-transparent hover:border-slate-300 focus:border-ocean-400 focus:outline-none bg-transparent pb-0.5"
+                                        className="w-full text-sm font-medium text-slate-700 border-b border-transparent hover:border-slate-300 focus:border-brand-400 focus:outline-none bg-transparent pb-0.5"
                                     />
                                     <div className="flex items-center gap-3 mt-1.5">
                                         <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">
@@ -207,7 +207,7 @@ export default function FormBuilder({ schema, onChange }: Props) {
                                                 type="checkbox"
                                                 checked={field.required}
                                                 onChange={() => toggleRequired(field.id)}
-                                                className="accent-ocean-600 h-3.5 w-3.5"
+                                                className="accent-brand-600 h-3.5 w-3.5"
                                             />
                                             Obbligatorio
                                         </label>

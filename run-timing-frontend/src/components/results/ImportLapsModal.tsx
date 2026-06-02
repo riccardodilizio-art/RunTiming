@@ -196,7 +196,7 @@ export default function ImportLapsModal({ onImport, onClose }: Props) {
                     {step === 'upload' && (
                         <div className="p-6">
                             <div
-                                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${dragging ? 'border-ocean-400 bg-ocean-50' : 'border-slate-300 hover:border-ocean-400 hover:bg-slate-50'}`}
+                                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${dragging ? 'border-brand-400 bg-brand-50' : 'border-slate-300 hover:border-brand-400 hover:bg-slate-50'}`}
                                 onClick={() => fileRef.current?.click()}
                                 onDragOver={e => { e.preventDefault(); setDragging(true); }}
                                 onDragLeave={() => setDragging(false)}
@@ -275,7 +275,7 @@ export default function ImportLapsModal({ onImport, onClose }: Props) {
                                             onClick={() => setExpanded(expanded === bib ? null : bib)}
                                         >
                                             <span className="font-medium text-slate-700 text-sm">
-                                                Pettorale <span className="font-mono text-ocean-700">{bib}</span>
+                                                Pettorale <span className="font-mono text-brand-700">{bib}</span>
                                                 <span className="ml-2 text-slate-400 text-xs">{grouped[bib].length} giri</span>
                                             </span>
                                             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded === bib ? 'rotate-180' : ''}`} />
@@ -331,7 +331,7 @@ export default function ImportLapsModal({ onImport, onClose }: Props) {
                     {step === 'preview' && (
                         <button
                             onClick={() => { onImport(grouped); onClose(); }}
-                            className="flex items-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+                            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             Importa {bibs.length} atleti

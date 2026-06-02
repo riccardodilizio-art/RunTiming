@@ -55,14 +55,14 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
         <div>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-                <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-ocean-600 hover:text-ocean-800">
+                <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-800">
                     <ChevronLeft className="h-4 w-4" /> Torna agli eventi
                 </button>
                 {dirty && (
                     <button
                         type="button"
                         onClick={() => { onSave(draft); setDirty(false); }}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
                     >
                         <Check className="h-4 w-4" /> Salva modifiche
                     </button>
@@ -81,7 +81,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     {/* Generale */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                            <Settings className="h-4 w-4 text-ocean-600" /> Dettagli generali
+                            <Settings className="h-4 w-4 text-brand-600" /> Dettagli generali
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="sm:col-span-2">
@@ -115,11 +115,11 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                 />
                             </div>
                             <div className="flex items-center gap-2">
-                                <input id="featured" type="checkbox" checked={draft.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="accent-ocean-600 h-4 w-4" />
+                                <input id="featured" type="checkbox" checked={draft.isFeatured} onChange={e => set('isFeatured', e.target.checked)} className="accent-brand-600 h-4 w-4" />
                                 <label htmlFor="featured" className="text-sm text-slate-700">In evidenza</label>
                             </div>
                             <div className="flex items-center gap-2">
-                                <input id="isLive" type="checkbox" checked={draft.isLive} onChange={e => set('isLive', e.target.checked)} className="accent-ocean-600 h-4 w-4" />
+                                <input id="isLive" type="checkbox" checked={draft.isLive} onChange={e => set('isLive', e.target.checked)} className="accent-brand-600 h-4 w-4" />
                                 <label htmlFor="isLive" className="text-sm text-slate-700">Live (in corso)</label>
                             </div>
                         </div>
@@ -128,7 +128,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     {/* Luogo */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-ocean-600" /> Luogo
+                            <MapPin className="h-4 w-4 text-brand-600" /> Luogo
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="sm:col-span-2">
@@ -172,7 +172,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                         href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(draft.city || 'Italia')}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-ocean-600 hover:underline"
+                                        className="text-brand-600 hover:underline"
                                     >
                                         OpenStreetMap
                                     </a>{' '}
@@ -185,7 +185,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     {/* Media & Regolamento */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                            <Image className="h-4 w-4 text-ocean-600" /> Media &amp; Regolamento
+                            <Image className="h-4 w-4 text-brand-600" /> Media &amp; Regolamento
                         </h3>
                         <div className="grid grid-cols-1 gap-4">
                             <div>
@@ -225,7 +225,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     {/* Commissione a livello di evento */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-3">
-                            <Euro className="h-4 w-4 text-ocean-600" /> Commissione evento
+                            <Euro className="h-4 w-4 text-brand-600" /> Commissione evento
                         </h3>
                         <p className="text-sm text-slate-500 mb-3">
                             Si applica a tutte le gare di questo evento che non hanno una commissione specifica.
@@ -249,12 +249,12 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                                <Users className="h-4 w-4 text-ocean-600" /> Distanze ({draft.races.length})
+                                <Users className="h-4 w-4 text-brand-600" /> Distanze ({draft.races.length})
                             </h3>
                             <button
                                 type="button"
                                 onClick={addRace}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ocean-200 text-ocean-700 text-sm hover:bg-ocean-50 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 text-brand-700 text-sm hover:bg-brand-50 transition-colors"
                             >
                                 <Plus className="h-4 w-4" /> Aggiungi distanza
                             </button>
@@ -271,7 +271,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                                 <span className="text-xs text-slate-400">{race.distance}</span>
                                                 <span className="text-xs text-slate-400">{formatPrice(race.price)}</span>
                                                 {race.priceSteps?.length ? (
-                                                    <span className="text-xs text-ocean-500">{race.priceSteps.length} quote</span>
+                                                    <span className="text-xs text-brand-500">{race.priceSteps.length} quote</span>
                                                 ) : null}
                                                 {race.formSchema?.length ? (
                                                     <span className="text-xs text-teal-600">{race.formSchema.length} campi</span>

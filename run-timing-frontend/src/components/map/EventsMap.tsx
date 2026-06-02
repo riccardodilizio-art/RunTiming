@@ -115,7 +115,7 @@ export default function EventsMap({ events }: Props) {
                                     </span>
                                     <Link
                                         to={`/events/${event.slug}`}
-                                        style={{ fontSize: '12px', color: '#0168c8', fontWeight: 600, textDecoration: 'none' }}
+                                        style={{ fontSize: '12px', color: '#e8430a', fontWeight: 600, textDecoration: 'none' }}
                                     >
                                         Dettaglio →
                                     </Link>
@@ -143,7 +143,7 @@ export default function EventsMap({ events }: Props) {
             {/* Events count badge */}
             <div className="absolute top-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-1.5 shadow-md">
                 <p className="text-xs text-slate-600 font-medium">
-                    <span className="font-bold text-ocean-700">{events.length}</span>{' '}
+                    <span className="font-bold text-brand-700">{events.length}</span>{' '}
                     {events.length === 1 ? 'evento' : 'eventi'}
                 </p>
             </div>

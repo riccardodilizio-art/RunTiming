@@ -4,7 +4,7 @@ import { useAdminStore } from '../../hooks/useAdminStore';
 import type { AppUser } from '../../types';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 function newId() { return `user_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
@@ -102,7 +102,7 @@ function UserModal({
                     <div className="flex items-center gap-2">
                         <input type="checkbox" id="isActive" checked={draft.isActive}
                             onChange={e => set('isActive', e.target.checked)}
-                            className="rounded border-slate-300 text-ocean-600" />
+                            className="rounded border-slate-300 text-brand-600" />
                         <label htmlFor="isActive" className="text-sm text-slate-700">Account attivo</label>
                     </div>
 
@@ -119,7 +119,7 @@ function UserModal({
                                             type="checkbox"
                                             checked={draft.assignedEventIds.includes(ev.id)}
                                             onChange={() => toggleEvent(ev.id)}
-                                            className="rounded border-slate-300 text-ocean-600"
+                                            className="rounded border-slate-300 text-brand-600"
                                         />
                                         <span className="text-sm text-slate-700">{ev.title}</span>
                                     </label>
@@ -136,7 +136,7 @@ function UserModal({
                     </button>
                     <button onClick={handleSave}
                         disabled={!draft.username || !draft.password || !draft.displayName}
-                        className="px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-50 flex items-center gap-1.5">
+                        className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1.5">
                         <Check className="w-4 h-4" />
                         Salva
                     </button>
@@ -174,7 +174,7 @@ export default function UsersSection() {
                 </div>
                 <button
                     onClick={() => setEditing('new')}
-                    className="flex items-center gap-1.5 bg-ocean-600 hover:bg-ocean-700 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors"
                 >
                     <Plus className="w-4 h-4" />
                     Nuovo organizzatore
@@ -210,7 +210,7 @@ export default function UsersSection() {
                                             : u.assignedEventIds.map(eid => {
                                                 const ev = eventList.find(e => e.id === eid);
                                                 return ev ? (
-                                                    <span key={eid} className="inline-block bg-ocean-100 text-ocean-700 text-xs px-2 py-0.5 rounded-full mr-1">
+                                                    <span key={eid} className="inline-block bg-brand-100 text-brand-700 text-xs px-2 py-0.5 rounded-full mr-1">
                                                         {ev.title}
                                                     </span>
                                                 ) : null;

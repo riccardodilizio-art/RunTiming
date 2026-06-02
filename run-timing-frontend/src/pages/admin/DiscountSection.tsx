@@ -4,7 +4,7 @@ import { useAdminStore } from '../../hooks/useAdminStore';
 import type { DiscountCode, CommissionConfig } from '../../types';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 function newId() { return `disc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
@@ -117,7 +117,7 @@ function DiscountModal({
                             type="checkbox"
                             checked={draft.isActive}
                             onChange={e => set('isActive', e.target.checked)}
-                            className="accent-ocean-600 h-4 w-4"
+                            className="accent-brand-600 h-4 w-4"
                         />
                         <label htmlFor="isActive" className="text-sm text-slate-700">Codice attivo</label>
                     </div>
@@ -130,7 +130,7 @@ function DiscountModal({
                     <button
                         onClick={() => isValid && onSave(draft)}
                         disabled={!isValid}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40 transition-colors"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40 transition-colors"
                     >
                         <Check className="h-4 w-4" /> Salva
                     </button>
@@ -156,7 +156,7 @@ function CommissionCard() {
     return (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
             <h3 className="font-semibold text-slate-800 mb-1 flex items-center gap-2">
-                <Settings2 className="h-4 w-4 text-ocean-600" /> Commissioni di servizio
+                <Settings2 className="h-4 w-4 text-brand-600" /> Commissioni di servizio
             </h3>
             <p className="text-sm text-slate-500 mb-4">
                 Le commissioni vengono aggiunte automaticamente al prezzo base durante l'iscrizione.
@@ -195,7 +195,7 @@ function CommissionCard() {
             <div className="flex items-center gap-3">
                 <button
                     onClick={handleSave}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
                 >
                     <Check className="h-4 w-4" /> Salva commissioni
                 </button>
@@ -232,13 +232,13 @@ export default function DiscountSection() {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                            <Tag className="h-4 w-4 text-ocean-600" /> Codici sconto
+                            <Tag className="h-4 w-4 text-brand-600" /> Codici sconto
                         </h3>
                         <p className="text-sm text-slate-500 mt-0.5">{discountCodes.length} codici configurati</p>
                     </div>
                     <button
                         onClick={() => setModal('new')}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Nuovo codice
                     </button>
@@ -276,8 +276,8 @@ export default function DiscountSection() {
                                             <td className="px-4 py-3">
                                                 <span className="flex items-center gap-1 text-slate-700 font-medium">
                                                     {c.type === 'fixed'
-                                                        ? <><Euro className="h-3.5 w-3.5 text-ocean-500" />{formatPrice(c.value)}</>
-                                                        : <><Percent className="h-3.5 w-3.5 text-ocean-500" />{c.value}%</>
+                                                        ? <><Euro className="h-3.5 w-3.5 text-brand-500" />{formatPrice(c.value)}</>
+                                                        : <><Percent className="h-3.5 w-3.5 text-brand-500" />{c.value}%</>
                                                     }
                                                 </span>
                                             </td>

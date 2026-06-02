@@ -4,7 +4,7 @@ import { LogIn, Eye, EyeOff, AlertCircle, Timer } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 export default function AthleteLoginPage() {
     const navigate  = useNavigate();
@@ -38,11 +38,11 @@ export default function AthleteLoginPage() {
             <div className="w-full max-w-sm">
                 <div className="text-center mb-8">
                     <Link to="/" className="inline-flex items-center gap-2 mb-5">
-                        <div className="w-10 h-10 bg-ocean-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
                             <Timer className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-display font-700 text-xl text-slate-800">
-                            Run<span className="text-ocean-600">Timing</span>
+                            Run<span className="text-brand-600">Timing</span>
                         </span>
                     </Link>
                     <h1 className="font-display font-700 text-2xl text-slate-800">Bentornato atleta</h1>
@@ -75,7 +75,7 @@ export default function AthleteLoginPage() {
                         </div>
                     </div>
                     <button type="submit" disabled={loading}
-                        className="w-full bg-ocean-600 hover:bg-ocean-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2">
+                        className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2">
                         {loading
                             ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                             : <LogIn className="w-4 h-4" />}
@@ -87,7 +87,7 @@ export default function AthleteLoginPage() {
                     Non hai un account?{' '}
                     <Link
                         to={`/registrati${redirectTo !== '/profilo' ? `?redirect=${encodeURIComponent(redirectTo)}&from=iscrizione` : ''}`}
-                        className="text-ocean-600 font-medium hover:underline">
+                        className="text-brand-600 font-medium hover:underline">
                         Registrati gratuitamente
                     </Link>
                 </p>

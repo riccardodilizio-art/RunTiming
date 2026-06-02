@@ -44,22 +44,22 @@ export default function EventGridCard({ event }: { event: Event }) {
 
             {/* Content */}
             <div className="p-4">
-                <h3 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-ocean-600 transition-colors mb-2 line-clamp-2">
+                <h3 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-brand-600 transition-colors mb-2 line-clamp-2">
                     {event.title}
                 </h3>
                 <div className="space-y-1 mb-3">
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <Calendar className="w-3 h-3 text-ocean-400 flex-shrink-0" />
+                        <Calendar className="w-3 h-3 text-brand-400 flex-shrink-0" />
                         {formatDate(event.date)}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <MapPin className="w-3 h-3 text-ocean-400 flex-shrink-0" />
+                        <MapPin className="w-3 h-3 text-brand-400 flex-shrink-0" />
                         {event.city} ({event.province})
                     </div>
                 </div>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                     <div>
-                        <span className="font-semibold text-ocean-700 text-sm">
+                        <span className="font-semibold text-brand-700 text-sm">
                             {minPrice === maxPrice ? `€${minPrice}` : `€${minPrice} – €${maxPrice}`}
                         </span>
                         <span className="text-slate-400 text-xs ml-1.5">{event.races.length} gare</span>
@@ -67,7 +67,7 @@ export default function EventGridCard({ event }: { event: Event }) {
                     {isPast ? (
                         <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Concluso</span>
                     ) : hasOpenRaces ? (
-                        <span className="text-xs text-ocean-600 bg-ocean-50 border border-ocean-200 px-2 py-1 rounded-lg font-medium">Aperto</span>
+                        <span className="text-xs text-brand-600 bg-brand-50 border border-brand-200 px-2 py-1 rounded-lg font-medium">Aperto</span>
                     ) : (
                         <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Chiuso</span>
                     )}

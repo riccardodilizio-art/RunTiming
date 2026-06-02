@@ -106,7 +106,7 @@ function ResultRow({ r, race, onCertificate, catPosition, hasLaps, expanded, onT
                     <button
                         onClick={onToggle}
                         title="Dettaglio giri"
-                        className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${expanded ? 'text-ocean-600 bg-ocean-50' : 'text-slate-300 hover:text-ocean-600 hover:bg-ocean-50'}`}
+                        className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${expanded ? 'text-brand-600 bg-brand-50' : 'text-slate-300 hover:text-brand-600 hover:bg-brand-50'}`}
                     >
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                     </button>
@@ -118,7 +118,7 @@ function ResultRow({ r, race, onCertificate, catPosition, hasLaps, expanded, onT
                 <button
                     onClick={() => onCertificate(r, catPosition)}
                     title="Scarica attestato"
-                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:text-ocean-600 hover:bg-ocean-50 transition-colors"
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:text-brand-600 hover:bg-brand-50 transition-colors"
                 >
                     <Award className="w-4 h-4" />
                 </button>
@@ -226,15 +226,15 @@ export default function ResultsPage() {
     return (
         <main className="min-h-screen bg-slate-50">
 
-            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #0a3c6e 0%, #0168c8 100%)' }}>
+            <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #7a2510 0%, #e8430a 100%)' }}>
                 <h1 className="font-display font-800 text-3xl md:text-4xl text-white mb-1">Risultati</h1>
-                <p className="text-sky-200 text-sm">Classifiche ufficiali degli eventi conclusi</p>
+                <p className="text-orange-100 text-sm">Classifiche ufficiali degli eventi conclusi</p>
             </div>
 
             <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
 
                 {selectedEvent && (
-                    <button onClick={back} className="inline-flex items-center gap-1.5 text-slate-400 hover:text-ocean-600 text-sm mb-5 transition-colors">
+                    <button onClick={back} className="inline-flex items-center gap-1.5 text-slate-400 hover:text-brand-600 text-sm mb-5 transition-colors">
                         <ChevronLeft className="w-4 h-4" />
                         {selectedRace ? selectedEvent.title : 'Tutti gli eventi'}
                     </button>
@@ -249,13 +249,13 @@ export default function ResultsPage() {
                         <div className="space-y-2.5">
                             {pastEvents.map(event => (
                                 <button key={event.id} onClick={() => selectEvent(event)}
-                                    className="group w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3 sm:p-4 hover:bg-slate-50 hover:border-ocean-300 transition-all text-left"
+                                    className="group w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3 sm:p-4 hover:bg-slate-50 hover:border-brand-300 transition-all text-left"
                                     style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
                                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex-shrink-0">
                                         <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-slate-800 text-sm group-hover:text-ocean-600 transition-colors leading-tight">{event.title}</h3>
+                                        <h3 className="font-semibold text-slate-800 text-sm group-hover:text-brand-600 transition-colors leading-tight">{event.title}</h3>
                                         <p className="text-slate-400 text-xs mt-0.5 truncate">{formatDate(event.date)} · {event.city}</p>
                                     </div>
                                     <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
@@ -289,20 +289,20 @@ export default function ResultsPage() {
                                     <button key={race.id}
                                         onClick={() => hasResults ? setSelectedRace(race) : null}
                                         disabled={!hasResults}
-                                        className={`flex items-start gap-3 bg-white border rounded-xl p-4 text-left transition-all ${hasResults ? 'border-slate-200 hover:border-ocean-300 hover:bg-slate-50 cursor-pointer' : 'border-slate-100 opacity-50 cursor-not-allowed'}`}
+                                        className={`flex items-start gap-3 bg-white border rounded-xl p-4 text-left transition-all ${hasResults ? 'border-slate-200 hover:border-brand-300 hover:bg-slate-50 cursor-pointer' : 'border-slate-100 opacity-50 cursor-not-allowed'}`}
                                         style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
-                                        {isLap && <Repeat className="w-4 h-4 text-ocean-500 mt-0.5 flex-shrink-0" />}
+                                        {isLap && <Repeat className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />}
                                         <div className="flex-1 min-w-0">
                                             <p className="font-semibold text-slate-800 text-sm">{race.name}</p>
                                             <p className="text-slate-400 text-xs mt-0.5">{race.distance}</p>
                                             {isLap && (
-                                                <span className="inline-block mt-1 text-[10px] bg-ocean-50 text-ocean-600 border border-ocean-200 px-1.5 py-0.5 rounded">
+                                                <span className="inline-block mt-1 text-[10px] bg-brand-50 text-brand-600 border border-brand-200 px-1.5 py-0.5 rounded">
                                                     {race.raceType === 'laps_fixed' ? `${race.totalLaps} giri fissi` : `Gara a tempo ${race.timeLimitMinutes} min`}
                                                 </span>
                                             )}
                                         </div>
                                         {hasResults ? (
-                                            <span className="text-xs bg-ocean-50 text-ocean-600 border border-ocean-200 px-2 py-1 rounded-lg font-medium flex-shrink-0">Classifica</span>
+                                            <span className="text-xs bg-brand-50 text-brand-600 border border-brand-200 px-2 py-1 rounded-lg font-medium flex-shrink-0">Classifica</span>
                                         ) : (
                                             <span className="text-xs bg-slate-100 text-slate-400 px-2 py-1 rounded-lg flex-shrink-0">N/D</span>
                                         )}
@@ -325,7 +325,7 @@ export default function ResultsPage() {
                                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                         <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 leading-tight">{selectedRace.name}</h2>
                                         {isLapRace && (
-                                            <span className="text-xs bg-ocean-50 text-ocean-600 border border-ocean-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                                            <span className="text-xs bg-brand-50 text-brand-600 border border-brand-200 px-2 py-0.5 rounded-full flex-shrink-0">
                                                 {selectedRace.raceType === 'laps_fixed' ? `${selectedRace.totalLaps} giri` : `${selectedRace.timeLimitMinutes} min`}
                                             </span>
                                         )}
@@ -335,13 +335,13 @@ export default function ResultsPage() {
                                 {isLapRace && (
                                     <button
                                         onClick={() => setShowImport(true)}
-                                        className="flex-shrink-0 flex items-center gap-1.5 text-xs sm:text-sm text-ocean-600 hover:text-ocean-700 border border-ocean-200 hover:bg-ocean-50 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors"
+                                        className="flex-shrink-0 flex items-center gap-1.5 text-xs sm:text-sm text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors"
                                     >
                                         <Upload className="w-3.5 h-3.5" />
                                         <span className="hidden sm:inline">Importa tempi giro</span>
                                         <span className="sm:hidden">Importa</span>
                                         {Object.keys(importedLaps).length > 0 && (
-                                            <span className="text-[10px] bg-ocean-100 text-ocean-700 px-1.5 py-0.5 rounded-full font-semibold">
+                                            <span className="text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-full font-semibold">
                                                 {Object.keys(importedLaps).length}
                                             </span>
                                         )}
@@ -358,7 +358,7 @@ export default function ResultsPage() {
                                 ].map(s => (
                                     <div key={s.label} className="text-center">
                                         <p className="text-[10px] sm:text-xs text-slate-400 leading-tight">{s.label}</p>
-                                        <p className="font-display font-700 text-lg sm:text-2xl text-ocean-700">{s.val}</p>
+                                        <p className="font-display font-700 text-lg sm:text-2xl text-brand-700">{s.val}</p>
                                     </div>
                                 ))}
                             </div>
@@ -373,7 +373,7 @@ export default function ResultsPage() {
                                 ...(specials?.length ? [{ id: 'specials', label: 'Premi', icon: <Award className="w-3.5 h-3.5" /> }] : []),
                             ] as { id: ClassTab; label: string; icon: React.ReactNode }[]).map(t => (
                                 <button key={t.id} onClick={() => setClassTab(t.id as ClassTab)}
-                                    className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${classTab === t.id ? 'border-ocean-600 text-ocean-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+                                    className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${classTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                                     {t.icon} {t.label}
                                 </button>
                             ))}
@@ -387,13 +387,13 @@ export default function ResultsPage() {
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                         <input type="text" placeholder="Cerca atleta o pettorale..."
                                             value={query} onChange={e => setQuery(e.target.value)}
-                                            className="w-full bg-white border border-slate-300 focus:border-ocean-400 focus:outline-none rounded-lg pl-9 pr-4 py-2 text-sm text-slate-700 placeholder-slate-400 transition-colors" />
+                                            className="w-full bg-white border border-slate-300 focus:border-brand-400 focus:outline-none rounded-lg pl-9 pr-4 py-2 text-sm text-slate-700 placeholder-slate-400 transition-colors" />
                                     </div>
                                     {/* Category filter — horizontal scroll on mobile */}
                                     <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5 sm:pb-0 sm:flex-wrap">
                                         {ALL_CAT.map(cat => (
                                             <button key={cat} onClick={() => setCatFilter(cat)}
-                                                className={`flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${catFilter === cat ? 'bg-ocean-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-ocean-300'}`}>
+                                                className={`flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${catFilter === cat ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-brand-300'}`}>
                                                 {cat}
                                             </button>
                                         ))}
@@ -495,16 +495,16 @@ export default function ResultsPage() {
                                 {specials.map((award, i) => (
                                     <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
                                         <div className="flex items-center gap-2 mb-2.5">
-                                            <Award className="w-4 h-4 text-ocean-500" />
-                                            <p className="text-xs font-semibold text-ocean-600 uppercase tracking-wide">{award.label}</p>
+                                            <Award className="w-4 h-4 text-brand-500" />
+                                            <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">{award.label}</p>
                                         </div>
                                         <p className="font-semibold text-slate-800 text-base sm:text-lg">{award.result.athleteName}</p>
                                         <div className="flex items-center justify-between mt-2">
                                             <span className="text-slate-400 text-xs">{award.result.category} {award.result.team ? `· ${award.result.team}` : ''}</span>
-                                            <span className="font-mono text-ocean-700 font-semibold text-sm">{award.result.time}</span>
+                                            <span className="font-mono text-brand-700 font-semibold text-sm">{award.result.time}</span>
                                         </div>
                                         <button onClick={() => openCert(award.result)}
-                                            className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-ocean-600 hover:text-ocean-700 border border-ocean-200 hover:bg-ocean-50 py-1.5 rounded-lg transition-colors">
+                                            className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 py-1.5 rounded-lg transition-colors">
                                             <Award className="w-3.5 h-3.5" /> Genera attestato
                                         </button>
                                     </div>

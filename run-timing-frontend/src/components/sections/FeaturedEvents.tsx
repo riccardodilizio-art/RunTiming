@@ -32,7 +32,7 @@ export default function FeaturedEvents() {
                         placeholder="Cerca per nome o città..."
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        className="w-full bg-white border border-slate-300 focus:border-ocean-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
+                        className="w-full bg-white border border-slate-300 focus:border-brand-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
                     />
                 </div>
 

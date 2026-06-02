@@ -15,7 +15,7 @@ export function RaceStatsBar({ regs }: { regs: RegistrationSubmission[] }) {
     const hasCerts = regs.some(r => r.certStatus !== undefined && r.certStatus !== 'non_richiesto');
 
     const cards = [
-        { label: 'Iscritti totali',      value: total,                color: 'bg-ocean-50 border-ocean-200 text-ocean-700' },
+        { label: 'Iscritti totali',      value: total,                color: 'bg-brand-50 border-brand-200 text-brand-700' },
         { label: 'In attesa pagamento',  value: pending,              color: 'bg-amber-50 border-amber-200 text-amber-700' },
         { label: 'Pagamenti confermati', value: confirmed,            color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
         { label: 'Incasso confermato',   value: formatPrice(revenue), color: 'bg-slate-50 border-slate-200 text-slate-700' },
@@ -163,7 +163,7 @@ export function CertBadge({
                         </span>
                     )}
                     {certInfo.fileName && (
-                        <span className="ml-1 text-ocean-500" title={certInfo.fileName}>· 📎</span>
+                        <span className="ml-1 text-brand-500" title={certInfo.fileName}>· 📎</span>
                     )}
                 </div>
             )}

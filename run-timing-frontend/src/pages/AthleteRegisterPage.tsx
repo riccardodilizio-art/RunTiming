@@ -4,7 +4,7 @@ import { UserPlus, Eye, EyeOff, AlertCircle, Timer, ShieldCheck, ArrowLeft } fro
 import { useAthleteAuth } from '../context/useAthleteAuth';
 
 const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 const selectCls = inputCls + ' bg-white';
 
 export default function AthleteRegisterPage() {
@@ -95,11 +95,11 @@ export default function AthleteRegisterPage() {
                 {/* Header */}
                 <div className="text-center mb-8">
                     <Link to="/" className="inline-flex items-center gap-2 mb-5">
-                        <div className="w-10 h-10 bg-ocean-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
                             <Timer className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-display font-700 text-xl text-slate-800">
-                            Run<span className="text-ocean-600">Timing</span>
+                            Run<span className="text-brand-600">Timing</span>
                         </span>
                     </Link>
                     <h1 className="font-display font-700 text-2xl text-slate-800">Crea il tuo account</h1>
@@ -117,7 +117,7 @@ export default function AthleteRegisterPage() {
 
                 {/* Back to registration notice */}
                 {fromReg && (
-                    <div className="flex items-center gap-2 bg-ocean-50 border border-ocean-200 rounded-xl px-4 py-3 mb-5 text-sm text-ocean-800">
+                    <div className="flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 mb-5 text-sm text-brand-800">
                         <ArrowLeft className="w-4 h-4 shrink-0" />
                         Dopo la registrazione verrai reindirizzato all'iscrizione con i dati pre-compilati.
                     </div>
@@ -248,7 +248,7 @@ export default function AthleteRegisterPage() {
                     {/* ── Certificato medico ────────────────────────── */}
                     <section>
                         <div className="flex items-center gap-2 mb-1">
-                            <ShieldCheck className="w-4 h-4 text-ocean-500" />
+                            <ShieldCheck className="w-4 h-4 text-brand-500" />
                             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Certificato medico</h2>
                         </div>
                         <p className="text-xs text-slate-500 mb-3">
@@ -285,10 +285,10 @@ export default function AthleteRegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Copia del certificato (PDF o immagine)
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer w-fit px-3 py-2 rounded-lg border border-dashed border-slate-300 hover:border-ocean-400 hover:bg-ocean-50 text-sm text-slate-500 transition-colors">
+                                    <label className="flex items-center gap-2 cursor-pointer w-fit px-3 py-2 rounded-lg border border-dashed border-slate-300 hover:border-brand-400 hover:bg-brand-50 text-sm text-slate-500 transition-colors">
                                         <ShieldCheck className="h-4 w-4 text-slate-400" />
                                         {form.certFileName ? (
-                                            <span className="text-ocean-700 font-medium">{form.certFileName}</span>
+                                            <span className="text-brand-700 font-medium">{form.certFileName}</span>
                                         ) : (
                                             <span>Seleziona file…</span>
                                         )}
@@ -304,7 +304,7 @@ export default function AthleteRegisterPage() {
                     </section>
 
                     <button type="submit" disabled={loading}
-                        className="w-full bg-ocean-600 hover:bg-ocean-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2 mt-2">
+                        className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2 mt-2">
                         {loading
                             ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                             : <UserPlus className="w-4 h-4" />}
@@ -315,7 +315,7 @@ export default function AthleteRegisterPage() {
                 <p className="text-center text-sm text-slate-500 mt-4">
                     Hai già un account?{' '}
                     <Link to={`/accedi${redirectTo !== '/profilo' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}
-                        className="text-ocean-600 font-medium hover:underline">
+                        className="text-brand-600 font-medium hover:underline">
                         Accedi
                     </Link>
                 </p>

@@ -40,7 +40,7 @@ export default function CommissionOverrideEditor({
                         type="checkbox"
                         checked={enabled}
                         onChange={e => e.target.checked ? enable() : disable()}
-                        className="accent-ocean-600 h-4 w-4"
+                        className="accent-brand-600 h-4 w-4"
                     />
                     <span className="text-sm font-medium text-slate-700">Commissione personalizzata</span>
                 </label>

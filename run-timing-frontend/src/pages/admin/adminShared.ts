@@ -11,7 +11,7 @@ export function formatPrice(n: number) {
 }
 
 export const inputCls =
-    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500';
+    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
 
 export const categoryOptions: { value: SportCategory; label: string }[] = [
     { value: 'running', label: 'Running' },

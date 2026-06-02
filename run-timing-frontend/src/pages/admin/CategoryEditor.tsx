@@ -120,7 +120,7 @@ export default function CategoryEditor({
                     <button
                         type="button"
                         onClick={() => { setShowPresetPanel(v => !v); setImportError(''); }}
-                        className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 border border-ocean-200 rounded px-2 py-1 hover:bg-ocean-50 transition-colors"
+                        className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 border border-brand-200 rounded px-2 py-1 hover:bg-brand-50 transition-colors"
                     >
                         <ClipboardList className="h-3.5 w-3.5" /> Usa preset standard
                     </button>
@@ -130,7 +130,7 @@ export default function CategoryEditor({
                         <input type="file" accept=".csv,.json" className="hidden" onChange={handleFileChange} />
                     </label>
                     {/* Aggiungi manuale */}
-                    <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-ocean-600 hover:text-ocean-800 transition-colors">
+                    <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 transition-colors">
                         <Plus className="h-3.5 w-3.5" /> Aggiungi
                     </button>
                 </div>
@@ -142,9 +142,9 @@ export default function CategoryEditor({
 
             {/* Pannello preset */}
             {showPresetPanel && (
-                <div className="mb-4 rounded-xl border border-ocean-200 bg-ocean-50 p-4">
+                <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
                     <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-semibold text-ocean-800">Scegli un preset di categorie</p>
+                        <p className="text-sm font-semibold text-brand-800">Scegli un preset di categorie</p>
                         <button type="button" onClick={() => setShowPresetPanel(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="h-4 w-4" />
                         </button>
@@ -152,18 +152,18 @@ export default function CategoryEditor({
                     <div className="space-y-4">
                         {PRESET_GROUPS.map(group => (
                             <div key={group}>
-                                <p className="text-xs font-bold text-ocean-600 uppercase tracking-wider mb-2">{group}</p>
+                                <p className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">{group}</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {CATEGORY_PRESETS.filter(p => p.group === group).map(preset => (
                                         <button
                                             key={preset.id}
                                             type="button"
                                             onClick={() => applyPreset(preset.id)}
-                                            className="text-left p-3 rounded-lg bg-white border border-ocean-100 hover:border-ocean-400 hover:bg-ocean-50 transition-all group"
+                                            className="text-left p-3 rounded-lg bg-white border border-brand-100 hover:border-brand-400 hover:bg-brand-50 transition-all group"
                                         >
-                                            <p className="text-xs font-semibold text-slate-800 group-hover:text-ocean-700">{preset.label}</p>
+                                            <p className="text-xs font-semibold text-slate-800 group-hover:text-brand-700">{preset.label}</p>
                                             <p className="text-xs text-slate-400 mt-0.5">{preset.description}</p>
-                                            <p className="text-xs text-ocean-500 mt-1">{preset.categories.length} categorie</p>
+                                            <p className="text-xs text-brand-500 mt-1">{preset.categories.length} categorie</p>
                                         </button>
                                     ))}
                                 </div>
@@ -182,16 +182,16 @@ export default function CategoryEditor({
 
             {/* Preview (preset o file) */}
             {importPreview && (
-                <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4 mb-4">
-                    <p className="text-sm font-semibold text-ocean-800 mb-1">
+                <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-4">
+                    <p className="text-sm font-semibold text-brand-800 mb-1">
                         {importPreview.length} categorie — <span className="font-normal">{importLabel}</span>
                     </p>
-                    <div className="text-xs text-ocean-700 mb-3 max-h-40 overflow-y-auto space-y-0.5">
+                    <div className="text-xs text-brand-700 mb-3 max-h-40 overflow-y-auto space-y-0.5">
                         {importPreview.map(c => (
                             <div key={c.id} className="flex gap-3">
                                 <span className="font-medium w-40 truncate">{c.name}</span>
-                                <span className="text-ocean-500 w-8">{c.gender ?? 'M+F'}</span>
-                                <span className="text-ocean-500">
+                                <span className="text-brand-500 w-8">{c.gender ?? 'M+F'}</span>
+                                <span className="text-brand-500">
                                     {c.minAge ?? '—'}–{c.maxAge ?? '∞'}
                                 </span>
                             </div>
@@ -202,7 +202,7 @@ export default function CategoryEditor({
                             <button
                                 type="button"
                                 onClick={() => confirmImport('replace')}
-                                className="px-3 py-1.5 rounded-lg bg-ocean-600 text-white text-xs font-semibold hover:bg-ocean-700 transition-colors"
+                                className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors"
                             >
                                 Sostituisci le {categories.length} esistenti
                             </button>
@@ -210,7 +210,7 @@ export default function CategoryEditor({
                         <button
                             type="button"
                             onClick={() => confirmImport('append')}
-                            className="px-3 py-1.5 rounded-lg bg-white border border-ocean-300 text-ocean-700 text-xs font-semibold hover:bg-ocean-50 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-white border border-brand-300 text-brand-700 text-xs font-semibold hover:bg-brand-50 transition-colors"
                         >
                             {categories.length > 0 ? 'Aggiungi alle esistenti' : 'Applica'}
                         </button>

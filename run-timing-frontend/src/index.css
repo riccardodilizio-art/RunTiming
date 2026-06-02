@@ -16,7 +16,7 @@
 
 @layer utilities {
     .text-gradient {
-        background: linear-gradient(135deg, #0152a2 0%, #0d87ea 100%);
+        background: linear-gradient(135deg, #be3208 0%, #f75a1b 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -26,6 +26,6 @@
     }
     .card-hover:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(13, 135, 234, 0.12);
+        box-shadow: 0 8px 24px rgba(232, 67, 10, 0.15);
     }
 }

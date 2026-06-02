@@ -49,18 +49,18 @@ function StepBar({ current }: { current: number }) {
                 <div key={idx} className="flex items-center">
                     <div className="flex flex-col items-center">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                            idx < current ? 'bg-ocean-600 text-white'
-                            : idx === current ? 'bg-ocean-600 text-white ring-4 ring-ocean-100'
+                            idx < current ? 'bg-brand-600 text-white'
+                            : idx === current ? 'bg-brand-600 text-white ring-4 ring-brand-100'
                             : 'bg-slate-200 text-slate-400'
                         }`}>
                             {idx < current ? <Check className="h-4 w-4" /> : idx + 1}
                         </div>
                         <span className={`mt-1.5 text-xs font-medium hidden sm:block ${
-                            idx === current ? 'text-ocean-700' : 'text-slate-400'
+                            idx === current ? 'text-brand-700' : 'text-slate-400'
                         }`}>{label}</span>
                     </div>
                     {idx < STEPS.length - 1 && (
-                        <div className={`w-10 sm:w-16 h-0.5 mx-1 transition-colors ${idx < current ? 'bg-ocean-600' : 'bg-slate-200'}`} />
+                        <div className={`w-10 sm:w-16 h-0.5 mx-1 transition-colors ${idx < current ? 'bg-brand-600' : 'bg-slate-200'}`} />
                     )}
                 </div>
             ))}
@@ -92,7 +92,7 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
                         type="button"
                         onClick={() => onSelect(race.id)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                            selectedId === race.id ? 'border-ocean-500 bg-ocean-50 shadow-md' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            selectedId === race.id ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                     >
                         <div className="flex items-start justify-between gap-3">
@@ -101,7 +101,7 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
                                 <p className="text-sm text-slate-500 mt-0.5">{race.distance}</p>
                             </div>
                             <div className="text-right shrink-0">
-                                <p className="font-bold text-ocean-700 text-lg">{formatPrice(price)}</p>
+                                <p className="font-bold text-brand-700 text-lg">{formatPrice(price)}</p>
                                 <p className="text-xs text-slate-400">{priceLabel}</p>
                             </div>
                         </div>
@@ -123,7 +123,7 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
                                     const today = new Date().toISOString().slice(0, 10);
                                     const active = step.deadline >= today;
                                     return (
-                                        <span key={step.id} className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${active ? 'bg-ocean-100 text-ocean-700' : 'bg-slate-100 text-slate-400 line-through'}`}>
+                                        <span key={step.id} className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${active ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-400 line-through'}`}>
                                             <Tag className="h-3 w-3" />
                                             {step.label} — {formatPrice(step.price)}
                                             {active && <span className="ml-1 text-slate-400">scade {step.deadline}</span>}
@@ -179,9 +179,9 @@ function FidalLookup({
     if (!open) return null;
 
     return (
-        <div className="mb-5 rounded-xl border border-ocean-200 bg-ocean-50/60 p-4">
+        <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50/60 p-4">
             <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-ocean-800 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-brand-800 flex items-center gap-2">
                     <UserCheck className="h-4 w-4" /> Cerca dati atleta (FIDAL / RunCard)
                 </h3>
                 <button onClick={() => setOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">
@@ -200,7 +200,7 @@ function FidalLookup({
                         type="button"
                         onClick={() => { setMode(m); setResults(null); setFound(null); }}
                         className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-                            mode === m ? 'border-ocean-500 bg-ocean-500 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                            mode === m ? 'border-brand-500 bg-brand-500 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
                         }`}
                     >
                         {m === 'tessera' ? 'Per numero tessera' : 'Per cognome / nome'}
@@ -216,22 +216,22 @@ function FidalLookup({
                         onChange={e => { setTessera(e.target.value.toUpperCase()); setFound(null); setResults(null); }}
                         onKeyDown={e => e.key === 'Enter' && handleSearch()}
                         placeholder="es. RM001234 oppure RC001122"
-                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ocean-500 uppercase"
+                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
                     />
                     <button type="button" onClick={handleSearch} disabled={!tessera.trim()}
-                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40">
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
                         <Search className="h-4 w-4" /> Cerca
                     </button>
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-2 mb-2">
                     <input type="text" value={cognome} onChange={e => setCognome(e.target.value)} placeholder="Cognome *"
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500" />
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     <div className="flex gap-2">
                         <input type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome (opzionale)"
-                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500" />
+                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                         <button type="button" onClick={handleSearch} disabled={!cognome.trim()}
-                            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40">
+                            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
                             <Search className="h-4 w-4" />
                         </button>
                     </div>
@@ -246,7 +246,7 @@ function FidalLookup({
                 <div className="mt-2 border border-slate-200 rounded-lg bg-white divide-y divide-slate-100 max-h-40 overflow-y-auto">
                     {results.map(a => (
                         <button key={a.tessera} type="button" onClick={() => handleSelect(a)}
-                            className="w-full text-left px-3 py-2 hover:bg-ocean-50 transition-colors">
+                            className="w-full text-left px-3 py-2 hover:bg-brand-50 transition-colors">
                             <span className="text-sm font-medium text-slate-800">{a.cognome} {a.nome}</span>
                             <span className="ml-2 text-xs text-slate-400">{a.tessera} · {a.societa}</span>
                         </button>
@@ -335,13 +335,13 @@ function Summary({
                         <p className="font-semibold text-slate-800">{race.name}</p>
                         <p className="text-sm text-slate-500">{race.distance}</p>
                         {assignedCat && (
-                            <span className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-0.5 rounded-full bg-ocean-100 text-ocean-700 font-medium">
+                            <span className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-medium">
                                 Categoria: {assignedCat.name}
                             </span>
                         )}
                     </div>
                     <div className="text-right">
-                        <p className="font-bold text-ocean-700 text-xl">{formatPrice(price)}</p>
+                        <p className="font-bold text-brand-700 text-xl">{formatPrice(price)}</p>
                         <p className="text-xs text-slate-400">{priceLabel}</p>
                     </div>
                 </div>
@@ -397,13 +397,13 @@ function Summary({
                                 onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); }}
                                 onKeyDown={e => e.key === 'Enter' && handleApplyCode()}
                                 placeholder="Inserisci codice promo"
-                                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-ocean-500 uppercase"
+                                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
                             />
                             <button
                                 type="button"
                                 onClick={handleApplyCode}
                                 disabled={!codeInput.trim()}
-                                className="px-4 py-2 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 disabled:opacity-40 transition-colors"
+                                className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40 transition-colors"
                             >
                                 Applica
                             </button>
@@ -430,7 +430,7 @@ function Summary({
                     )}
                     <div className="flex justify-between px-4 py-3 bg-slate-50">
                         <span className="font-semibold text-slate-800">Totale</span>
-                        <span className="font-bold text-ocean-700 text-lg">{formatPrice(finalPrice)}</span>
+                        <span className="font-bold text-brand-700 text-lg">{formatPrice(finalPrice)}</span>
                     </div>
                 </div>
             </div>
@@ -456,9 +456,9 @@ function PaymentStep({
     return (
         <div className="space-y-5">
             {/* Amount due */}
-            <div className="bg-ocean-50 rounded-xl p-4 border border-ocean-200 flex items-center justify-between">
+            <div className="bg-brand-50 rounded-xl p-4 border border-brand-200 flex items-center justify-between">
                 <span className="font-semibold text-slate-700">Importo da pagare</span>
-                <span className="text-2xl font-bold text-ocean-700">
+                <span className="text-2xl font-bold text-brand-700">
                     {isFree ? 'Gratuito' : formatPrice(totalPrice)}
                 </span>
             </div>
@@ -477,7 +477,7 @@ function PaymentStep({
                         type="button"
                         onClick={() => onMethodChange('paypal')}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                            method === 'paypal' ? 'border-ocean-500 bg-ocean-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            method === 'paypal' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                     >
                         <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -487,7 +487,7 @@ function PaymentStep({
                             <p className="font-semibold text-slate-800">PayPal</p>
                             <p className="text-xs text-slate-400">Paga con il tuo account PayPal</p>
                         </div>
-                        {method === 'paypal' && <Check className="h-5 w-5 text-ocean-600 ml-auto" />}
+                        {method === 'paypal' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
                     </button>
 
                     {/* Card */}
@@ -495,7 +495,7 @@ function PaymentStep({
                         type="button"
                         onClick={() => onMethodChange('card')}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                            method === 'card' ? 'border-ocean-500 bg-ocean-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            method === 'card' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                     >
                         <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -505,7 +505,7 @@ function PaymentStep({
                             <p className="font-semibold text-slate-800">Carta di credito / debito</p>
                             <p className="text-xs text-slate-400">Visa, Mastercard, American Express</p>
                         </div>
-                        {method === 'card' && <Check className="h-5 w-5 text-ocean-600 ml-auto" />}
+                        {method === 'card' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
                     </button>
 
                     {/* Card form (shown when card selected) */}
@@ -517,7 +517,7 @@ function PaymentStep({
                                     type="text"
                                     maxLength={19}
                                     placeholder="1234 5678 9012 3456"
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -527,7 +527,7 @@ function PaymentStep({
                                         type="text"
                                         maxLength={5}
                                         placeholder="MM/AA"
-                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     />
                                 </div>
                                 <div>
@@ -536,7 +536,7 @@ function PaymentStep({
                                         type="text"
                                         maxLength={4}
                                         placeholder="123"
-                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     />
                                 </div>
                             </div>
@@ -545,7 +545,7 @@ function PaymentStep({
                                 <input
                                     type="text"
                                     placeholder="MARIO ROSSI"
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-500"
                                 />
                             </div>
                             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -625,14 +625,14 @@ function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMe
                 {athleteLoggedIn ? (
                     <Link
                         to="/profilo"
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
                     >
                         <User className="h-4 w-4" /> Il mio profilo
                     </Link>
                 ) : (
                     <Link
                         to="/events"
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-medium hover:bg-ocean-700 transition-colors"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
                     >
                         Torna agli eventi
                     </Link>
@@ -641,7 +641,7 @@ function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMe
             {!athleteLoggedIn && (
                 <p className="text-sm text-slate-400 mt-4">
                     Vuoi tracciare le tue gare?{' '}
-                    <Link to="/registrati" className="text-ocean-600 hover:underline">Crea un account gratuito</Link>
+                    <Link to="/registrati" className="text-brand-600 hover:underline">Crea un account gratuito</Link>
                 </p>
             )}
         </div>
@@ -786,7 +786,7 @@ export default function RegisterPage() {
             <main className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-slate-500 mb-4">Evento non trovato.</p>
-                    <Link to="/events" className="text-ocean-600 hover:underline text-sm">← Torna agli eventi</Link>
+                    <Link to="/events" className="text-brand-600 hover:underline text-sm">← Torna agli eventi</Link>
                 </div>
             </main>
         );
@@ -872,7 +872,7 @@ export default function RegisterPage() {
                 <div className="mb-6">
                     <Link
                         to={`/events/${slug}`}
-                        className="flex items-center gap-1 text-sm text-slate-400 hover:text-ocean-600 transition-colors mb-2"
+                        className="flex items-center gap-1 text-sm text-slate-400 hover:text-brand-600 transition-colors mb-2"
                     >
                         <ChevronLeft className="h-4 w-4" /> {event.title}
                     </Link>
@@ -890,7 +890,7 @@ export default function RegisterPage() {
                                 Il tuo account è già registrato per una gara di questa manifestazione.
                                 Non è possibile effettuare una seconda iscrizione per lo stesso evento.
                             </p>
-                            <Link to="/profilo" className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-ocean-600 hover:text-ocean-800">
+                            <Link to="/profilo" className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-brand-600 hover:text-brand-800">
                                 <User className="h-4 w-4" /> Vai al tuo profilo per gestire l'iscrizione
                             </Link>
                         </div>
@@ -902,7 +902,7 @@ export default function RegisterPage() {
                 {/* Athlete login banner */}
                 {!alreadyRegistered && <>
                 {currentAthlete && step < 4 && (
-                    <div className="flex items-center gap-2 mb-4 bg-ocean-50 border border-ocean-200 rounded-xl px-4 py-2.5 text-sm text-ocean-800">
+                    <div className="flex items-center gap-2 mb-4 bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 text-sm text-brand-800">
                         <User className="h-4 w-4 shrink-0" />
                         <span>Stai iscrivendo come <strong>{currentAthlete.name} {currentAthlete.surname}</strong> — i tuoi dati verranno pre-compilati automaticamente.</span>
                     </div>
@@ -927,9 +927,9 @@ export default function RegisterPage() {
                                             <p className="text-sm text-slate-600">Per procedere con l'iscrizione, seleziona la tua situazione:</p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <button type="button" onClick={() => setIsFidal(true)}
-                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition-all">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <ShieldCheck className="h-5 w-5 text-ocean-600" />
+                                                        <ShieldCheck className="h-5 w-5 text-brand-600" />
                                                         <span className="font-semibold text-slate-800">Sono tesserato FIDAL / RunCard</span>
                                                     </div>
                                                     <p className="text-xs text-slate-500">
@@ -937,7 +937,7 @@ export default function RegisterPage() {
                                                     </p>
                                                 </button>
                                                 <button type="button" onClick={() => setIsFidal(false)}
-                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-ocean-400 hover:bg-ocean-50 transition-all">
+                                                    className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition-all">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <User className="h-5 w-5 text-slate-500" />
                                                         <span className="font-semibold text-slate-800">Non sono tesserato FIDAL</span>
@@ -964,7 +964,7 @@ export default function RegisterPage() {
                                             <div className="flex flex-col sm:flex-row gap-3">
                                                 <Link
                                                     to={`/registrati?redirect=${encodeURIComponent(`/events/${slug}/register?race=${selectedRaceId}`)}&from=iscrizione`}
-                                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 transition-colors"
+                                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"
                                                 >
                                                     <User className="h-4 w-4" /> Crea account gratuito
                                                 </Link>
@@ -1059,7 +1059,7 @@ export default function RegisterPage() {
                                 type="button"
                                 onClick={handleNext}
                                 disabled={step === 0 && !selectedRaceId}
-                                className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 disabled:opacity-40 transition-colors"
+                                className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-40 transition-colors"
                             >
                                 {nextLabel}
                                 {!isLastStep && <ChevronRight className="h-4 w-4" />}
@@ -1091,14 +1091,14 @@ export default function RegisterPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                                 <input type="email" value={accountEmail}
                                     onChange={e => setAccountEmail(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     placeholder="mario@esempio.it" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
                                 <input type="password" value={accountPassword}
                                     onChange={e => setAccountPassword(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     placeholder="Almeno 6 caratteri" />
                             </div>
                         </div>
@@ -1129,7 +1129,7 @@ export default function RegisterPage() {
                                     setShowAccountModal(false);
                                     navigate('/profilo');
                                 }}
-                                className="flex-1 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                                className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
                                 Crea account
                             </button>
                             <button type="button" onClick={() => setShowAccountModal(false)}
