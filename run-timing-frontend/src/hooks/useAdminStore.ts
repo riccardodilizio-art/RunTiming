@@ -1,93 +1,72 @@
-import { useState, useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { mockEvents } from '../data/mockEvents';
 import type {
     Event, Athlete, DiscountCode, CommissionConfig, RegistrationSubmission, AppUser, PaymentStatus, CertStatus, Result,
 } from '../types';
 
-// ─── Events ───────────────────────────────────────────────────────────────────
-
-const LS_KEY = 'rt_admin_events';
-
-function load(): Event[] {
-    try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : []; }
-    catch { return []; }
-}
-function persist(events: Event[]) { localStorage.setItem(LS_KEY, JSON.stringify(events)); }
-
-// ─── Athletes ─────────────────────────────────────────────────────────────────
-
-const LS_ATHLETES_KEY = 'rt_athletes';
-
-function loadAthletes(): Athlete[] {
-    try { const raw = localStorage.getItem(LS_ATHLETES_KEY); return raw ? JSON.parse(raw) : []; }
-    catch { return []; }
-}
-function persistAthletes(a: Athlete[]) { localStorage.setItem(LS_ATHLETES_KEY, JSON.stringify(a)); }
-
-// ─── Discount codes ───────────────────────────────────────────────────────────
-
-const LS_DISCOUNTS_KEY = 'rt_discount_codes';
-
-function loadDiscounts(): DiscountCode[] {
-    try { const raw = localStorage.getItem(LS_DISCOUNTS_KEY); return raw ? JSON.parse(raw) : []; }
-    catch { return []; }
-}
-function persistDiscounts(d: DiscountCode[]) { localStorage.setItem(LS_DISCOUNTS_KEY, JSON.stringify(d)); }
-
-// ─── Commission ───────────────────────────────────────────────────────────────
-
-const LS_COMMISSION_KEY = 'rt_commission';
-const DEFAULT_COMMISSION: CommissionConfig = { fixedFee: 0, percentFee: 0, appliedTo: 'buyer' };
-
-function loadCommission(): CommissionConfig {
-    try {
-        const raw = localStorage.getItem(LS_COMMISSION_KEY);
-        return raw ? JSON.parse(raw) : DEFAULT_COMMISSION;
-    } catch { return DEFAULT_COMMISSION; }
-}
-function persistCommission(c: CommissionConfig) { localStorage.setItem(LS_COMMISSION_KEY, JSON.stringify(c)); }
-
-// ─── Registrations (shared store) ───────────────────────────────────────────────
+// ─── Shared local store ─────────────────────────────────────────────────────────
 //
 // A tiny module-level store backed by localStorage. Unlike per-component
-// `useState`, this is shared across every `useAdminStore()` consumer and
-// notifies subscribers on every mutation, so the UI stays in sync without
-// manual re-read hacks. (When the backend lands, swap the LS calls for fetch.)
+// `useState`, a store is shared across every `useAdminStore()` consumer and
+// notifies subscribers on every mutation, so the UI stays in sync everywhere
+// without manual re-read hacks. Read it reactively in components via
+// `useSyncExternalStore`, or imperatively via `getSnapshot()` for non-React
+// call sites. (When the backend lands, swap the localStorage calls for fetch.)
 
-const LS_REG_KEY = 'rt_registrations';
-
-function readRegistrationsFromLS(): RegistrationSubmission[] {
-    try { const raw = localStorage.getItem(LS_REG_KEY); return raw ? JSON.parse(raw) : []; }
-    catch { return []; }
+interface LocalStore<T> {
+    getSnapshot: () => T;
+    subscribe: (cb: () => void) => () => void;
+    set: (next: T) => void;
 }
 
-let registrationsCache: RegistrationSubmission[] | null = null;
-const regListeners = new Set<() => void>();
+function createLocalStore<T>(key: string, fallback: T): LocalStore<T> {
+    let cache: T;
+    let loaded = false;
+    const listeners = new Set<() => void>();
 
-function getRegistrationsSnapshot(): RegistrationSubmission[] {
-    if (registrationsCache === null) registrationsCache = readRegistrationsFromLS();
-    return registrationsCache;
+    function getSnapshot(): T {
+        if (!loaded) {
+            try { const raw = localStorage.getItem(key); cache = raw ? JSON.parse(raw) : fallback; }
+            catch { cache = fallback; }
+            loaded = true;
+        }
+        return cache;
+    }
+
+    function set(next: T) {
+        cache = next;
+        loaded = true;
+        try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* ignore */ }
+        listeners.forEach(l => l());
+    }
+
+    function subscribe(cb: () => void): () => void {
+        listeners.add(cb);
+        return () => { listeners.delete(cb); };
+    }
+
+    return { getSnapshot, subscribe, set };
 }
 
-function subscribeRegistrations(cb: () => void): () => void {
-    regListeners.add(cb);
-    return () => { regListeners.delete(cb); };
-}
+const DEFAULT_COMMISSION: CommissionConfig = { fixedFee: 0, percentFee: 0, appliedTo: 'buyer' };
 
-/** Replace the registration list, persist it, and notify all subscribers. */
-function commitRegistrations(list: RegistrationSubmission[]) {
-    registrationsCache = list;
-    try { localStorage.setItem(LS_REG_KEY, JSON.stringify(list)); } catch { /* ignore */ }
-    regListeners.forEach(l => l());
-}
+const eventsStore        = createLocalStore<Event[]>('rt_admin_events', []);
+const athletesStore      = createLocalStore<Athlete[]>('rt_athletes', []);
+const discountsStore     = createLocalStore<DiscountCode[]>('rt_discount_codes', []);
+const commissionStore    = createLocalStore<CommissionConfig>('rt_commission', DEFAULT_COMMISSION);
+const registrationsStore = createLocalStore<RegistrationSubmission[]>('rt_registrations', []);
+const resultsStore       = createLocalStore<Record<string, Result[]>>('rt_results', {});
+const usersStore         = createLocalStore<AppUser[]>('rt_users', []);
+
+// ─── Imperative accessors (non-React call sites) ────────────────────────────────
 
 /** Read the current registrations (kept for non-reactive call sites). */
 export function loadRegistrations(): RegistrationSubmission[] {
-    return getRegistrationsSnapshot();
+    return registrationsStore.getSnapshot();
 }
 
 export function saveRegistration(sub: RegistrationSubmission) {
-    commitRegistrations([...getRegistrationsSnapshot(), sub]);
+    registrationsStore.set([...registrationsStore.getSnapshot(), sub]);
 }
 
 /**
@@ -99,44 +78,35 @@ export function syncAthleteRegistrationsCert(
     certStatus: CertStatus,
     certRejectionReason?: string,
 ) {
-    const list = getRegistrationsSnapshot().map(r => {
+    registrationsStore.set(registrationsStore.getSnapshot().map(r => {
         if (r.athleteAccountId !== athleteAccountId) return r;
         if (r.certStatus === 'non_richiesto' || r.certStatus === undefined) return r;
         return { ...r, certStatus, certRejectionReason };
-    });
-    commitRegistrations(list);
+    }));
 }
-
-// ─── Users (organizers) ───────────────────────────────────────────────────────
-
-const LS_USERS_KEY = 'rt_users';
 
 export function loadUsers(): AppUser[] {
-    try { const raw = localStorage.getItem(LS_USERS_KEY); return raw ? JSON.parse(raw) : []; }
-    catch { return []; }
+    return usersStore.getSnapshot();
 }
-
-function persistUsers(u: AppUser[]) { localStorage.setItem(LS_USERS_KEY, JSON.stringify(u)); }
-
-// ─── Results ──────────────────────────────────────────────────────────────────
-
-const LS_RESULTS_KEY = 'rt_results';
 
 export function loadResults(): Record<string, Result[]> {
-    try { const raw = localStorage.getItem(LS_RESULTS_KEY); return raw ? JSON.parse(raw) : {}; }
-    catch { return {}; }
-}
-
-function persistResults(r: Record<string, Result[]>) {
-    localStorage.setItem(LS_RESULTS_KEY, JSON.stringify(r));
+    return resultsStore.getSnapshot();
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAdminStore() {
-    // Events
-    const [overrides, setOverrides] = useState<Event[]>(() => load());
+    // Every entity is a shared, reactive store: a mutation in one component
+    // re-renders all consumers (no manual re-read hacks anywhere).
+    const overrides     = useSyncExternalStore(eventsStore.subscribe, eventsStore.getSnapshot);
+    const athletes      = useSyncExternalStore(athletesStore.subscribe, athletesStore.getSnapshot);
+    const discountCodes = useSyncExternalStore(discountsStore.subscribe, discountsStore.getSnapshot);
+    const commission    = useSyncExternalStore(commissionStore.subscribe, commissionStore.getSnapshot);
+    const registrations = useSyncExternalStore(registrationsStore.subscribe, registrationsStore.getSnapshot);
+    const resultsMap    = useSyncExternalStore(resultsStore.subscribe, resultsStore.getSnapshot);
+    const users         = useSyncExternalStore(usersStore.subscribe, usersStore.getSnapshot);
 
+    // Events: mock seed merged with admin-saved overrides.
     const events = useMemo<Event[]>(() => {
         const merged: Event[] = [...mockEvents];
         for (const ov of overrides) {
@@ -151,14 +121,11 @@ export function useAdminStore() {
         const next = [...overrides];
         const idx = next.findIndex(e => e.id === event.id);
         if (idx >= 0) next[idx] = event; else next.push(event);
-        setOverrides(next);
-        persist(next);
+        eventsStore.set(next);
     }
 
     function deleteEvent(id: string) {
-        const next = overrides.filter(e => e.id !== id);
-        setOverrides(next);
-        persist(next);
+        eventsStore.set(overrides.filter(e => e.id !== id));
     }
 
     function getEvent(slug: string): Event | undefined {
@@ -166,37 +133,27 @@ export function useAdminStore() {
     }
 
     // Athletes
-    const [athletes, setAthletes] = useState<Athlete[]>(() => loadAthletes());
-
     function saveAthlete(athlete: Athlete) {
         const next = [...athletes];
         const idx = next.findIndex(a => a.id === athlete.id);
         if (idx >= 0) next[idx] = athlete; else next.push(athlete);
-        setAthletes(next);
-        persistAthletes(next);
+        athletesStore.set(next);
     }
 
     function deleteAthlete(id: string) {
-        const next = athletes.filter(a => a.id !== id);
-        setAthletes(next);
-        persistAthletes(next);
+        athletesStore.set(athletes.filter(a => a.id !== id));
     }
 
     // Discount codes
-    const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>(() => loadDiscounts());
-
     function saveDiscountCode(code: DiscountCode) {
         const next = [...discountCodes];
         const idx = next.findIndex(c => c.id === code.id);
         if (idx >= 0) next[idx] = code; else next.push(code);
-        setDiscountCodes(next);
-        persistDiscounts(next);
+        discountsStore.set(next);
     }
 
     function deleteDiscountCode(id: string) {
-        const next = discountCodes.filter(c => c.id !== id);
-        setDiscountCodes(next);
-        persistDiscounts(next);
+        discountsStore.set(discountCodes.filter(c => c.id !== id));
     }
 
     /** Valida un codice sconto e restituisce il codice se valido, null altrimenti */
@@ -213,24 +170,17 @@ export function useAdminStore() {
 
     /** Incrementa il contatore utilizzi di un codice sconto */
     function applyDiscountCode(codeId: string) {
-        const next = discountCodes.map(c =>
+        discountsStore.set(discountCodes.map(c =>
             c.id === codeId ? { ...c, usedCount: c.usedCount + 1 } : c
-        );
-        setDiscountCodes(next);
-        persistDiscounts(next);
+        ));
     }
 
     // Commission
-    const [commission, setCommission] = useState<CommissionConfig>(() => loadCommission());
-
     function saveCommission(c: CommissionConfig) {
-        setCommission(c);
-        persistCommission(c);
+        commissionStore.set(c);
     }
 
-    // Registrations (reactive — re-renders on any mutation, anywhere)
-    const registrations = useSyncExternalStore(subscribeRegistrations, getRegistrationsSnapshot);
-
+    // Registrations
     function getRegistrations(): RegistrationSubmission[] {
         return registrations;
     }
@@ -244,21 +194,21 @@ export function useAdminStore() {
     }
 
     function updatePaymentStatus(registrationId: string, status: PaymentStatus) {
-        commitRegistrations(registrations.map(r =>
+        registrationsStore.set(registrations.map(r =>
             r.id === registrationId ? { ...r, paymentStatus: status } : r
         ));
     }
 
     function deleteRegistration(registrationId: string) {
-        commitRegistrations(registrations.filter(r => r.id !== registrationId));
+        registrationsStore.set(registrations.filter(r => r.id !== registrationId));
     }
 
     function updateRegistration(id: string, updates: Partial<RegistrationSubmission>) {
-        commitRegistrations(registrations.map(r => r.id === id ? { ...r, ...updates } : r));
+        registrationsStore.set(registrations.map(r => r.id === id ? { ...r, ...updates } : r));
     }
 
     function updateCertStatus(registrationId: string, status: CertStatus, rejectionReason?: string) {
-        commitRegistrations(registrations.map(r =>
+        registrationsStore.set(registrations.map(r =>
             r.id === registrationId
                 ? { ...r, certStatus: status, certRejectionReason: rejectionReason ?? r.certRejectionReason }
                 : r
@@ -266,12 +216,8 @@ export function useAdminStore() {
     }
 
     // Results
-    const [resultsMap, setResultsMap] = useState<Record<string, Result[]>>(() => loadResults());
-
     function saveResults(raceId: string, results: Result[]) {
-        const next = { ...resultsMap, [raceId]: results };
-        setResultsMap(next);
-        persistResults(next);
+        resultsStore.set({ ...resultsMap, [raceId]: results });
     }
 
     function getResults(raceId: string): Result[] {
@@ -279,20 +225,15 @@ export function useAdminStore() {
     }
 
     // Users (organizers)
-    const [users, setUsers] = useState<AppUser[]>(() => loadUsers());
-
     function saveUser(user: AppUser) {
         const next = [...users];
         const idx = next.findIndex(u => u.id === user.id);
         if (idx >= 0) next[idx] = user; else next.push(user);
-        setUsers(next);
-        persistUsers(next);
+        usersStore.set(next);
     }
 
     function deleteUser(id: string) {
-        const next = users.filter(u => u.id !== id);
-        setUsers(next);
-        persistUsers(next);
+        usersStore.set(users.filter(u => u.id !== id));
     }
 
     return {
