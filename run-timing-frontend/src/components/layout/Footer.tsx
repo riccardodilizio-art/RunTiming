@@ -3,7 +3,10 @@ import { Timer } from 'lucide-react';
 
 export default function Footer() {
     return (
-        <footer className="bg-slate-800 text-slate-400 mt-10">
+        <footer className="bg-brand-950 text-orange-100/70 mt-10">
+            {/* Accent bar tying the footer to the brand */}
+            <div className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600" />
+
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
                 <div className="flex flex-col md:flex-row items-start justify-between gap-8">
 
@@ -16,14 +19,14 @@ export default function Footer() {
                                 Run<span className="text-brand-400">Timing</span>
                             </span>
                         </Link>
-                        <p className="text-slate-500 text-sm max-w-xs leading-relaxed">
+                        <p className="text-orange-100/55 text-sm max-w-xs leading-relaxed">
                             La piattaforma italiana per il cronometraggio di eventi sportivi amatoriali e professionistici.
                         </p>
                     </div>
 
                     <div className="flex gap-12">
                         <div>
-                            <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-3">Piattaforma</h4>
+                            <h4 className="text-orange-50 text-xs font-semibold uppercase tracking-wider mb-3">Piattaforma</h4>
                             <ul className="space-y-2">
                                 {[
                                     { label: 'Home',          href: '/' },
@@ -32,7 +35,7 @@ export default function Footer() {
                                     { label: 'Organizzatori', href: '/organizer' },
                                 ].map(l => (
                                     <li key={l.href}>
-                                        <Link to={l.href} className="text-slate-500 hover:text-white text-sm transition-colors">
+                                        <Link to={l.href} className="text-orange-100/60 hover:text-white text-sm transition-colors">
                                             {l.label}
                                         </Link>
                                     </li>
@@ -41,11 +44,11 @@ export default function Footer() {
                         </div>
 
                         <div>
-                            <h4 className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-3">Supporto</h4>
+                            <h4 className="text-orange-50 text-xs font-semibold uppercase tracking-wider mb-3">Supporto</h4>
                             <ul className="space-y-2">
                                 {['FAQ', 'Contatti', 'Privacy Policy'].map(item => (
                                     <li key={item}>
-                                        <a href="#" className="text-slate-500 hover:text-white text-sm transition-colors">
+                                        <a href="#" className="text-orange-100/60 hover:text-white text-sm transition-colors">
                                             {item}
                                         </a>
                                     </li>
@@ -56,9 +59,9 @@ export default function Footer() {
 
                 </div>
 
-                <div className="border-t border-slate-700 mt-8 pt-5 flex flex-col sm:flex-row justify-between gap-2">
-                    <p className="text-slate-600 text-xs">© 2025 RunTiming. Tutti i diritti riservati.</p>
-                    <p className="text-slate-600 text-xs font-mono">v1.0.0-alpha</p>
+                <div className="border-t border-brand-800/50 mt-8 pt-5 flex flex-col sm:flex-row justify-between gap-2">
+                    <p className="text-orange-200/45 text-xs">© 2025 RunTiming. Tutti i diritti riservati.</p>
+                    <p className="text-orange-200/45 text-xs font-mono">v1.0.0-alpha</p>
                 </div>
             </div>
         </footer>
