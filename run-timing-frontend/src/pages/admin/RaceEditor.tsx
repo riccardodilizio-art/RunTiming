@@ -2,9 +2,10 @@ import { useState, useMemo } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Users, UserCheck, Eye, EyeOff, CheckCircle2, UserPlus, Search,
-    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet,
+    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet, Award,
 } from 'lucide-react';
 import ImportClassificaModal from './ImportClassificaModal';
+import CertificateEditor from './CertificateEditor';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
@@ -19,7 +20,7 @@ import type {
     Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, PublicColumn,
 } from '../../types';
 
-type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati';
+type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati' | 'attestato';
 
 export default function RaceEditor({
     race,
@@ -103,6 +104,7 @@ export default function RaceEditor({
         { key: 'prices',        label: 'Quote',            icon: <Euro        className="h-4 w-4" /> },
         { key: 'partecipanti',  label: 'Iscritti',         icon: <UserCheck   className="h-4 w-4" /> },
         { key: 'risultati',     label: 'Risultati',        icon: <Trophy      className="h-4 w-4" /> },
+        { key: 'attestato',     label: 'Attestato',        icon: <Award       className="h-4 w-4" /> },
     ];
     // L'organizzatore vede solo la gestione iscritti.
     const tabs = isAdmin ? allTabs : allTabs.filter(t => t.key === 'partecipanti');
@@ -354,6 +356,13 @@ export default function RaceEditor({
                         />
                     )}
                 </div>
+            )}
+
+            {tab === 'attestato' && (
+                <CertificateEditor
+                    template={race.certificateTemplate}
+                    onChange={t => set('certificateTemplate', t)}
+                />
             )}
 
             {tab === 'prices' && (

@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
-    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle,
+    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award,
 } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { loadResults, useAdminStore } from '../hooks/useAdminStore';
@@ -12,7 +12,11 @@ import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
 import AffiliationsEditor from '../components/athlete/AffiliationsEditor';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
-import type { RegistrationSubmission, Event as EventType } from '../types';
+import CertificatePrintModal from '../components/certificate/CertificatePrintModal';
+import type { RegistrationSubmission, Event as EventType, Result, CertificateTemplate, CertFieldKey } from '../types';
+
+type RaceInfo = ReturnType<typeof buildRaceLookup>[string];
+type CertData = { template: CertificateTemplate; values: Partial<Record<CertFieldKey, string>> };
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -86,7 +90,7 @@ function parseKm(dist: string): number {
 
 /** Build a quick lookup: raceId → { eventTitle, raceName, date, city, race } */
 function buildRaceLookup() {
-    const map: Record<string, { eventTitle: string; raceName: string; date: string; city: string; distanceKm: number }> = {};
+    const map: Record<string, { eventTitle: string; raceName: string; date: string; city: string; distanceKm: number; race: import('../types').Race }> = {};
 
     // load admin overrides
     const allEvents = [...mockEvents];
@@ -106,6 +110,7 @@ function buildRaceLookup() {
                 date:       eventStartDate(ev),
                 city:       ev.city,
                 distanceKm: parseKm(race.distance),
+                race,
             };
         }
     }
@@ -136,6 +141,7 @@ export default function AthleteDashboardPage() {
     const [editingReg, setEditingReg] = useState<RegistrationSubmission | null>(null);
     const [editFormData, setEditFormData] = useState<Record<string, string | boolean>>({});
     const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
+    const [certData, setCertData] = useState<CertData | null>(null);
     const { updateRegistration, deleteRegistration, events, registrations } = useAdminStore();
 
     // edit form state mirrors currentAthlete fields
@@ -167,6 +173,23 @@ export default function AthleteDashboardPage() {
     const handleFormChange = useCallback((data: Record<string, string | boolean>) => {
         setEditFormData(data);
     }, []);
+
+    function openCertificate(info: RaceInfo, result: Result) {
+        if (!currentAthlete || !info?.race.certificateTemplate) return;
+        setCertData({
+            template: info.race.certificateTemplate,
+            values: {
+                nome:      `${currentAthlete.name} ${currentAthlete.surname}`,
+                societa:   currentAthlete.club ?? '',
+                evento:    info.eventTitle,
+                gara:      info.raceName,
+                categoria: result.category ?? '',
+                posizione: `${result.position}°`,
+                tempo:     result.time ?? '',
+                data:      info.date ? new Date(info.date).toLocaleDateString('it-IT') : '',
+            },
+        });
+    }
 
     function openEdit(reg: RegistrationSubmission) {
         setEditingReg(reg);
@@ -505,6 +528,14 @@ export default function AthleteDashboardPage() {
                                                                 })()}
                                                             </p>
                                                         )}
+                                                        {info?.race.certificateTemplate?.backgroundUrl && (
+                                                            <button
+                                                                onClick={() => openCertificate(info, myResult)}
+                                                                className="mt-2 inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium"
+                                                            >
+                                                                <Award className="w-3 h-3" /> Attestato
+                                                            </button>
+                                                        )}
                                                     </>
                                                 ) : (
                                                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[reg.paymentStatus]}`}>
@@ -735,6 +766,15 @@ export default function AthleteDashboardPage() {
                 onClose={() => setEditingReg(null)}
                 events={events}
             />}
+
+            {/* ── Modal attestato ── */}
+            {certData && (
+                <CertificatePrintModal
+                    template={certData.template}
+                    values={certData.values}
+                    onClose={() => setCertData(null)}
+                />
+            )}
 
             {/* ── Modal conferma ritiro iscrizione ── */}
             {deletingRegId && (

@@ -29,3 +29,17 @@
         box-shadow: 0 8px 24px rgba(232, 67, 10, 0.15);
     }
 }
+
+/* Stampa: mostra solo l'attestato a pagina intera */
+@media print {
+    body * { visibility: hidden; }
+    .cert-print-area, .cert-print-area * { visibility: visible; }
+    .cert-print-area {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+    }
+    @page { size: A4 landscape; margin: 0; }
+}

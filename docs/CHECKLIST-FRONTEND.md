@@ -17,7 +17,7 @@
 - ✅ **Colonne pubbliche iscritti**: toggle admin (RaceEditor) per **categoria**, **stato pagamento**, **stato certificato**; rese nella pagina pubblica iscritti (`race.publicColumns`).
 - ✅ **Export iscritti .xlsx** nel tracciato fisso del cronometraggio (foglio Tabelle1), accanto al CSV in RaceEditor.
 - ✅ **Import classifica .xlsx modulare**: upload Excel + mapping colonne guidato (auto-guess) + rilevamento righe-sezione, anteprima, salva la classifica della gara.
-- 🔴 **Attestati** (§4.10): editor template (sfondo + campi posizionati) → generazione PDF post-import → download dall'atleta.
+- ✅ **Attestati** (§4.10): editor template (sfondo + campi trascinabili) in RaceEditor; l'atleta scarica l'attestato dal profilo (render HTML → Stampa/Salva PDF) per le gare con classifica.
 - ✅ CRUD eventi/gare · quote/commissioni/sconti · categorie (preset + import) · sottogare.
 
 ## C. Organizzatore

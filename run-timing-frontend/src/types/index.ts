@@ -241,10 +241,33 @@ export interface Race {
     categories?: RaceCategory[];   // categorie agonistiche per questa gara
     /** Commissione specifica per questa gara (sovrascrive evento/globale) */
     commission?: CommissionConfig;
+    /** Template attestato (sfondo + campi posizionati) per questa gara. */
+    certificateTemplate?: CertificateTemplate;
 }
 
 /** Colonne speciali attivabili nell'elenco iscritti pubblico. */
 export type PublicColumn = 'category' | 'payment' | 'cert';
+
+// ─── Attestati ─────────────────────────────────────────────────────────────────
+
+/** Dati stampabili su un attestato (chiave → valore preso da atleta/risultato). */
+export type CertFieldKey =
+    | 'nome' | 'societa' | 'evento' | 'gara'
+    | 'categoria' | 'posizione' | 'tempo' | 'data';
+
+export interface CertField {
+    key: CertFieldKey;
+    x: number;          // posizione orizzontale in % (0–100)
+    y: number;          // posizione verticale in % (0–100)
+    fontSize: number;   // px (riferiti alla larghezza canvas standard)
+    color: string;
+    bold?: boolean;
+}
+
+export interface CertificateTemplate {
+    backgroundUrl: string;
+    fields: CertField[];
+}
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';
 
