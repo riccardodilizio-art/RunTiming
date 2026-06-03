@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate } from '../utils/event';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -194,8 +195,7 @@ function EventCalendar({ events }: { events: Event[] }) {
                         {selectedEvents.map(e => (
                             <Link key={e.id} to={`/events/${e.slug}`}
                                 className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-brand-300 transition-colors group">
-                                <img src={e.coverImage} alt={e.title}
-                                     className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+                                <EventCover src={e.coverImage} alt={e.title} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 group-hover:text-brand-600 truncate">
                                         {e.title}

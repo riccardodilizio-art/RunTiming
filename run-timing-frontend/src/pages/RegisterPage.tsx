@@ -700,9 +700,12 @@ export default function RegisterPage() {
 
     const event = slug ? getEvent(slug) : undefined;
     const eventRaces = useMemo(() => event ? allRaces(event) : [], [event]);
-    const initialRaceId = searchParams.get('race') ?? eventRaces[0]?.id ?? '';
+    const raceParam = searchParams.get('race');
+    const initialRaceId = raceParam ?? eventRaces[0]?.id ?? '';
+    // Se si arriva con una gara già scelta e valida, salta lo step "Scelta gara".
+    const startAtData = !!raceParam && eventRaces.some(r => r.id === raceParam && r.isOpen);
 
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(startAtData ? 1 : 0);
     const [selectedRaceId, setSelectedRaceId] = useState(initialRaceId);
     const [formData, setFormData] = useState<Record<string, string | boolean>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});

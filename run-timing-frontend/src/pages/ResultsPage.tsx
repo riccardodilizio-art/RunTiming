@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate } from '../utils/event';
 import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
@@ -253,7 +254,7 @@ export default function ResultsPage() {
                                     className="group w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3 sm:p-4 hover:bg-slate-50 hover:border-brand-300 transition-all text-left"
                                     style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
                                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />
+                                        <EventCover src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-semibold text-slate-800 text-sm group-hover:text-brand-600 transition-colors leading-tight">{event.title}</h3>
@@ -273,7 +274,7 @@ export default function ResultsPage() {
                 {selectedEvent && !selectedRace && (
                     <div>
                         <div className="flex items-center gap-3 mb-5">
-                            <img src={selectedEvent.coverImage} alt={selectedEvent.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0" />
+                            <EventCover src={selectedEvent.coverImage} alt={selectedEvent.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0" />
                             <div className="min-w-0">
                                 <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 truncate">{selectedEvent.title}</h2>
                                 <p className="text-slate-400 text-xs sm:text-sm">{formatDate(eventStartDate(selectedEvent))} · {selectedEvent.city}</p>
