@@ -11,6 +11,15 @@
 
 ---
 
+## 0. Ambito del sistema  ✅ definito
+**Questo è un portale di ISCRIZIONI, non di cronometraggio.**
+- Si occupa di: anagrafica atleti, iscrizioni agli eventi, quote/pagamenti, verifica certificati, **esportazione degli iscritti**.
+- A iscrizioni chiuse, l'elenco iscritti viene **esportato** (CSV/Excel) e caricato nella **piattaforma di cronometraggio esterna** (di proprietà del committente).
+- Le **classifiche** NON vengono calcolate qui: a fine gara l'admin **carica** la classifica finale sul sito per la sola **visualizzazione pubblica** (modalità di caricamento da definire — vedi §4.8).
+- Quindi: niente timing live, niente calcolo posizioni/gap, niente classifica generale multi-tappa lato nostro.
+
+---
+
 ## 1. Visitatore  ✅ definito
 Può, senza registrarsi:
 - Consultare **classifiche/risultati** degli eventi conclusi.
@@ -82,27 +91,39 @@ L'admin sceglie quali colonne sono visibili al visitatore nell'elenco iscritti d
 ### 4.6 Sottogare (per evento)  ✅ implementato
 - Un evento → più gare: competitiva, non competitiva, ragazzi, ecc. Ogni gara ha proprie categorie, quote, modulo extra, requisiti certificato.
 
-### 4.7 Eventi multi-giorno / a tappe  🚧 NUOVO — da progettare
+### 4.7 Eventi multi-giorno / a tappe  🚧 NUOVO — da implementare
 Caso reale: **"10 in 10 al Lago d'Orta"** → 10 giornate, ogni giorno **maratona + mezza maratona**. L'atleta può iscriversi a **tutte** le giornate o solo ad **alcune**.
-- Il modello attuale (`Event` con `date` singola + `Race[]`) **non basta**: serve il concetto di **giornata/tappa** con data propria, e ogni giornata può avere le sue gare.
-- Decisioni aperte: vedi domande sotto.
+
+Decisioni prese:
+- **Modello**: `Event → Giornata (data propria) → Gare`. Un evento "semplice" è il caso particolare con una sola giornata.
+- **Iscrizione**: l'atleta può iscriversi a **singole giornate/gare** oppure all'**intero evento** in un'unica operazione.
+- **Pass cumulativo**: **opzionale per evento** — alcuni organizzatori attivano un pass "tutto incluso" scontato, altri no. Configurabile dall'admin.
+- Classifica generale multi-tappa: **fuori ambito** (vedi §0, gestita dalla piattaforma di cronometraggio).
+
+### 4.8 Risultati / classifiche  🟡 solo upload finale
+- Le classifiche sono **caricate dall'admin a fine gara** per la sola visualizzazione pubblica (no calcolo lato sito).
+- Modalità di caricamento **da definire** (es. import CSV/Excel esportato dal cronometraggio, o incolla/editor manuale già presente).
+- Esiste già un editor risultati per gara + import "laps"; va riallineato a "upload classifica finale".
+
+### 4.9 Esportazione iscritti  🟡 base presente
+- A iscrizioni chiuse, export elenco iscritti (CSV) per caricarlo sulla piattaforma di cronometraggio.
+- Esiste già un export CSV per gara; da verificare che il formato sia compatibile con il cronometraggio.
 
 ---
 
 ## Decisioni prese
+- [x] **Ambito**: portale di iscrizioni, NON di cronometraggio (timing esterno).
 - [x] Tema UI: arancione "flame" (token `brand`).
 - [x] Atleta: registrazione una sola volta + profilo riutilizzabile.
 - [x] Tesserato FIDAL: certificato valido in automatico.
 - [x] DB FIDAL: dataset interno importato (no dipendenza da API esterna).
 - [x] Form per-gara = solo campi extra (il resto dal profilo).
+- [x] Multi-giorno: `Event → Giornata → Gare`; iscrizione singola o intero evento; pass scontato opzionale.
 
 ## Domande aperte / da definire più avanti
 - Enti tessera per non-FIDAL (RunCard, UISP, CSI, ACSI…): elenco e regole.
 - Gestione pagamenti: provider (PayPal già abbozzato), rimborsi, ricevute.
 - Stati iscrizione e loro transizioni complete.
 - Permessi fini dell'organizzatore.
-- **Eventi multi-giorno (§4.7)**:
-  - Modello: una "giornata/tappa" è un contenitore con **data propria** che raggruppa gare? (Event → Day[] → Race[])
-  - Iscrizione: l'atleta sceglie **singole giornate**, **l'intero evento (pass)**, o **entrambe**?
-  - Esiste un **prezzo cumulativo / pass scontato** per chi fa tutte le giornate?
-  - Serve una **classifica generale multi-tappa** (somma tempi/punti) oltre alle classifiche per giornata?
+- **Upload classifica finale (§4.8)**: formato del file esportato dal cronometraggio? Mapping colonne (pettorale, tempo, categoria…)?
+- **Formato export iscritti (§4.9)**: quale layout CSV/Excel si aspetta la piattaforma di cronometraggio?
