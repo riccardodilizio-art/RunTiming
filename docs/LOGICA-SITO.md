@@ -100,21 +100,25 @@ Decisioni prese:
 - **Pass cumulativo**: **opzionale per evento** — alcuni organizzatori attivano un pass "tutto incluso" scontato, altri no. Configurabile dall'admin.
 - Classifica generale multi-tappa: **fuori ambito** (vedi §0, gestita dalla piattaforma di cronometraggio).
 
-### 4.8 Risultati / classifiche  🟡 solo upload finale (formato Excel, modulare)
+### 4.8 Risultati / classifiche  🟡 solo upload finale (Excel, import modulare)
 - Le classifiche sono **caricate dall'admin a fine gara** in **Excel (.xlsx)**, per sola visualizzazione pubblica (no calcolo lato sito).
-- Il tracciato **varia da gara a gara** → l'import deve essere **modulare**: si leggono le intestazioni del file e si mostra la tabella così com'è (eventuale mapping/conferma colonne da parte dell'admin).
-- Un singolo file può contenere **più sezioni** (es. una riga "10K" che fa da intestazione di sotto-classifica, poi le righe). Vanno gestite le righe-sezione.
+- Il tracciato **varia da gara a gara** → import **modulare** con **mapping colonne guidato dall'admin**: l'admin carica il file, vede le intestazioni e **associa** ogni colonna del file ai campi della classifica (Posizione, Pettorale, Cognome, Nome, Team, Categoria, Tempo, ecc.). Il mapping può essere salvato/riusato per gare simili.
+- Un singolo file può contenere **più sezioni** (es. riga "10K" che fa da intestazione di sotto-classifica): da gestire.
 - **Esempio reale fornito** (`Class_Generale29.xlsx`), colonne osservate:
   `Pos. | PosSex | Pett. | Cognome | Nome | Team | Sesso | PosCat | Cat. | Media | Time | Partenza | Diff`
-  con righe-sezione tipo `10K` a separare i gruppi.
-- Oggi esiste un editor risultati manuale + import "laps": da rifare come **import Excel modulare**.
+  con righe-sezione tipo `10K`.
 
-### 4.9 Esportazione iscritti → cronometraggio  🟡 formato Excel FISSO
-- A iscrizioni chiuse, export elenco iscritti in **Excel (.xlsx)** con tracciato **fisso** richiesto dal software di cronometraggio.
-- **Tracciato (foglio `Tabelle1`)** — esempio fornito `Esempio101.xlsx`:
+### 4.9 Esportazione iscritti → cronometraggio  🟡 Excel FISSO
+- Export elenco iscritti in **Excel (.xlsx)** con tracciato **fisso** richiesto dal cronometraggio.
+- **Tracciato (foglio `Tabelle1`)** — esempio `Esempio101.xlsx`:
   `Pettorale | Titolo | Cognome | Nome | AnnoDiNascita | DataDiNascita | Genere | Nazione | Via | Regione | CAP | Città | Paese | Gara | Società | Licenza | Stato | Commento | Email | Telefono | Cellulare | AccountNum | FilialeNum | IBAN | BIC | MandatoSEPA | Banca | ProprietarioAccount | Transponder1 | Transponder2`
-  - Note formato: `DataDiNascita` come **seriale Excel**; `Genere` minuscolo (`m`/`f`); `Gara` come **codice numerico**; molti campi (bancari/SEPA, transponder) restano vuoti — riempiti dal cronometraggio.
-- Oggi esiste un export CSV per gara: va aggiunto/sostituito con **export .xlsx in questo tracciato** (libreria `xlsx` già presente nel progetto).
+  - Note: `DataDiNascita` seriale Excel; `Genere` minuscolo; **`Gara` lasciato vuoto** (lo definisce l'admin nel proprio portale di cronometraggio); campi bancari/transponder vuoti.
+- Oggi c'è export CSV: va aggiunto **export .xlsx in questo tracciato** (libreria `xlsx` già presente).
+
+### 4.10 Generazione attestati  🚧 NUOVO — da progettare
+- **Dopo l'import della classifica**, il sistema genera un **attestato/diploma per ogni atleta** della gara.
+- L'attestato riporta i dati dell'atleta + risultato (es. nome, gara, posizione, tempo, categoria, data, logo/evento).
+- Decisioni aperte: vedi domande sotto (template, dati, distribuzione).
 
 ---
 
@@ -126,13 +130,15 @@ Decisioni prese:
 - [x] DB FIDAL: dataset interno importato (no dipendenza da API esterna).
 - [x] Form per-gara = solo campi extra (il resto dal profilo).
 - [x] Multi-giorno: `Event → Giornata → Gare`; iscrizione singola o intero evento; pass scontato opzionale.
-- [x] Export iscritti: **Excel (.xlsx)** con tracciato **fisso** (§4.9).
-- [x] Import classifica: **Excel (.xlsx)** **modulare** (tracciato variabile per gara) (§4.8).
+- [x] Export iscritti: **Excel (.xlsx)** con tracciato **fisso** (§4.9), colonna `Gara` vuota.
+- [x] Import classifica: **Excel (.xlsx)** **modulare**, **mapping colonne guidato dall'admin** (§4.8).
+- [x] Dopo l'import classifica → **generazione attestati** per atleta (§4.10).
 
 ## Domande aperte / da definire più avanti
 - Enti tessera per non-FIDAL (RunCard, UISP, CSI, ACSI…): elenco e regole.
 - Gestione pagamenti: provider (PayPal già abbozzato), rimborsi, ricevute.
 - Stati iscrizione e loro transizioni complete.
 - Permessi fini dell'organizzatore.
-- Import classifica (§4.8): l'admin deve poter **mappare/confermare** le colonne, o si mostra il file as-is? Come gestire al meglio le **righe-sezione**?
-- Export iscritti (§4.9): da dove arriva il **codice numerico `Gara`** atteso dal cronometraggio (lo assegna l'admin per ogni gara)?
+- Attestati (§4.10): come si definisce il **template** (immagine di sfondo + posizionamento campi, o layout predefinito configurabile)? È **per evento/gara**?
+- Attestati: **quali dati** stampare (posizione, tempo, categoria, logo…) e **chi li scarica** (atleta dal profilo, admin in massa, entrambi)? Generazione **PDF**.
+- Import classifica (§4.8): come gestire al meglio le **righe-sezione** nel mapping?
