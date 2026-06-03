@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Users, UserCheck, Eye, EyeOff, CheckCircle2, UserPlus, Search,
-    Download, Trophy, BarChart2, ShieldAlert, X,
+    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet,
 } from 'lucide-react';
+import ImportClassificaModal from './ImportClassificaModal';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
@@ -35,6 +36,7 @@ export default function RaceEditor({
 }) {
     const [tab, setTab] = useState<RaceTab>(isAdmin ? 'info' : 'partecipanti');
     const [showManualReg, setShowManualReg] = useState(false);
+    const [showImportClassifica, setShowImportClassifica] = useState(false);
     const {
         registrations: allRegs,
         updatePaymentStatus, updateCertStatus, updateRegistration, deleteRegistration,
@@ -230,6 +232,13 @@ export default function RaceEditor({
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
+                                onClick={() => setShowImportClassifica(true)}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-colors"
+                            >
+                                <FileSpreadsheet className="h-3.5 w-3.5" /> Importa da Excel
+                            </button>
+                            <button
+                                type="button"
                                 onClick={() => {
                                     saveResults(race.id, draftResults);
                                     setResultsSaved(true);
@@ -330,6 +339,19 @@ export default function RaceEditor({
                             · {draftResults.filter(r => r.status === 'dns').length} DNS
                             · {draftResults.filter(r => r.status === 'dsq').length} DSQ
                         </p>
+                    )}
+
+                    {showImportClassifica && (
+                        <ImportClassificaModal
+                            onClose={() => setShowImportClassifica(false)}
+                            onImport={results => {
+                                setDraftResults(results);
+                                saveResults(race.id, results);
+                                setShowImportClassifica(false);
+                                setResultsSaved(true);
+                                setTimeout(() => setResultsSaved(false), 2000);
+                            }}
+                        />
                     )}
                 </div>
             )}
