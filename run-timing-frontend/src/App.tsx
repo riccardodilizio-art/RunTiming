@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AthleteAuthProvider } from './context/AthleteAuthContext';
+import { SocietyAuthProvider } from './context/SocietyAuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -18,11 +19,15 @@ import OrganizerPage from './pages/OrganizerPage';
 import AthleteLoginPage from './pages/AthleteLoginPage';
 import AthleteRegisterPage from './pages/AthleteRegisterPage';
 import AthleteDashboardPage from './pages/AthleteDashboardPage';
+import SocietyRegisterPage from './pages/society/SocietyRegisterPage';
+import SocietyLoginPage from './pages/society/SocietyLoginPage';
+import SocietyDashboardPage from './pages/society/SocietyDashboardPage';
 
 export default function App() {
     return (
         <AuthProvider>
             <AthleteAuthProvider>
+                <SocietyAuthProvider>
                 <BrowserRouter>
                     <ScrollToTop />
                     <div className="min-h-screen flex flex-col">
@@ -46,11 +51,15 @@ export default function App() {
                             </ProtectedRoute>
                         } />
                         <Route path="/organizer" element={<OrganizerPage />} />
+                        <Route path="/societa/registrati" element={<SocietyRegisterPage />} />
+                        <Route path="/societa/accedi" element={<SocietyLoginPage />} />
+                        <Route path="/societa" element={<SocietyDashboardPage />} />
                     </Routes>
                     </div>
                     <Footer />
                     </div>
                 </BrowserRouter>
+                </SocietyAuthProvider>
             </AthleteAuthProvider>
         </AuthProvider>
     );

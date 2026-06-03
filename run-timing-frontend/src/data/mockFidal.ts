@@ -34,6 +34,13 @@ export function lookupByTessera(tessera: string): FidalAthlete | null {
     return MOCK_FIDAL_DB.find(a => a.tessera.toLowerCase() === tessera.trim().toLowerCase()) ?? null;
 }
 
+/** Restituisce tutti gli atleti di una società dato il suo codice FIDAL */
+export function lookupBySociety(codiceSocieta: string): FidalAthlete[] {
+    const code = codiceSocieta.trim().toLowerCase();
+    if (!code) return [];
+    return MOCK_FIDAL_DB.filter(a => a.codiceSocieta.toLowerCase() === code);
+}
+
 /** Cerca atleti per cognome + nome (parziale, case-insensitive) */
 export function lookupByName(cognome: string, nome?: string): FidalAthlete[] {
     const q = cognome.trim().toLowerCase();

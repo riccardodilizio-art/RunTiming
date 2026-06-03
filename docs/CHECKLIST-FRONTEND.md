@@ -24,12 +24,13 @@
 
 - ✅ **Vista ristretta organizzatore**: solo info generali (titolo, descrizione, volantino, regolamento, luogo, media) + gestione iscritti per gara; nascosti quote/categorie/modulo/commissioni/percorso e modifica struttura.
 
-## C-bis. Società / Presidente  🔴 NUOVO
+## C-bis. Società / Presidente  ✅
 
-- 🔴 ⭐ **Registrazione società** ("Registrati per le società"): account presidente + dati società + codice FIDAL.
-- 🔴 ⭐ **Roster atleti**: auto-import da DB FIDAL (mock per ora) + aggiunta manuale atleti non-FIDAL (tessera + scadenza cert).
-- 🔴 ⭐ **Iscrizione massiva** degli atleti del roster alle gare (carrello/multi-selezione).
-- 🔴 **Dashboard società**: gestione roster + storico iscrizioni.
+- ✅ **Registrazione società** + login (account presidente, dati società, ente, codice FIDAL).
+- ✅ **Roster atleti**: auto-import da DB FIDAL (mock) per codice società + aggiunta/modifica manuale con tesseramenti (AffiliationsEditor) + reimporta.
+- ✅ **Iscrizione massiva**: seleziona evento→gara→atleti, crea le iscrizioni (categoria assegnata, in attesa).
+- ✅ **Dashboard società**: gestione roster.
+- 🟡 Resta: storico iscrizioni della società (vista riepilogo) e dedup roster↔account atleta individuale.
 
 ## D. Atleta / pubblico
 

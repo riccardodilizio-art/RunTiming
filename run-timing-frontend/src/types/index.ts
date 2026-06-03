@@ -121,6 +121,35 @@ export interface AthleteAccount {
     createdAt: string;
 }
 
+// ─── Società / Presidente ─────────────────────────────────────────────────────
+
+/** Atleta nel roster di una società (gestito dal presidente). */
+export interface RosterAthlete {
+    id: string;
+    nome: string;
+    cognome: string;
+    dataNascita: string;        // ISO YYYY-MM-DD
+    sesso: 'M' | 'F';
+    codFiscale?: string;
+    affiliations: Affiliation[];
+    /** Origine: importato dal DB FIDAL della società o inserito a mano. */
+    source?: 'fidal_db' | 'manual';
+}
+
+export interface SocietyAccount {
+    id: string;
+    email: string;
+    password: string;           // plain text — backend lo hashierà
+    presidentName: string;
+    presidentSurname: string;
+    phone?: string;
+    societaNome: string;
+    ente: RaceEnte;
+    codiceFidal?: string;
+    roster: RosterAthlete[];
+    createdAt: string;
+}
+
 export interface DiscountCode {
     id: string;
     code: string;
