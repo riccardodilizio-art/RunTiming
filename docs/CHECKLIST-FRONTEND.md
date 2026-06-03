@@ -35,7 +35,7 @@
 
 ## D. Atleta / pubblico
 
-- 🟡 **Dashboard atleta**: mostrare attestati scaricabili per gara conclusa.
+- ✅ **Dashboard atleta**: attestato scaricabile per le gare concluse con classifica + template.
 - 🟡 **Pagamenti**: flusso quota in iscrizione (PayPal abbozzato) — da rifinire.
 
 ## E. Trasversale / qualità
