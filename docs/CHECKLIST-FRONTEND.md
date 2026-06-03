@@ -14,7 +14,7 @@
 ## B. Admin
 
 - 🔴 **Campo volantino/flyer** sull'evento (oggi c'è solo `regulationUrl`).
-- 🔴 ⭐ **Colonne pubbliche iscritti**: rendere attivabili dall'admin anche **categoria**, **stato pagamento (ok/ko)**, **stato certificato (ok/ko)** nell'elenco iscritti pubblico (oggi solo campi del modulo).
+- ✅ **Colonne pubbliche iscritti**: toggle admin (RaceEditor) per **categoria**, **stato pagamento**, **stato certificato**; rese nella pagina pubblica iscritti (`race.publicColumns`).
 - 🔴 ⭐ **Export iscritti .xlsx** nel tracciato fisso del cronometraggio (§4.9) — oggi è CSV. (`xlsx` già presente).
 - 🔴 ⭐ **Import classifica .xlsx modulare** con **mapping colonne** guidato dall'admin + gestione righe-sezione (§4.8). Sostituisce l'editor risultati attuale.
 - 🔴 **Attestati** (§4.10): editor template (sfondo + campi posizionati) → generazione PDF post-import → download dall'atleta.

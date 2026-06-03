@@ -207,10 +207,15 @@ export interface Race {
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
     publicFields?: string[];
+    /** Colonne speciali (oltre ai campi del modulo) visibili nell'elenco iscritti pubblico. */
+    publicColumns?: PublicColumn[];
     categories?: RaceCategory[];   // categorie agonistiche per questa gara
     /** Commissione specifica per questa gara (sovrascrive evento/globale) */
     commission?: CommissionConfig;
 }
+
+/** Colonne speciali attivabili nell'elenco iscritti pubblico. */
+export type PublicColumn = 'category' | 'payment' | 'cert';
 
 export type ResultStatus = 'finisher' | 'dnf' | 'dns' | 'dsq';
 

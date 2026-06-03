@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Users, Eye, Search, X } from 'lucide-react';
 import { useAdminStore } from '../hooks/useAdminStore';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
-import type { FormField, RegistrationSubmission } from '../types';
+import type { FormField, RegistrationSubmission, PublicColumn } from '../types';
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('it-IT', {
@@ -112,14 +112,29 @@ function FilterBar({
 
 // ─── Per-race table ───────────────────────────────────────────────────────────
 
+function PublicStatusBadge({ kind, status }: { kind: 'payment' | 'cert'; status?: string }) {
+    // Mappa lo stato interno a un'etichetta pubblica sintetica (OK / In attesa / —)
+    const ok = kind === 'payment' ? status === 'confirmed' : status === 'verificato';
+    const ko = kind === 'payment' ? status === 'rejected' : status === 'rifiutato';
+    const none = !status || status === 'non_richiesto';
+    if (none) return <span className="text-slate-300">—</span>;
+    if (ok) return <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">OK</span>;
+    if (ko) return <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Rifiutato</span>;
+    return <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">In attesa</span>;
+}
+
 function RaceTable({
     visibleFields,
     registrations,
+    publicColumns,
 }: {
     visibleFields: FormField[];
     registrations: RegistrationSubmission[];
+    publicColumns: PublicColumn[];
 }) {
-    const showCategory = registrations.some(r => r.assignedCategory);
+    const showCategory = publicColumns.includes('category');
+    const showPayment  = publicColumns.includes('payment');
+    const showCert     = publicColumns.includes('cert');
 
     return (
         <div className="overflow-x-auto">
@@ -131,6 +146,8 @@ function RaceTable({
                             <th key={f.id} className="px-4 py-3">{f.label}</th>
                         ))}
                         {showCategory && <th className="px-4 py-3">Categoria</th>}
+                        {showPayment && <th className="px-4 py-3">Pagamento</th>}
+                        {showCert && <th className="px-4 py-3">Certificato</th>}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -152,6 +169,12 @@ function RaceTable({
                                         </span>
                                     ) : '—'}
                                 </td>
+                            )}
+                            {showPayment && (
+                                <td className="px-4 py-3"><PublicStatusBadge kind="payment" status={reg.paymentStatus} /></td>
+                            )}
+                            {showCert && (
+                                <td className="px-4 py-3"><PublicStatusBadge kind="cert" status={reg.certStatus} /></td>
                             )}
                         </tr>
                     ))}
@@ -209,7 +232,9 @@ export default function ParticipantsPage() {
     }
 
     // Races with at least one public field
-    const publicRaces = allRaces(event).filter(r => r.publicFields && r.publicFields.length > 0);
+    const publicRaces = allRaces(event).filter(r =>
+        (r.publicFields && r.publicFields.length > 0) || (r.publicColumns && r.publicColumns.length > 0)
+    );
 
     // Total across public races
     const totalPublicRegs = allRegistrations.filter(r =>
@@ -316,6 +341,7 @@ export default function ParticipantsPage() {
                                             <RaceTable
                                                 visibleFields={visibleFields}
                                                 registrations={filtered}
+                                                publicColumns={race.publicColumns ?? []}
                                             />
                                         )}
                                     </div>

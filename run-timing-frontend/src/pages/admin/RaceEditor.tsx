@@ -14,7 +14,7 @@ import CategoryEditor from './CategoryEditor';
 import { RaceStatsBar, PaymentBadge, CertBadge } from './RegistrationBadges';
 import ManualRegModal from './ManualRegModal';
 import type {
-    Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus,
+    Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, PublicColumn,
 } from '../../types';
 
 type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati';
@@ -84,6 +84,12 @@ export default function RaceEditor({
             ? current.filter(f => f !== fieldId)
             : [...current, fieldId];
         set('publicFields', next);
+    }
+
+    function togglePublicColumn(col: PublicColumn) {
+        const current = race.publicColumns ?? [];
+        const next = current.includes(col) ? current.filter(c => c !== col) : [...current, col];
+        set('publicColumns', next);
     }
 
     const tabs: { key: RaceTab; label: string; icon: React.ReactNode }[] = [
@@ -393,6 +399,25 @@ export default function RaceEditor({
                                 })}
                             </div>
                         )}
+
+                        {/* Colonne speciali (categoria / pagamento / certificato) */}
+                        <div className="mt-4 pt-3 border-t border-slate-200">
+                            <p className="text-xs font-semibold text-slate-500 mb-2">Colonne aggiuntive</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {([['category', 'Categoria'], ['payment', 'Stato pagamento'], ['cert', 'Stato certificato']] as [PublicColumn, string][]).map(([col, label]) => {
+                                    const on = (race.publicColumns ?? []).includes(col);
+                                    return (
+                                        <label key={col} className="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked={on} onChange={() => togglePublicColumn(col)} className="accent-brand-600 h-4 w-4" />
+                                            <span className="text-sm text-slate-700 group-hover:text-brand-700 flex items-center gap-1">
+                                                {on ? <Eye className="h-3.5 w-3.5 text-brand-500" /> : <EyeOff className="h-3.5 w-3.5 text-slate-300" />}
+                                                {label}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Lista iscrizioni */}
