@@ -10,6 +10,8 @@ import { useAthleteAuth } from '../context/useAthleteAuth';
 import { loadResults, useAdminStore } from '../hooks/useAdminStore';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
+import AffiliationsEditor from '../components/athlete/AffiliationsEditor';
+import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import type { RegistrationSubmission, Event as EventType } from '../types';
 
 const inputCls =
@@ -142,8 +144,8 @@ export default function AthleteDashboardPage() {
         surname:        currentAthlete?.surname ?? '',
         phone:          currentAthlete?.phone ?? '',
         club:           currentAthlete?.club ?? '',
-        fidalTessera:   currentAthlete?.fidalTessera ?? '',
-        runcardTessera: currentAthlete?.runcardTessera ?? '',
+        affiliations:   currentAthlete?.affiliations
+            ?? affiliationsFromLegacy(currentAthlete?.fidalTessera, currentAthlete?.runcardTessera, currentAthlete?.club),
     }));
 
     // Redirect to login if not authenticated (in an effect — never during render)
@@ -259,8 +261,7 @@ export default function AthleteDashboardPage() {
             surname:        editForm.surname.trim(),
             phone:          editForm.phone.trim() || undefined,
             club:           editForm.club.trim() || undefined,
-            fidalTessera:   editForm.fidalTessera.trim() || undefined,
-            runcardTessera: editForm.runcardTessera.trim() || undefined,
+            affiliations:   editForm.affiliations,
         });
         setEditing(false);
         setSaveOk(true);
@@ -274,8 +275,8 @@ export default function AthleteDashboardPage() {
             surname:        currentAthlete.surname,
             phone:          currentAthlete.phone ?? '',
             club:           currentAthlete.club ?? '',
-            fidalTessera:   currentAthlete.fidalTessera ?? '',
-            runcardTessera: currentAthlete.runcardTessera ?? '',
+            affiliations:   currentAthlete.affiliations
+                ?? affiliationsFromLegacy(currentAthlete.fidalTessera, currentAthlete.runcardTessera, currentAthlete.club),
         });
         setEditing(false);
         setSaveError('');
@@ -570,18 +571,10 @@ export default function AthleteDashboardPage() {
                                     </div>
                                 </div>
                                 <hr className="border-slate-100" />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Tessera FIDAL</label>
-                                        <input type="text" value={editForm.fidalTessera} onChange={setField('fidalTessera')}
-                                            className={inputCls} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Tessera Runcard</label>
-                                        <input type="text" value={editForm.runcardTessera} onChange={setField('runcardTessera')}
-                                            className={inputCls} />
-                                    </div>
-                                </div>
+                                <AffiliationsEditor
+                                    value={editForm.affiliations}
+                                    onChange={affs => setEditForm(f => ({ ...f, affiliations: affs }))}
+                                />
                                 <div className="flex gap-3 pt-2">
                                     <button type="submit"
                                         className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors">
@@ -605,8 +598,12 @@ export default function AthleteDashboardPage() {
                                     ['Sesso',       currentAthlete.gender === 'M' ? 'Maschile' : 'Femminile'],
                                     ['Telefono',    currentAthlete.phone ?? '-'],
                                     ['Società',     currentAthlete.club ?? '-'],
-                                    ['Tessera FIDAL',    currentAthlete.fidalTessera ?? '-'],
-                                    ['Tessera Runcard',  currentAthlete.runcardTessera ?? '-'],
+                                    ...(currentAthlete.affiliations
+                                        ?? affiliationsFromLegacy(currentAthlete.fidalTessera, currentAthlete.runcardTessera, currentAthlete.club)
+                                    ).map(a => [
+                                        `Tessera ${a.ente.toUpperCase()}`,
+                                        `${a.numeroTessera ?? '—'}${a.societaNome ? ` · ${a.societaNome}` : ''}`,
+                                    ] as [string, string]),
                                 ].map(([label, val]) => (
                                     <div key={label} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
                                         <dt className="text-sm text-slate-500">{label}</dt>
