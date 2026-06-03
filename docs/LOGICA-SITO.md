@@ -56,8 +56,36 @@ Nel form builder si distingue nettamente:
 ## 3. Organizzatore  🚧 da definire
 _(gestione eventi/gare, categorie, quote, pagamenti, risultati…)_
 
-## 4. Admin  🚧 da definire
-_(verifica certificati, gestione account, sconti, commissioni, import DB FIDAL, organizzatori…)_
+## 4. Admin
+
+CRUD completo su eventi e gare + gestione trasversale piattaforma.
+
+### 4.1 CRUD eventi/gare  ✅ (in gran parte già implementato)
+- **Crea** un evento da zero, **aggiorna**, **elimina** (es. in caso di errore).
+- Ogni evento contiene **più sottogare** (vedi §4.6).
+
+### 4.2 Dati in creazione evento
+Già presenti: titolo, immagine di copertina, società organizzatrice, luogo/coordinate, data/ora, descrizione, regolamento (PDF), percorso/altimetria, categoria sport, flag "in evidenza"/"live".
+- 🔧 **GAP**: campo **volantino/flyer** dedicato (oggi c'è solo `regulationUrl`). Da aggiungere `flyerUrl`.
+
+### 4.3 Visibilità pubblica elenco iscritti (per gara)
+L'admin sceglie quali colonne sono visibili al visitatore nell'elenco iscritti di una gara: nome, cognome, data di nascita, categoria, **stato pagamento (ok/ko)**, **stato certificato (ok/ko)**, + eventuali campi extra della gara.
+- ✅ Esiste `publicFields` (scelta campi extra del modulo).
+- 🔧 **GAP**: esporre come colonne pubbliche opzionali anche **categoria assegnata**, **stato pagamento** e **stato certificato** (oggi la pagina pubblica iscritti non li mostra).
+
+### 4.4 Quote, commissioni, sconti (per gara)  ✅ implementato
+- Fasce di costo scaglionate (`priceSteps`), commissioni a cascata (step → gara → evento → globale), codici sconto.
+
+### 4.5 Categorie (per gara)  ✅ implementato
+- Preset standard (FIDAL / UISP / CSI / non competitiva) o personalizzate, in base all'ente/scelte della gara. Import CSV/JSON.
+
+### 4.6 Sottogare (per evento)  ✅ implementato
+- Un evento → più gare: competitiva, non competitiva, ragazzi, ecc. Ogni gara ha proprie categorie, quote, modulo extra, requisiti certificato.
+
+### 4.7 Eventi multi-giorno / a tappe  🚧 NUOVO — da progettare
+Caso reale: **"10 in 10 al Lago d'Orta"** → 10 giornate, ogni giorno **maratona + mezza maratona**. L'atleta può iscriversi a **tutte** le giornate o solo ad **alcune**.
+- Il modello attuale (`Event` con `date` singola + `Race[]`) **non basta**: serve il concetto di **giornata/tappa** con data propria, e ogni giornata può avere le sue gare.
+- Decisioni aperte: vedi domande sotto.
 
 ---
 
@@ -73,3 +101,8 @@ _(verifica certificati, gestione account, sconti, commissioni, import DB FIDAL, 
 - Gestione pagamenti: provider (PayPal già abbozzato), rimborsi, ricevute.
 - Stati iscrizione e loro transizioni complete.
 - Permessi fini dell'organizzatore.
+- **Eventi multi-giorno (§4.7)**:
+  - Modello: una "giornata/tappa" è un contenitore con **data propria** che raggruppa gare? (Event → Day[] → Race[])
+  - Iscrizione: l'atleta sceglie **singole giornate**, **l'intero evento (pass)**, o **entrambe**?
+  - Esiste un **prezzo cumulativo / pass scontato** per chi fa tutte le giornate?
+  - Serve una **classifica generale multi-tappa** (somma tempi/punti) oltre alle classifiche per giornata?
