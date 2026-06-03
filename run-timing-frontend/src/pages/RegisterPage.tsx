@@ -9,6 +9,7 @@ import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/use
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import DynamicForm from '../components/registration/DynamicForm';
+import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
@@ -731,6 +732,29 @@ export default function RegisterPage() {
         () => eventRaces.find(r => r.id === selectedRaceId),
         [eventRaces, selectedRaceId]
     );
+
+    // ── Requisito tesseramento per ente gara ──
+    const athleteAffiliations = useMemo(
+        () => currentAthlete
+            ? (currentAthlete.affiliations ?? affiliationsFromLegacy(currentAthlete.fidalTessera, currentAthlete.runcardTessera, currentAthlete.club))
+            : [],
+        [currentAthlete]
+    );
+    const raceEnte = selectedRace?.ente;
+    const eligibleAffs = useMemo(() => {
+        if (!currentAthlete || !raceEnte || raceEnte === 'non_competitiva') return [];
+        if (raceEnte === 'fidal') return athleteAffiliations.filter(a => a.ente === 'fidal');
+        return athleteAffiliations; // altri enti: scelta libera tra i tesseramenti
+    }, [currentAthlete, raceEnte, athleteAffiliations]);
+    const needsFidalAff = !!currentAthlete && raceEnte === 'fidal';
+    const [selectedAffId, setSelectedAffId] = useState('');
+    // reset alla prima opzione quando cambia la gara o l'atleta
+    useEffect(() => {
+        setSelectedAffId(eligibleAffs[0]?.id ?? '');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRaceId, currentAthlete?.id]);
+    const chosenAff = eligibleAffs.find(a => a.id === selectedAffId);
+    const missingFidalAff = needsFidalAff && eligibleAffs.length === 0;
     const fields = useMemo(() => selectedRace?.formSchema ?? [], [selectedRace]);
     // Quando l'atleta è loggato, il modulo gara mostra SOLO i campi extra
     // (taglia, note, consensi…): i dati di profilo arrivano dall'account.
@@ -878,8 +902,9 @@ export default function RegisterPage() {
             const id = `reg_${Date.now()}`;
             if (appliedDiscount) applyDiscountCode(appliedDiscount.id);
             const needsCert = selectedRace.requiresMedicalCert;
+            const fidalReg = fidalVerified || chosenAff?.ente === 'fidal';
             const certStatus = !needsCert ? 'non_richiesto'
-                : fidalVerified ? 'verificato'
+                : fidalReg ? 'verificato'               // tesserato FIDAL → cert valido in automatico
                 : certValidFromAccount ? 'verificato'   // cert già ok nell'account
                 : 'in_attesa';
             saveRegistration({
@@ -893,7 +918,7 @@ export default function RegisterPage() {
                 discountAmount: discountAmount > 0 ? discountAmount : undefined,
                 paymentMethod: isFree ? 'free' : paymentMethod === 'onsite' ? 'manual' : paymentMethod,
                 assignedCategory: assignedCat?.name,
-                fidalVerified,
+                fidalVerified: fidalVerified || chosenAff?.ente === 'fidal',
                 paymentStatus: 'pending',
                 athleteAccountId: currentAthlete?.id,
                 certStatus,
@@ -920,12 +945,13 @@ export default function RegisterPage() {
     const nextLabel = isLastStep
         ? ((isFree || paymentMethod === 'onsite') ? 'Conferma iscrizione' : 'Paga e conferma')
         : 'Continua';
-    // Blocca "Continua" in step 1 solo per gare competitive quando l'atleta
-    // non ha ancora scelto FIDAL/non-FIDAL, o ha scelto non-FIDAL senza account
-    const step1Blocked = step === 1
-        && !!selectedRace?.requiresMedicalCert
-        && !currentAthlete
-        && (isFidal === null || isFidal === false);
+    // Blocca "Continua" in step 1:
+    // - guest su gara competitiva che non ha ancora scelto FIDAL/non-FIDAL;
+    // - atleta loggato su gara FIDAL senza un tesseramento FIDAL nel profilo.
+    const step1Blocked = step === 1 && (
+        missingFidalAff ||
+        (!!selectedRace?.requiresMedicalCert && !currentAthlete && (isFidal === null || isFidal === false))
+    );
 
     return (
         <main className="min-h-screen bg-slate-50 py-8 px-4">
@@ -1081,6 +1107,42 @@ export default function RegisterPage() {
                                                 I dati anagrafici e i tesseramenti del tuo profilo verranno usati per questa iscrizione.{' '}
                                                 <Link to="/profilo" className="text-brand-600 hover:underline">Modifica profilo</Link>
                                             </p>
+                                        </div>
+                                    )}
+
+                                    {/* Blocco 2 — tesseramento richiesto/scelto per l'ente della gara */}
+                                    {currentAthlete && raceEnte && raceEnte !== 'non_competitiva' && (
+                                        <div className="mb-4">
+                                            {raceEnte === 'fidal' ? (
+                                                chosenAff ? (
+                                                    <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 flex items-center gap-2">
+                                                        <ShieldCheck className="h-4 w-4 shrink-0" />
+                                                        <span>Gara FIDAL · tesseramento <strong>{chosenAff.numeroTessera || '—'}</strong>{chosenAff.societaNome ? ` (${chosenAff.societaNome})` : ''} — certificato valido automaticamente.</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                                        <p className="font-semibold mb-0.5">Tesseramento FIDAL richiesto</p>
+                                                        <p className="text-xs">
+                                                            Questa gara è FIDAL: aggiungi un tesseramento FIDAL nel tuo profilo per poterti iscrivere.{' '}
+                                                            <Link to="/profilo" className="underline">Vai al profilo</Link>
+                                                        </p>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-1">Tesseramento per questa gara</label>
+                                                    <select value={selectedAffId} onChange={e => setSelectedAffId(e.target.value)}
+                                                        className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                                        <option value="">Nessun tesseramento / non competitivo</option>
+                                                        {eligibleAffs.map(a => (
+                                                            <option key={a.id} value={a.id}>
+                                                                {a.ente.toUpperCase()} — {a.societaNome || 'senza società'}{a.numeroTessera ? ` (${a.numeroTessera})` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-xs text-slate-400 mt-1">Per gare non FIDAL puoi scegliere liberamente con quale tesseramento presentarti.</p>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
