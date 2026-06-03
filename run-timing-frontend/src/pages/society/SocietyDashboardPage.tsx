@@ -44,7 +44,7 @@ function buildFormData(race: Race, ath: RosterAthlete, societaNome: string): Rec
 export default function SocietyDashboardPage() {
     const navigate = useNavigate();
     const { currentSociety, logout, updateSociety } = useSocietyAuth();
-    const { events } = useAdminStore();
+    const { events, registrations } = useAdminStore();
 
     const [editing, setEditing] = useState<RosterAthlete | null>(null);
     const [showRegModal, setShowRegModal] = useState(false);
@@ -55,6 +55,26 @@ export default function SocietyDashboardPage() {
     }, [currentSociety, navigate]);
 
     const roster = currentSociety?.roster ?? [];
+
+    // Storico iscrizioni della società
+    const raceMap = useMemo(() => {
+        const m: Record<string, { eventTitle: string; raceName: string; race: Race }> = {};
+        for (const ev of events) for (const r of allRaces(ev)) m[r.id] = { eventTitle: ev.title, raceName: r.name, race: r };
+        return m;
+    }, [events]);
+    const societyRegs = useMemo(
+        () => registrations.filter(r => r.societyId === currentSociety?.id),
+        [registrations, currentSociety?.id]
+    );
+    function regAthleteName(reg: RegistrationSubmission): string {
+        const info = raceMap[reg.raceId];
+        const fs = info?.race.formSchema ?? [];
+        const cog = fs.find(x => x.catalogKey === 'cognome');
+        const nom = fs.find(x => x.catalogKey === 'nome');
+        const c = cog ? String(reg.formData[cog.id] ?? '') : '';
+        const n = nom ? String(reg.formData[nom.id] ?? '') : '';
+        return `${c} ${n}`.trim() || '—';
+    }
 
     function saveAthlete(ath: RosterAthlete) {
         if (!currentSociety) return;
@@ -180,6 +200,47 @@ export default function SocietyDashboardPage() {
                         </table>
                     </div>
                 )}
+
+                {/* Storico iscrizioni società */}
+                {societyRegs.length > 0 && (
+                    <div className="mt-8">
+                        <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5 text-brand-600" /> Iscrizioni effettuate ({societyRegs.length})
+                        </h2>
+                        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                        <th className="px-4 py-3">Atleta</th>
+                                        <th className="px-4 py-3">Evento · Gara</th>
+                                        <th className="px-4 py-3">Quota</th>
+                                        <th className="px-4 py-3">Pagamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {societyRegs.map(reg => {
+                                        const info = raceMap[reg.raceId];
+                                        const paid = reg.paymentStatus === 'confirmed';
+                                        return (
+                                            <tr key={reg.id} className="hover:bg-slate-50/50">
+                                                <td className="px-4 py-3 font-medium text-slate-800">{regAthleteName(reg)}</td>
+                                                <td className="px-4 py-3 text-slate-500">
+                                                    {info ? `${info.eventTitle} · ${info.raceName}` : reg.raceId}
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600">{reg.pricePaid.toFixed(2)} €</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${paid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {paid ? 'Confermato' : 'In attesa'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {editing && (
@@ -190,6 +251,7 @@ export default function SocietyDashboardPage() {
                     events={events}
                     roster={roster}
                     societaNome={currentSociety.societaNome}
+                    societyId={currentSociety.id}
                     onClose={() => setShowRegModal(false)}
                 />
             )}
@@ -260,10 +322,11 @@ function AthleteModal({ athlete, onSave, onClose }: { athlete: RosterAthlete; on
 
 // ─── Bulk registration modal ───────────────────────────────────────────────────
 
-function BulkRegistrationModal({ events, roster, societaNome, onClose }: {
+function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose }: {
     events: EventType[];
     roster: RosterAthlete[];
     societaNome: string;
+    societyId: string;
     onClose: () => void;
 }) {
     const [eventId, setEventId] = useState('');
@@ -300,6 +363,7 @@ function BulkRegistrationModal({ events, roster, societaNome, onClose }: {
                 paymentMethod: 'manual',
                 paymentStatus: 'pending',
                 assignedCategory: cat?.name,
+                societyId,
             };
             saveRegistration(sub);
         });

@@ -6,14 +6,14 @@
 ## A. Modello dati & architettura (fondamenta — da fare per prime)
 
 - ✅ **Eventi multi-giorno** — modello `Evento → Giornata → Gara`, helper, EventEditor a giornate, pagina pubblica con giornate raggruppate e range date. **end-to-end**.
-- 🟡 ⭐ **Iscrizione a 3 blocchi + profilo unico** — `RegisterPage`: ✅ profilo riusato (riepilogo + prefill da affiliazioni), ✅ form gara = **solo campi extra** quando loggato, ✅ pagamento per `paymentMode` (incl. **paga in loco**). Resta: **selezione tesseramento per ente gara** (FIDAL obbligatorio) e check requisiti completo.
+- ✅ ⭐ **Iscrizione a 3 blocchi + profilo unico**: profilo riusato, form = solo extra, pagamento per `paymentMode` (incl. paga in loco), e tesseramento per ente gara (FIDAL obbligatorio).
 - ✅ **classificazione campi profilo vs extra** (PROFILE_CATALOG_KEYS in RegisterPage).
-- 🟡 **FIDAL**: per tesserato verificato → certificato **valido in automatico** (oggi parziale).
-- 🟡 ⭐ **Tesseramenti multipli + ente gara** (§2.4): ✅ campo `ente`+`paymentMode` su gara, ✅ editor affiliazioni nel profilo + prefill all'iscrizione. Resta: forzare il tesseramento corretto per gare FIDAL.
+- ✅ **FIDAL**: certificato **valido in automatico** per chi si iscrive con tesseramento FIDAL.
+- ✅ ⭐ **Tesseramenti multipli + ente gara** (§2.4): campo `ente`+`paymentMode` su gara, editor affiliazioni nel profilo, e all'iscrizione il tesseramento è imposto (FIDAL) o scelto (altri enti) secondo l'ente gara.
 
 ## B. Admin
 
-- 🔴 **Campo volantino/flyer** sull'evento (oggi c'è solo `regulationUrl`).
+- ✅ **Campo volantino/flyer** sull'evento (EventEditor + pagina pubblica).
 - ✅ **Colonne pubbliche iscritti**: toggle admin (RaceEditor) per **categoria**, **stato pagamento**, **stato certificato**; rese nella pagina pubblica iscritti (`race.publicColumns`).
 - ✅ **Export iscritti .xlsx** nel tracciato fisso del cronometraggio (foglio Tabelle1), accanto al CSV in RaceEditor.
 - ✅ **Import classifica .xlsx modulare**: upload Excel + mapping colonne guidato (auto-guess) + rilevamento righe-sezione, anteprima, salva la classifica della gara.
@@ -30,7 +30,8 @@
 - ✅ **Roster atleti**: auto-import da DB FIDAL (mock) per codice società + aggiunta/modifica manuale con tesseramenti (AffiliationsEditor) + reimporta.
 - ✅ **Iscrizione massiva**: seleziona evento→gara→atleti, crea le iscrizioni (categoria assegnata, in attesa).
 - ✅ **Dashboard società**: gestione roster.
-- 🟡 Resta: storico iscrizioni della società (vista riepilogo) e dedup roster↔account atleta individuale.
+- ✅ **Storico iscrizioni società** (le iscrizioni create dalla società sono taggate con `societyId` e mostrate in dashboard).
+- ⏭️ Dedup roster↔account atleta individuale: rimandato al **backend** (integrità per CF/tessera).
 
 ## D. Atleta / pubblico
 

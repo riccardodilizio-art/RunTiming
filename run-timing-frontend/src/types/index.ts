@@ -71,6 +71,7 @@ export interface RegistrationSubmission {
     fidalVerified?: boolean;
     addedByOrganizer?: boolean;
     athleteAccountId?: string;   // collegato all'account atleta se loggato
+    societyId?: string;          // se iscritto da una società (presidente)
     certStatus?: CertStatus;
     certInfo?: CertInfo;
     certRejectionReason?: string;
