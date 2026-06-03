@@ -8,6 +8,7 @@ import { useAdminStore } from '../../hooks/useAdminStore';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
 import { formatPrice, inputCls, downloadCSV } from './adminShared';
+import { exportEntrantsXlsx } from './exportEntrants';
 import CommissionOverrideEditor from './CommissionOverrideEditor';
 import PriceStepEditor from './PriceStepEditor';
 import CategoryEditor from './CategoryEditor';
@@ -479,6 +480,16 @@ export default function RaceEditor({
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
                                     >
                                         <Download className="h-3.5 w-3.5" /> CSV
+                                    </button>
+                                )}
+                                {registrations.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => exportEntrantsXlsx(race, registrations)}
+                                        title="Esporta nel tracciato del cronometraggio"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-medium hover:bg-emerald-50 transition-colors"
+                                    >
+                                        <Download className="h-3.5 w-3.5" /> Excel cronometraggio
                                     </button>
                                 )}
                                 <button
