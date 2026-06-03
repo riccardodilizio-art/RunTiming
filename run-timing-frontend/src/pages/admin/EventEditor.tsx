@@ -10,7 +10,7 @@ import RouteInfoEditor from './RouteInfoEditor';
 import RaceEditor from './RaceEditor';
 import type { Event, EventDay, Race, SportCategory } from '../../types';
 
-export default function EventEditor({ event, onSave, onBack }: { event: Event; onSave: (e: Event) => void; onBack: () => void }) {
+export default function EventEditor({ event, onSave, onBack, isAdmin = true }: { event: Event; onSave: (e: Event) => void; onBack: () => void; isAdmin?: boolean }) {
     // Normalizza alla struttura a giornate (canonica), eliminando i campi legacy.
     const [draft, setDraft] = useState<Event>(() => {
         const normalized: Event = { ...event, days: eventDays(event) };
@@ -101,6 +101,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                     eventId={draft.id}
                     onChange={updateRace}
                     onBack={() => setEditingRaceId(null)}
+                    isAdmin={isAdmin}
                 />
             ) : (
                 <div className="space-y-6">
@@ -257,7 +258,8 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                         </div>
                     </div>
 
-                    {/* Commissione a livello di evento */}
+                    {/* Commissione a livello di evento (solo admin) */}
+                    {isAdmin && (
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                         <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-3">
                             <Euro className="h-4 w-4 text-brand-600" /> Commissione evento
@@ -273,12 +275,15 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                             examplePrice={20}
                         />
                     </div>
+                    )}
 
-                    {/* Percorso altimetrico */}
-                    <RouteInfoEditor
-                        routeInfo={draft.routeInfo}
-                        onChange={ri => set('routeInfo', ri)}
-                    />
+                    {/* Percorso altimetrico (solo admin) */}
+                    {isAdmin && (
+                        <RouteInfoEditor
+                            routeInfo={draft.routeInfo}
+                            onChange={ri => set('routeInfo', ri)}
+                        />
+                    )}
 
                     {/* Giornate e gare */}
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -286,13 +291,15 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                             <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-brand-600" /> Giornate e gare
                             </h3>
-                            <button
-                                type="button"
-                                onClick={addDay}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 text-brand-700 text-sm hover:bg-brand-50 transition-colors"
-                            >
-                                <Plus className="h-4 w-4" /> Aggiungi giornata
-                            </button>
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={addDay}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 text-brand-700 text-sm hover:bg-brand-50 transition-colors"
+                                >
+                                    <Plus className="h-4 w-4" /> Aggiungi giornata
+                                </button>
+                            )}
                         </div>
                         <p className="text-xs text-slate-400 mb-3">
                             Un evento può avere una o più giornate (es. gare su più giorni). Ogni giornata ha una data e le sue gare.
@@ -313,6 +320,7 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                                     value={(day.date || '').slice(0, 16)}
                                                     onChange={e => updateDay(day.id, 'date', e.target.value ? e.target.value + ':00' : '')}
                                                     className={inputCls}
+                                                    disabled={!isAdmin}
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-[160px]">
@@ -323,9 +331,10 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                                     placeholder={`Giornata ${di + 1}`}
                                                     onChange={e => updateDay(day.id, 'label', e.target.value)}
                                                     className={inputCls}
+                                                    disabled={!isAdmin}
                                                 />
                                             </div>
-                                            {days.length > 1 && (
+                                            {isAdmin && days.length > 1 && (
                                                 <button type="button" onClick={() => removeDay(day.id)} className="p-2 rounded hover:bg-red-50" title="Elimina giornata">
                                                     <Trash2 className="h-4 w-4 text-red-400" />
                                                 </button>
@@ -335,9 +344,11 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                         {/* Gare della giornata */}
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Gare ({day.races.length})</span>
-                                            <button type="button" onClick={() => addRace(day.id)} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
-                                                <Plus className="h-3.5 w-3.5" /> Aggiungi gara
-                                            </button>
+                                            {isAdmin && (
+                                                <button type="button" onClick={() => addRace(day.id)} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
+                                                    <Plus className="h-3.5 w-3.5" /> Aggiungi gara
+                                                </button>
+                                            )}
                                         </div>
                                         {day.races.length === 0 ? (
                                             <p className="text-xs text-slate-400 italic">Nessuna gara in questa giornata.</p>
@@ -362,12 +373,14 @@ export default function EventEditor({ event, onSave, onBack }: { event: Event; o
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-1 shrink-0">
-                                                            <button type="button" onClick={() => setEditingRaceId(race.id)} className="p-1.5 rounded hover:bg-white transition-colors" title="Modifica">
+                                                            <button type="button" onClick={() => setEditingRaceId(race.id)} className="p-1.5 rounded hover:bg-white transition-colors" title={isAdmin ? 'Modifica' : 'Gestisci iscritti'}>
                                                                 <Edit2 className="h-4 w-4 text-slate-500" />
                                                             </button>
-                                                            <button type="button" onClick={() => deleteRace(race.id)} className="p-1.5 rounded hover:bg-red-50 transition-colors" title="Elimina">
-                                                                <Trash2 className="h-4 w-4 text-red-400" />
-                                                            </button>
+                                                            {isAdmin && (
+                                                                <button type="button" onClick={() => deleteRace(race.id)} className="p-1.5 rounded hover:bg-red-50 transition-colors" title="Elimina">
+                                                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}

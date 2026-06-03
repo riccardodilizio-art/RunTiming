@@ -22,7 +22,7 @@
 
 ## C. Organizzatore
 
-- 🟡 ⭐ **Vista ristretta**: l'organizzatore vede solo info generali (descrizione, volantino, regolamento) + **iscrizione manuale**; nascondere quote/categorie/modulo/commissioni. (Filtro accessi già esistente.)
+- ✅ **Vista ristretta organizzatore**: solo info generali (titolo, descrizione, volantino, regolamento, luogo, media) + gestione iscritti per gara; nascosti quote/categorie/modulo/commissioni/percorso e modifica struttura.
 
 ## C-bis. Società / Presidente  🔴 NUOVO
 

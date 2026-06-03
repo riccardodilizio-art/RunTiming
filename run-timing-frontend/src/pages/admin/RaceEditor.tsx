@@ -24,13 +24,15 @@ export default function RaceEditor({
     eventId,
     onChange,
     onBack,
+    isAdmin = true,
 }: {
     race: Race;
     eventId: string;
     onChange: (r: Race) => void;
     onBack: () => void;
+    isAdmin?: boolean;
 }) {
-    const [tab, setTab] = useState<RaceTab>('info');
+    const [tab, setTab] = useState<RaceTab>(isAdmin ? 'info' : 'partecipanti');
     const [showManualReg, setShowManualReg] = useState(false);
     const {
         registrations: allRegs,
@@ -92,13 +94,15 @@ export default function RaceEditor({
         set('publicColumns', next);
     }
 
-    const tabs: { key: RaceTab; label: string; icon: React.ReactNode }[] = [
+    const allTabs: { key: RaceTab; label: string; icon: React.ReactNode }[] = [
         { key: 'info',          label: 'Dettagli',         icon: <Settings    className="h-4 w-4" /> },
         { key: 'form',          label: 'Modulo iscrizione',icon: <ClipboardList className="h-4 w-4" /> },
         { key: 'prices',        label: 'Quote',            icon: <Euro        className="h-4 w-4" /> },
         { key: 'partecipanti',  label: 'Iscritti',         icon: <UserCheck   className="h-4 w-4" /> },
         { key: 'risultati',     label: 'Risultati',        icon: <Trophy      className="h-4 w-4" /> },
     ];
+    // L'organizzatore vede solo la gestione iscritti.
+    const tabs = isAdmin ? allTabs : allTabs.filter(t => t.key === 'partecipanti');
 
     return (
         <div>

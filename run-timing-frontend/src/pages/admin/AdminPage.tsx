@@ -128,6 +128,7 @@ export default function AdminPage() {
                         event={editingEvent}
                         onSave={handleSave}
                         onBack={() => setEditingId(null)}
+                        isAdmin={isAdmin}
                     />
                 ) : section === 'account' ? (
                     <AccountsSection />
