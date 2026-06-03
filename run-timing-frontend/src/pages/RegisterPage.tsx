@@ -11,8 +11,21 @@ import { useAthleteAuth } from '../context/useAthleteAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
 import type { FidalAthlete } from '../data/mockFidal';
-import type { Race, FormField, PriceStep, DiscountCode, RaceCategory } from '../types';
+import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
 import { assignCategory } from '../types';
+
+// Catalog keys che provengono dal PROFILO atleta: auto-compilati e nascosti
+// quando l'atleta è loggato (form gara = solo campi extra + consensi).
+const PROFILE_CATALOG_KEYS = new Set<CatalogKey>([
+    'nome', 'cognome', 'data_nascita', 'anno_nascita', 'sesso', 'email', 'telefono', 'codice_fiscale',
+    'societa', 'codice_societa',
+    'tessera_fidal', 'tessera_runcard', 'tessera_fci', 'tessera_csi', 'tessera_uisp', 'tessera_fitri', 'tessera_fin',
+    'tipo_certificato', 'num_certificato', 'scadenza_certificato', 'gruppo_sanguigno',
+    'upload_cert_medico', 'upload_tessera',
+]);
+function isExtraRegField(f: FormField): boolean {
+    return !f.catalogKey || !PROFILE_CATALOG_KEYS.has(f.catalogKey);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -441,16 +454,20 @@ function Summary({
 
 // ─── Step 4 — Payment ─────────────────────────────────────────────────────────
 
-type PaymentMethod = 'paypal' | 'card' | 'free';
+type PaymentMethod = 'paypal' | 'card' | 'free' | 'onsite';
 
 function PaymentStep({
     totalPrice,
     method,
     onMethodChange,
+    allowOnline = true,
+    allowOnsite = false,
 }: {
     totalPrice: number;
     method: PaymentMethod;
     onMethodChange: (m: PaymentMethod) => void;
+    allowOnline?: boolean;
+    allowOnsite?: boolean;
 }) {
     const isFree = totalPrice <= 0;
 
@@ -473,6 +490,7 @@ function PaymentStep({
                 <div className="space-y-3">
                     <p className="text-sm font-medium text-slate-700">Seleziona metodo di pagamento</p>
 
+                    {allowOnline && (<>
                     {/* PayPal */}
                     <button
                         type="button"
@@ -561,6 +579,27 @@ function PaymentStep({
                                 ⚠️ Integrazione PayPal in fase di configurazione. La conferma avverrà senza addebito reale.
                             </p>
                         </div>
+                    )}
+                    </>)}
+
+                    {/* Pagamento in loco */}
+                    {allowOnsite && (
+                        <button
+                            type="button"
+                            onClick={() => onMethodChange('onsite')}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
+                                method === 'onsite' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            }`}
+                        >
+                            <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Euro className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-slate-800">Paga in loco il giorno della gara</p>
+                                <p className="text-xs text-slate-400">L'iscrizione resta valida; la quota si salda al ritiro pettorale.</p>
+                            </div>
+                            {method === 'onsite' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
+                        </button>
                     )}
 
                     {/* Commission info */}
@@ -693,6 +732,12 @@ export default function RegisterPage() {
         [eventRaces, selectedRaceId]
     );
     const fields = useMemo(() => selectedRace?.formSchema ?? [], [selectedRace]);
+    // Quando l'atleta è loggato, il modulo gara mostra SOLO i campi extra
+    // (taglia, note, consensi…): i dati di profilo arrivano dall'account.
+    const visibleFields = useMemo(
+        () => currentAthlete ? fields.filter(isExtraRegField) : fields,
+        [fields, currentAthlete]
+    );
 
     // Categoria assegnata in base ai dati inseriti
     const assignedCat = useMemo<RaceCategory | null>(() => {
@@ -722,10 +767,11 @@ export default function RegisterPage() {
             if (f.catalogKey === 'anno_nascita' && birthYear)   updates[f.id] = String(birthYear);
             if (f.catalogKey === 'data_nascita' && currentAthlete.birthDate)    updates[f.id] = currentAthlete.birthDate;
             if (f.catalogKey === 'sesso')           updates[f.id] = currentAthlete.gender;
-            if (f.catalogKey === 'tessera_fidal' && currentAthlete.fidalTessera)
-                updates[f.id] = currentAthlete.fidalTessera;
-            if (f.catalogKey === 'tessera_runcard' && currentAthlete.runcardTessera)
-                updates[f.id] = currentAthlete.runcardTessera;
+            const affs = currentAthlete.affiliations ?? [];
+            const fidalT = affs.find(a => a.ente === 'fidal')?.numeroTessera ?? currentAthlete.fidalTessera;
+            const otherT = affs.find(a => a.ente !== 'fidal' && a.numeroTessera)?.numeroTessera ?? currentAthlete.runcardTessera;
+            if (f.catalogKey === 'tessera_fidal' && fidalT) updates[f.id] = fidalT;
+            if (f.catalogKey === 'tessera_runcard' && otherT) updates[f.id] = otherT;
         });
         if (Object.keys(updates).length > 0) {
             setFormData(prev => ({ ...prev, ...updates }));
@@ -768,7 +814,19 @@ export default function RegisterPage() {
         return calcCommissionAmount(effectiveCommission, afterDiscount);
     }, [effectiveCommission, basePrice, discountAmount]);
     const totalPrice = Math.max(0, basePrice - discountAmount + commissionAmount);
-    const isFree = totalPrice <= 0;
+    // Modalità di pagamento della gara (online / in loco / entrambe / nessuno)
+    const paymentMode = selectedRace?.paymentMode ?? 'both';
+    const allowOnline = paymentMode === 'online' || paymentMode === 'both';
+    const allowOnsite = paymentMode === 'onsite' || paymentMode === 'both';
+    const isFree = totalPrice <= 0 || paymentMode === 'none';
+
+    // Allinea il metodo selezionato alle modalità ammesse dalla gara
+    useEffect(() => {
+        if (paymentMode === 'onsite') setPaymentMethod('onsite');
+        else if (paymentMode === 'online' || paymentMode === 'both') {
+            setPaymentMethod(m => m === 'onsite' ? 'card' : m);
+        }
+    }, [paymentMode]);
 
     const handleFormChange = useCallback((data: Record<string, string | boolean>) => {
         setFormData(data);
@@ -796,7 +854,7 @@ export default function RegisterPage() {
 
     function validateForm(): boolean {
         const newErrors: Record<string, string> = {};
-        for (const field of fields) {
+        for (const field of visibleFields) {
             if (!field.required || field.readOnly) continue;
             const val = formData[field.id];
             if (field.type === 'checkbox') {
@@ -833,7 +891,7 @@ export default function RegisterPage() {
                 pricePaid: totalPrice,
                 discountCode: appliedDiscount?.code,
                 discountAmount: discountAmount > 0 ? discountAmount : undefined,
-                paymentMethod: isFree ? 'free' : paymentMethod,
+                paymentMethod: isFree ? 'free' : paymentMethod === 'onsite' ? 'manual' : paymentMethod,
                 assignedCategory: assignedCat?.name,
                 fidalVerified,
                 paymentStatus: 'pending',
@@ -859,7 +917,9 @@ export default function RegisterPage() {
     }
 
     const isLastStep = step === STEPS.length - 2; // step 3 = pagamento
-    const nextLabel = isLastStep ? (isFree ? 'Conferma iscrizione' : 'Paga e conferma') : 'Continua';
+    const nextLabel = isLastStep
+        ? ((isFree || paymentMethod === 'onsite') ? 'Conferma iscrizione' : 'Paga e conferma')
+        : 'Continua';
     // Blocca "Continua" in step 1 solo per gare competitive quando l'atleta
     // non ha ancora scelto FIDAL/non-FIDAL, o ha scelto non-FIDAL senza account
     const step1Blocked = step === 1
@@ -1003,11 +1063,38 @@ export default function RegisterPage() {
                                 - gara non competitiva (sempre)
                                 - gara competitiva + FIDAL scelto o già loggato */}
                             {(!selectedRace.requiresMedicalCert || isFidal === true || currentAthlete) && (
-                                fields.length === 0 ? (
-                                    <p className="text-slate-400 text-sm italic">Nessun dato richiesto per questa gara.</p>
-                                ) : (
-                                    <DynamicForm fields={fields} data={formData} onChange={handleFormChange} errors={errors} />
-                                )
+                                <>
+                                    {/* Blocco 1 — profilo riusato (atleta loggato) */}
+                                    {currentAthlete && (
+                                        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <User className="h-4 w-4 text-brand-600" />
+                                                <span className="text-sm font-semibold text-slate-800">
+                                                    {currentAthlete.name} {currentAthlete.surname}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                {currentAthlete.email}
+                                                {currentAthlete.club ? ` · ${currentAthlete.club}` : ''}
+                                            </p>
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                I dati anagrafici e i tesseramenti del tuo profilo verranno usati per questa iscrizione.{' '}
+                                                <Link to="/profilo" className="text-brand-600 hover:underline">Modifica profilo</Link>
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Blocco 3 — solo campi extra della gara (+ consensi) */}
+                                    {visibleFields.length === 0 ? (
+                                        <p className="text-slate-400 text-sm italic">
+                                            {currentAthlete
+                                                ? 'Nessun dato aggiuntivo richiesto: prosegui per il riepilogo.'
+                                                : 'Nessun dato richiesto per questa gara.'}
+                                        </p>
+                                    ) : (
+                                        <DynamicForm fields={visibleFields} data={formData} onChange={handleFormChange} errors={errors} />
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
@@ -1027,9 +1114,11 @@ export default function RegisterPage() {
 
                     {step === 3 && (
                         <PaymentStep
-                            totalPrice={totalPrice}
+                            totalPrice={isFree ? 0 : totalPrice}
                             method={paymentMethod}
                             onMethodChange={setPaymentMethod}
+                            allowOnline={allowOnline}
+                            allowOnsite={allowOnsite}
                         />
                     )}
 

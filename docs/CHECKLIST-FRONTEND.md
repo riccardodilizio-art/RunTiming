@@ -6,11 +6,10 @@
 ## A. Modello dati & architettura (fondamenta — da fare per prime)
 
 - ✅ **Eventi multi-giorno** — modello `Evento → Giornata → Gara`, helper, EventEditor a giornate, pagina pubblica con giornate raggruppate e range date. **end-to-end**.
-- 🔴 ⭐ **Iscrizione a 3 blocchi + profilo unico** — refactor `RegisterPage`:
-  profilo riusato (no reinserimento), form per-gara = **solo campi extra**, check requisiti gara, pagamento.
-- 🟡 **FormBuilder**: distinguere **campi profilo** (auto/nascosti) da **campi extra gara** (gli unici configurabili).
+- 🟡 ⭐ **Iscrizione a 3 blocchi + profilo unico** — `RegisterPage`: ✅ profilo riusato (riepilogo + prefill da affiliazioni), ✅ form gara = **solo campi extra** quando loggato, ✅ pagamento per `paymentMode` (incl. **paga in loco**). Resta: **selezione tesseramento per ente gara** (FIDAL obbligatorio) e check requisiti completo.
+- ✅ **classificazione campi profilo vs extra** (PROFILE_CATALOG_KEYS in RegisterPage).
 - 🟡 **FIDAL**: per tesserato verificato → certificato **valido in automatico** (oggi parziale).
-- 🟡 ⭐ **Tesseramenti multipli + ente gara** (§2.4): ✅ campo `ente` + `paymentMode` su gara (modello + RaceEditor). Resta: profilo atleta con **lista affiliazioni** (editor) e uso all'iscrizione.
+- 🟡 ⭐ **Tesseramenti multipli + ente gara** (§2.4): ✅ campo `ente`+`paymentMode` su gara, ✅ editor affiliazioni nel profilo + prefill all'iscrizione. Resta: forzare il tesseramento corretto per gare FIDAL.
 
 ## B. Admin
 
