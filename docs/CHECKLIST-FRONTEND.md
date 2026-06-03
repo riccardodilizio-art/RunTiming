@@ -25,6 +25,13 @@
 
 - 🟡 ⭐ **Vista ristretta**: l'organizzatore vede solo info generali (descrizione, volantino, regolamento) + **iscrizione manuale**; nascondere quote/categorie/modulo/commissioni. (Filtro accessi già esistente.)
 
+## C-bis. Società / Presidente  🔴 NUOVO
+
+- 🔴 ⭐ **Registrazione società** ("Registrati per le società"): account presidente + dati società + codice FIDAL.
+- 🔴 ⭐ **Roster atleti**: auto-import da DB FIDAL (mock per ora) + aggiunta manuale atleti non-FIDAL (tessera + scadenza cert).
+- 🔴 ⭐ **Iscrizione massiva** degli atleti del roster alle gare (carrello/multi-selezione).
+- 🔴 **Dashboard società**: gestione roster + storico iscrizioni.
+
 ## D. Atleta / pubblico
 
 - 🟡 **Dashboard atleta**: mostrare attestati scaricabili per gara conclusa.
