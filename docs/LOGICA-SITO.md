@@ -62,8 +62,21 @@ Nel form builder si distingue nettamente:
 
 ---
 
-## 3. Organizzatore  🚧 da definire
-_(gestione eventi/gare, categorie, quote, pagamenti, risultati…)_
+## 3. Organizzatore  ✅ definito
+Ruolo **limitato**: l'admin definisce a quali eventi/gare ha accesso; l'organizzatore vede e gestisce **solo quelle autorizzate**.
+
+**Può:**
+- **Iscrivere atleti** alle proprie gare (iscrizione manuale).
+- Modificare le **informazioni generali** della gara: descrizione, **volantino**, regolamento, e le altre info generali.
+
+**NON può:**
+- Definire **quote di iscrizione** / fasce di costo / commissioni / sconti.
+- Definire **categorie**.
+- Modificare la struttura della gara (modulo iscrizione, requisiti, ecc.).
+
+Stato implementazione:
+- ✅ Esiste già il filtro accessi (`assignedEventIds` + `canManageEvent`): l'organizzatore vede solo i propri eventi.
+- 🔧 **GAP**: oggi l'editor evento espone **tutto**. Va aggiunta una **vista ristretta** per l'organizzatore che mostri solo info generali + iscrizione manuale, nascondendo quote/categorie/modulo/commissioni.
 
 ## 4. Admin
 
