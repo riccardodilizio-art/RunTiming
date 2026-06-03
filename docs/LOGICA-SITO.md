@@ -147,7 +147,12 @@ Flusso:
 - Atleti mancanti / non-FIDAL → il presidente li **aggiunge a mano** indicando i dati + eventuale **numero tessera** e **scadenza certificato**.
 - Con l'account attivo, il presidente **iscrive i propri atleti** alle varie gare.
 
-Stato: nuovo — niente di implementato. Vedi domande aperte per i nodi da sciogliere.
+Stato: nuovo — niente di implementato.
+
+Decisioni prese:
+- **Identità atleta**: un atleta del roster e un eventuale account individuale sono lo **stesso record** → dedup per **codice fiscale / numero tessera** (no doppioni).
+- **Pagamento**: flessibile e deciso dal presidente — può **far pagare i singoli atleti** oppure fare un **pagamento unico** per tutti. Inoltre il pagamento online **non è obbligatorio** (vedi decisione trasversale sui pagamenti).
+- **Certificati non-FIDAL** aggiunti dal presidente: **nessuna verifica admin**, è **responsabilità del presidente** (i dati inseriti si considerano validi).
 
 ---
 
@@ -162,6 +167,8 @@ Stato: nuovo — niente di implementato. Vedi domande aperte per i nodi da sciog
 - [x] Export iscritti: **Excel (.xlsx)** con tracciato **fisso** (§4.9), colonna `Gara` vuota.
 - [x] Import classifica: **Excel (.xlsx)** **modulare**, **mapping colonne guidato dall'admin** (§4.8).
 - [x] Dopo l'import classifica → **generazione attestati** per atleta (§4.10).
+- [x] **Pagamento online NON obbligatorio**: per ogni gara si può consentire il **pagamento in loco** il giorno della gara (l'iscrizione resta valida, quota da saldare sul posto).
+- [x] Società: identità atleta **dedup** (CF/tessera); pagamento singolo o unico a scelta del presidente; certificati non-FIDAL del roster **senza verifica admin**.
 
 ## Domande aperte / da definire più avanti
 - Enti tessera per non-FIDAL (RunCard, UISP, CSI, ACSI…): elenco e regole.
@@ -170,8 +177,4 @@ Stato: nuovo — niente di implementato. Vedi domande aperte per i nodi da sciog
 - Permessi fini dell'organizzatore.
 - Import classifica (§4.8): come gestire al meglio le **righe-sezione** nel mapping?
 - Attestati (§4.10): l'editor di posizionamento campi sullo sfondo — definire i campi disponibili e l'unità di posizione (%, px). Font/colori personalizzabili?
-- **Società (§5)**:
-  - Un atleta del roster società ↔ account atleta individuale: stessa persona = **stesso record** (dedup per codice fiscale/tessera) o entità separate?
-  - **Pagamento** iscrizioni di società: paga il presidente per tutti (carrello cumulativo) o ognuno per sé?
-  - Certificati degli atleti non-FIDAL aggiunti dal presidente: stessa **verifica admin** del flusso individuale?
-  - Un atleta può essere in **più società** nel tempo / contemporaneamente?
+- **Società (§5)**: un atleta può appartenere a **più società** (nel tempo / contemporaneamente)? Come si gestisce il cambio società?
