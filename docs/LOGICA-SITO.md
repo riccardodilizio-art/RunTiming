@@ -6,8 +6,9 @@
 ## Attori
 - **Visitatore** — non autenticato.
 - **Atleta** — utente pubblico registrato.
-- **Organizzatore** — gestisce solo i propri eventi. 🚧
-- **Admin** — accesso completo alla piattaforma. 🚧
+- **Società / Presidente** — registra la società e gestisce un roster di atleti.
+- **Organizzatore** — gestisce solo i propri eventi.
+- **Admin** — accesso completo alla piattaforma.
 
 ---
 
@@ -137,6 +138,19 @@ Decisioni prese:
 
 ---
 
+## 5. Società / Presidente  🚧 NUOVO — in definizione
+Registrazione dedicata alle società sportive, gestita dal **presidente**.
+
+Flusso:
+- Il presidente si registra nella sezione **"Registrati per le società"**: nome, cognome, telefono, email, + **codice FIDAL società** (se tesserata).
+- Se la società è FIDAL → il sistema, tramite il **DB FIDAL** (o API se disponibile), **carica automaticamente tutti gli atleti** della società nel roster.
+- Atleti mancanti / non-FIDAL → il presidente li **aggiunge a mano** indicando i dati + eventuale **numero tessera** e **scadenza certificato**.
+- Con l'account attivo, il presidente **iscrive i propri atleti** alle varie gare.
+
+Stato: nuovo — niente di implementato. Vedi domande aperte per i nodi da sciogliere.
+
+---
+
 ## Decisioni prese
 - [x] **Ambito**: portale di iscrizioni, NON di cronometraggio (timing esterno).
 - [x] Tema UI: arancione "flame" (token `brand`).
@@ -156,3 +170,8 @@ Decisioni prese:
 - Permessi fini dell'organizzatore.
 - Import classifica (§4.8): come gestire al meglio le **righe-sezione** nel mapping?
 - Attestati (§4.10): l'editor di posizionamento campi sullo sfondo — definire i campi disponibili e l'unità di posizione (%, px). Font/colori personalizzabili?
+- **Società (§5)**:
+  - Un atleta del roster società ↔ account atleta individuale: stessa persona = **stesso record** (dedup per codice fiscale/tessera) o entità separate?
+  - **Pagamento** iscrizioni di società: paga il presidente per tutti (carrello cumulativo) o ognuno per sé?
+  - Certificati degli atleti non-FIDAL aggiunti dal presidente: stessa **verifica admin** del flusso individuale?
+  - Un atleta può essere in **più società** nel tempo / contemporaneamente?
