@@ -11,6 +11,7 @@
   profilo riusato (no reinserimento), form per-gara = **solo campi extra**, check requisiti gara, pagamento.
 - 🟡 **FormBuilder**: distinguere **campi profilo** (auto/nascosti) da **campi extra gara** (gli unici configurabili).
 - 🟡 **FIDAL**: per tesserato verificato → certificato **valido in automatico** (oggi parziale).
+- 🔴 ⭐ **Tesseramenti multipli + ente gara** (§2.4): profilo atleta con **lista affiliazioni** (ente+società+tessera+scadenza); aggiungere campo **`ente`** alla gara; all'iscrizione forzare/abilitare la scelta del tesseramento secondo l'ente.
 
 ## B. Admin
 

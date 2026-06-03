@@ -61,6 +61,18 @@ Nel form builder si distingue nettamente:
 - **campi profilo** → auto-compilati, nascosti all'iscrizione;
 - **campi extra gara** → gli unici configurati dall'organizzatore e mostrati all'atleta.
 
+### 2.4 Tesseramenti multipli e scelta società per gara  ✅ definito
+Un atleta può avere **più tesseramenti/affiliazioni** contemporaneamente, ognuno con il proprio **ente, società e numero tessera** (+ eventuale scadenza certificato). Es: tesserato **FIDAL** con la società A **e** tesserato con un **ente di promozione** (UISP/CSI/…) con la società B.
+
+Regola di scelta al momento dell'iscrizione, in base all'**ente della gara**:
+- Gara **FIDAL** → l'atleta **deve** iscriversi con il tesseramento/società **FIDAL** (obbligatorio).
+- Gara di un **altro ente di promozione** → l'atleta **sceglie liberamente** con quale tesseramento/società presentarsi (tra quelli compatibili).
+
+Implicazioni sul modello:
+- 🔧 **GAP**: la **gara** deve avere un campo **`ente`** (FIDAL / ente di promozione specifico / non competitiva), oggi assente.
+- Il **profilo atleta** deve contenere una **lista di tesseramenti** (ente + società + tessera + scadenza cert), non un singolo campo.
+- All'iscrizione: il sistema **filtra/forza** il tesseramento in base all'ente della gara; coerente anche con la scelta delle **categorie** (gara FIDAL → categorie FIDAL, ecc.).
+
 ---
 
 ## 3. Organizzatore  ✅ definito
@@ -169,6 +181,7 @@ Decisioni prese:
 - [x] Dopo l'import classifica → **generazione attestati** per atleta (§4.10).
 - [x] **Pagamento online NON obbligatorio**: per ogni gara si può consentire il **pagamento in loco** il giorno della gara (l'iscrizione resta valida, quota da saldare sul posto).
 - [x] Società: identità atleta **dedup** (CF/tessera); pagamento singolo o unico a scelta del presidente; certificati non-FIDAL del roster **senza verifica admin**.
+- [x] **Tesseramenti multipli** (§2.4): atleta con più affiliazioni (FIDAL + ente promozione); la gara ha un **ente** e impone/abilita la scelta del tesseramento (FIDAL obbligatorio se gara FIDAL, libero altrimenti).
 
 ## Domande aperte / da definire più avanti
 - Enti tessera per non-FIDAL (RunCard, UISP, CSI, ACSI…): elenco e regole.
@@ -177,4 +190,4 @@ Decisioni prese:
 - Permessi fini dell'organizzatore.
 - Import classifica (§4.8): come gestire al meglio le **righe-sezione** nel mapping?
 - Attestati (§4.10): l'editor di posizionamento campi sullo sfondo — definire i campi disponibili e l'unità di posizione (%, px). Font/colori personalizzabili?
-- **Società (§5)**: un atleta può appartenere a **più società** (nel tempo / contemporaneamente)? Come si gestisce il cambio società?
+- Enti di promozione supportati (oltre FIDAL): elenco preciso (UISP, CSI, ACSI, AICS…) e regole certificato per ciascuno.
