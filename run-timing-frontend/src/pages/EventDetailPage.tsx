@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { allRaces, eventStartDate } from '../utils/event';
+import { allRaces, eventStartDate, eventEndDate, eventDays, isMultiDay } from '../utils/event';
 import {
     Calendar, MapPin, ChevronLeft, Clock, Building2, ShieldCheck, Users,
     TrendingUp, Mountain, Download, Layers,
@@ -226,8 +226,12 @@ export default function EventDetailPage() {
                                 <div className="flex items-start gap-3">
                                     <Calendar className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <p className="text-slate-800 text-sm font-medium capitalize">{formatDate(eventStartDate(event))}</p>
-                                        <p className="text-slate-400 text-xs">Ore {formatTime(eventStartDate(event))}</p>
+                                        <p className="text-slate-800 text-sm font-medium capitalize">
+                                            {formatDate(eventStartDate(event))}{isMultiDay(event) ? ` – ${formatDate(eventEndDate(event))}` : ''}
+                                        </p>
+                                        <p className="text-slate-400 text-xs">
+                                            {isMultiDay(event) ? `${eventDays(event).length} giornate` : `Ore ${formatTime(eventStartDate(event))}`}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
@@ -263,7 +267,14 @@ export default function EventDetailPage() {
                             </div>
 
                             <div className="divide-y divide-slate-100">
-                                {allRaces(event).map(race => {
+                                {eventDays(event).map(day => (
+                                  <div key={day.id}>
+                                    {isMultiDay(event) && (
+                                        <div className="px-5 py-2 bg-slate-50/70 border-b border-slate-100 text-xs font-semibold text-brand-600 uppercase tracking-wide">
+                                            {day.label || formatDate(day.date)}
+                                        </div>
+                                    )}
+                                    {day.races.map(race => {
                                     const raceFill = Math.round((race.participants / race.maxParticipants) * 100);
                                     const raceAlmostFull = raceFill >= 85;
                                     return (
@@ -330,7 +341,9 @@ export default function EventDetailPage() {
                                             </div>
                                         </div>
                                     );
-                                })}
+                                    })}
+                                  </div>
+                                ))}
                             </div>
                         </div>
 
@@ -340,13 +353,26 @@ export default function EventDetailPage() {
                                 <h2 className="font-display font-700 text-base text-slate-500 uppercase tracking-wide">
                                     Percorso &amp; Sede
                                 </h2>
-                                <button
-                                    onClick={() => openRegulation(event.regulationUrl, event.title, event.slug, eventStartDate(event))}
-                                    className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
-                                >
-                                    <Download className="w-3.5 h-3.5" />
-                                    Scarica regolamento
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {event.flyerUrl && (
+                                        <a
+                                            href={event.flyerUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
+                                        >
+                                            <Download className="w-3.5 h-3.5" />
+                                            Volantino
+                                        </a>
+                                    )}
+                                    <button
+                                        onClick={() => openRegulation(event.regulationUrl, event.title, event.slug, eventStartDate(event))}
+                                        className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        <Download className="w-3.5 h-3.5" />
+                                        Scarica regolamento
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="p-5">

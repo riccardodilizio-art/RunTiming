@@ -138,6 +138,29 @@ export default function RaceEditor({
                         </select>
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Ente</label>
+                        <select value={race.ente ?? 'fidal'} onChange={e => set('ente', e.target.value as Race['ente'])} className={inputCls}>
+                            <option value="fidal">FIDAL</option>
+                            <option value="uisp">UISP</option>
+                            <option value="csi">CSI</option>
+                            <option value="acsi">ACSI</option>
+                            <option value="aics">AICS</option>
+                            <option value="libertas">Libertas</option>
+                            <option value="altro">Altro ente</option>
+                            <option value="non_competitiva">Non competitiva</option>
+                        </select>
+                        <p className="text-xs text-slate-400 mt-1">Se FIDAL, l'atleta dovrà iscriversi col tesseramento FIDAL.</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Modalità pagamento</label>
+                        <select value={race.paymentMode ?? 'both'} onChange={e => set('paymentMode', e.target.value as Race['paymentMode'])} className={inputCls}>
+                            <option value="both">Online + in loco</option>
+                            <option value="online">Solo online</option>
+                            <option value="onsite">Solo in loco (giorno gara)</option>
+                            <option value="none">Nessun pagamento (gratuita)</option>
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Prezzo base (€)</label>
                         <input type="number" min={0} step={0.5} value={race.price} onChange={e => set('price', parseFloat(e.target.value) || 0)} className={inputCls} />
                     </div>
