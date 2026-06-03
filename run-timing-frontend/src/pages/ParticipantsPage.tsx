@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { allRaces, eventStartDate } from '../utils/event';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Users, Eye, Search, X } from 'lucide-react';
 import { useAdminStore } from '../hooks/useAdminStore';
@@ -185,7 +186,7 @@ export default function ParticipantsPage() {
         if (!event) return [];
         const set = new Set<string>();
         allRegistrations.forEach(reg => {
-            event.races.forEach(race => {
+            allRaces(event).forEach(race => {
                 const socField = (race.formSchema ?? []).find(f => f.catalogKey === 'societa');
                 if (socField) {
                     const val = reg.formData[socField.id] as string | undefined;
@@ -208,7 +209,7 @@ export default function ParticipantsPage() {
     }
 
     // Races with at least one public field
-    const publicRaces = event.races.filter(r => r.publicFields && r.publicFields.length > 0);
+    const publicRaces = allRaces(event).filter(r => r.publicFields && r.publicFields.length > 0);
 
     // Total across public races
     const totalPublicRegs = allRegistrations.filter(r =>
@@ -233,7 +234,7 @@ export default function ParticipantsPage() {
                         <div>
                             <h1 className="text-2xl font-bold text-slate-800">{event.title}</h1>
                             <p className="text-slate-500 text-sm mt-0.5 capitalize">
-                                {formatDate(event.date)} · {event.city} ({event.province})
+                                {formatDate(eventStartDate(event))} · {event.city} ({event.province})
                             </p>
                         </div>
                     </div>

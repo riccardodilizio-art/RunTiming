@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { allRaces, eventStartDate } from '../utils/event';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
@@ -658,7 +659,8 @@ export default function RegisterPage() {
     const { currentAthlete, register: registerAthlete } = useAthleteAuth();
 
     const event = slug ? getEvent(slug) : undefined;
-    const initialRaceId = searchParams.get('race') ?? event?.races[0]?.id ?? '';
+    const eventRaces = useMemo(() => event ? allRaces(event) : [], [event]);
+    const initialRaceId = searchParams.get('race') ?? eventRaces[0]?.id ?? '';
 
     const [step, setStep] = useState(0);
     const [selectedRaceId, setSelectedRaceId] = useState(initialRaceId);
@@ -687,8 +689,8 @@ export default function RegisterPage() {
     const [accountError, setAccountError] = useState('');
 
     const selectedRace = useMemo(
-        () => event?.races.find(r => r.id === selectedRaceId),
-        [event, selectedRaceId]
+        () => eventRaces.find(r => r.id === selectedRaceId),
+        [eventRaces, selectedRaceId]
     );
     const fields = useMemo(() => selectedRace?.formSchema ?? [], [selectedRace]);
 
@@ -877,7 +879,7 @@ export default function RegisterPage() {
                         <ChevronLeft className="h-4 w-4" /> {event.title}
                     </Link>
                     <h1 className="text-2xl font-bold text-slate-800">Iscrizione</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">{formatDate(event.date)} · {event.city}</p>
+                    <p className="text-slate-500 text-sm mt-0.5">{formatDate(eventStartDate(event))} · {event.city}</p>
                 </div>
 
                 {/* Blocco doppia iscrizione */}
@@ -911,7 +913,7 @@ export default function RegisterPage() {
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-7">
                     {step === 0 && (
-                        <RacePicker races={event.races} selectedId={selectedRaceId} onSelect={setSelectedRaceId} />
+                        <RacePicker races={eventRaces} selectedId={selectedRaceId} onSelect={setSelectedRaceId} />
                     )}
 
                     {step === 1 && selectedRace && (

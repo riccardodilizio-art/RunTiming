@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { allRaces, eventStartDate } from '../../utils/event';
 import { Calendar, MapPin } from 'lucide-react';
 import type { Event } from '../../types';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
@@ -10,11 +11,11 @@ function formatDate(iso: string) {
 }
 
 export default function EventGridCard({ event }: { event: Event }) {
-    const isPast = new Date(event.date) < new Date();
-    const prices = event.races.map(r => r.price);
+    const isPast = new Date(eventStartDate(event)) < new Date();
+    const prices = allRaces(event).map(r => r.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const hasOpenRaces = event.races.some(r => r.isOpen);
+    const hasOpenRaces = allRaces(event).some(r => r.isOpen);
 
     return (
         <Link
@@ -50,7 +51,7 @@ export default function EventGridCard({ event }: { event: Event }) {
                 <div className="space-y-1 mb-3">
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <Calendar className="w-3 h-3 text-brand-400 flex-shrink-0" />
-                        {formatDate(event.date)}
+                        {formatDate(eventStartDate(event))}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <MapPin className="w-3 h-3 text-brand-400 flex-shrink-0" />
@@ -62,7 +63,7 @@ export default function EventGridCard({ event }: { event: Event }) {
                         <span className="font-semibold text-brand-700 text-sm">
                             {minPrice === maxPrice ? `€${minPrice}` : `€${minPrice} – €${maxPrice}`}
                         </span>
-                        <span className="text-slate-400 text-xs ml-1.5">{event.races.length} gare</span>
+                        <span className="text-slate-400 text-xs ml-1.5">{allRaces(event).length} gare</span>
                     </div>
                     {isPast ? (
                         <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Concluso</span>

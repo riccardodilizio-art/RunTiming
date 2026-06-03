@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { allRaces, eventStartDate } from '../utils/event';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
     Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
@@ -41,11 +42,11 @@ const TABS: Array<{ value: Tab; label: string }> = [
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 function minPrice(event: Event) {
-    return Math.min(...event.races.map(r => r.price));
+    return Math.min(...allRaces(event).map(r => r.price));
 }
 
 function totalParticipants(event: Event) {
-    return event.races.reduce((s, r) => s + r.participants, 0);
+    return allRaces(event).reduce((s, r) => s + r.participants, 0);
 }
 
 // ─── Calendar view ──────────────────────────────────────────────────────────
@@ -53,10 +54,10 @@ function totalParticipants(event: Event) {
 function EventCalendar({ events }: { events: Event[] }) {
     const [month, setMonth] = useState<Date>(() => {
         const upcoming = [...events]
-            .filter(e => new Date(e.date) >= new Date())
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .filter(e => new Date(eventStartDate(e)) >= new Date())
+            .sort((a, b) => new Date(eventStartDate(a)).getTime() - new Date(eventStartDate(b)).getTime());
         if (upcoming.length) {
-            const d = new Date(upcoming[0].date);
+            const d = new Date(eventStartDate(upcoming[0]));
             return new Date(d.getFullYear(), d.getMonth(), 1);
         }
         const now = new Date();
@@ -80,7 +81,7 @@ function EventCalendar({ events }: { events: Event[] }) {
     // Build day → events map for the current month
     const eventsByDay: Record<number, Event[]> = {};
     events.forEach(e => {
-        const d = new Date(e.date);
+        const d = new Date(eventStartDate(e));
         if (d.getFullYear() === year && d.getMonth() === mon) {
             const day = d.getDate();
             if (!eventsByDay[day]) eventsByDay[day] = [];
@@ -201,14 +202,14 @@ function EventCalendar({ events }: { events: Event[] }) {
                                     </p>
                                     <p className="text-xs text-slate-400 truncate">
                                         {e.city} ({e.province}) ·{' '}
-                                        {new Date(e.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                                        {new Date(eventStartDate(e)).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                                 <div className="flex-shrink-0 flex flex-col items-end gap-1">
                                     <span className={`text-xs px-2 py-0.5 rounded border ${categoryColors[e.category]}`}>
                                         {categoryLabels[e.category]}
                                     </span>
-                                    <span className="text-xs text-slate-400">{e.races.length} gare</span>
+                                    <span className="text-xs text-slate-400">{allRaces(e).length} gare</span>
                                 </div>
                             </Link>
                         ))}
@@ -242,7 +243,7 @@ export default function EventsPage() {
     const countFor = (cat: SportCategory | 'all') =>
         events.filter(e => {
             const matchesTab = tab === 'all' ? true : tab === 'upcoming'
-                ? new Date(e.date) >= now : new Date(e.date) < now;
+                ? new Date(eventStartDate(e)) >= now : new Date(eventStartDate(e)) < now;
             const matchesCat = cat === 'all' || e.category === cat;
             return matchesTab && matchesCat;
         }).length;
@@ -256,14 +257,14 @@ export default function EventsPage() {
                 e.organizer.toLowerCase().includes(q);
             const matchesCategory = category === 'all' || e.category === category;
             const matchesTab      = tab === 'all' ? true : tab === 'upcoming'
-                ? new Date(e.date) >= now : new Date(e.date) < now;
-            const matchesOpen     = !onlyOpen || e.races.some(r => r.isOpen);
+                ? new Date(eventStartDate(e)) >= now : new Date(eventStartDate(e)) < now;
+            const matchesOpen     = !onlyOpen || allRaces(e).some(r => r.isOpen);
             return matchesQuery && matchesCategory && matchesTab && matchesOpen;
         })
         .sort((a, b) => {
             switch (sort) {
-                case 'date-asc':   return new Date(a.date).getTime() - new Date(b.date).getTime();
-                case 'date-desc':  return new Date(b.date).getTime() - new Date(a.date).getTime();
+                case 'date-asc':   return new Date(eventStartDate(a)).getTime() - new Date(eventStartDate(b)).getTime();
+                case 'date-desc':  return new Date(eventStartDate(b)).getTime() - new Date(eventStartDate(a)).getTime();
                 case 'price-asc':  return minPrice(a) - minPrice(b);
                 case 'price-desc': return minPrice(b) - minPrice(a);
                 case 'popular':    return totalParticipants(b) - totalParticipants(a);

@@ -1,4 +1,5 @@
 import { X, Printer, Timer, Award } from 'lucide-react';
+import { eventStartDate } from '../../utils/event';
 import type { Result, Event, Race } from '../../types';
 
 interface Props {
@@ -101,7 +102,7 @@ function Certificate({ result, event, race, catPosition }: Omit<Props, 'onClose'
                     </div>
                     <div className="text-right">
                         <p className="text-slate-400 text-xs">Data evento</p>
-                        <p className="text-slate-700 text-xs font-medium">{formatEventDate(event.date)}</p>
+                        <p className="text-slate-700 text-xs font-medium">{formatEventDate(eventStartDate(event))}</p>
                     </div>
                 </div>
 
@@ -130,7 +131,7 @@ function Certificate({ result, event, race, catPosition }: Omit<Props, 'onClose'
                         }{' '}
                         nell'ambito dell'evento <strong className="text-slate-800">{event.title}</strong>
                         {isFinisher && (
-                            <> svoltosi il <strong className="text-slate-800">{formatEventDate(event.date)}</strong>
+                            <> svoltosi il <strong className="text-slate-800">{formatEventDate(eventStartDate(event))}</strong>
                             {' '}a <strong className="text-slate-800">{event.city}</strong></>
                         )}
                     </p>

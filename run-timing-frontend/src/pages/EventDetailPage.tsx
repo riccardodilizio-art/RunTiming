@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { allRaces, eventStartDate } from '../utils/event';
 import {
     Calendar, MapPin, ChevronLeft, Clock, Building2, ShieldCheck, Users,
     TrendingUp, Mountain, Download, Layers,
@@ -164,11 +165,11 @@ export default function EventDetailPage() {
         );
     }
 
-    const isPast = new Date(event.date) < new Date();
-    const totalParticipants = event.races.reduce((s, r) => s + r.participants, 0);
-    const totalMax = event.races.reduce((s, r) => s + r.maxParticipants, 0);
+    const isPast = new Date(eventStartDate(event)) < new Date();
+    const totalParticipants = allRaces(event).reduce((s, r) => s + r.participants, 0);
+    const totalMax = allRaces(event).reduce((s, r) => s + r.maxParticipants, 0);
     const fillPercent = Math.round((totalParticipants / totalMax) * 100);
-    const openRaces = event.races.filter(r => r.isOpen);
+    const openRaces = allRaces(event).filter(r => r.isOpen);
 
     // OSM embed URL — bbox: west,south,east,north
     const delta = 0.018;
@@ -225,8 +226,8 @@ export default function EventDetailPage() {
                                 <div className="flex items-start gap-3">
                                     <Calendar className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <p className="text-slate-800 text-sm font-medium capitalize">{formatDate(event.date)}</p>
-                                        <p className="text-slate-400 text-xs">Ore {formatTime(event.date)}</p>
+                                        <p className="text-slate-800 text-sm font-medium capitalize">{formatDate(eventStartDate(event))}</p>
+                                        <p className="text-slate-400 text-xs">Ore {formatTime(eventStartDate(event))}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
@@ -262,7 +263,7 @@ export default function EventDetailPage() {
                             </div>
 
                             <div className="divide-y divide-slate-100">
-                                {event.races.map(race => {
+                                {allRaces(event).map(race => {
                                     const raceFill = Math.round((race.participants / race.maxParticipants) * 100);
                                     const raceAlmostFull = raceFill >= 85;
                                     return (
@@ -340,7 +341,7 @@ export default function EventDetailPage() {
                                     Percorso &amp; Sede
                                 </h2>
                                 <button
-                                    onClick={() => openRegulation(event.regulationUrl, event.title, event.slug, event.date)}
+                                    onClick={() => openRegulation(event.regulationUrl, event.title, event.slug, eventStartDate(event))}
                                     className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
                                 >
                                     <Download className="w-3.5 h-3.5" />
@@ -434,9 +435,9 @@ export default function EventDetailPage() {
                             <div className="text-center mb-4 pb-4 border-b border-slate-100">
                                 <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Quote da</p>
                                 <p className="font-display font-800 text-4xl text-brand-700">
-                                    €{Math.min(...event.races.map(r => r.price))}
+                                    €{Math.min(...allRaces(event).map(r => r.price))}
                                 </p>
-                                <p className="text-slate-400 text-xs mt-1">{event.races.length} gare disponibili</p>
+                                <p className="text-slate-400 text-xs mt-1">{allRaces(event).length} gare disponibili</p>
                             </div>
 
                             {!isPast && openRaces.length > 0 ? (
@@ -480,7 +481,7 @@ export default function EventDetailPage() {
                             </div>
 
                             {/* Link lista iscritti */}
-                            {event.races.some(r => r.publicFields && r.publicFields.length > 0) && (
+                            {allRaces(event).some(r => r.publicFields && r.publicFields.length > 0) && (
                                 <Link
                                     to={`/events/${event.slug}/partecipanti`}
                                     className="mt-4 flex items-center justify-center gap-1.5 w-full text-sm text-brand-600 hover:text-brand-800 border border-brand-200 hover:bg-brand-50 py-2 rounded-xl transition-colors"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { allRaces, eventStartDate } from '../utils/event';
 import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import { useAdminStore } from '../hooks/useAdminStore';
@@ -145,7 +146,7 @@ function TableHeader({ isLapRace }: { isLapRace: boolean }) {
 
 export default function ResultsPage() {
     const { events, getResults } = useAdminStore();
-    const pastEvents = events.filter(e => new Date(e.date) < new Date());
+    const pastEvents = events.filter(e => new Date(eventStartDate(e)) < new Date());
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [selectedRace,  setSelectedRace]  = useState<Race | null>(null);
     const [query,      setQuery]      = useState('');
@@ -256,11 +257,11 @@ export default function ResultsPage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-semibold text-slate-800 text-sm group-hover:text-brand-600 transition-colors leading-tight">{event.title}</h3>
-                                        <p className="text-slate-400 text-xs mt-0.5 truncate">{formatDate(event.date)} · {event.city}</p>
+                                        <p className="text-slate-400 text-xs mt-0.5 truncate">{formatDate(eventStartDate(event))} · {event.city}</p>
                                     </div>
                                     <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
                                         <span className={`text-xs px-2 py-0.5 rounded border ${categoryColors[event.category]}`}>{categoryLabels[event.category]}</span>
-                                        <span className="text-xs text-slate-400">{event.races.length} gare</span>
+                                        <span className="text-xs text-slate-400">{allRaces(event).length} gare</span>
                                     </div>
                                 </button>
                             ))}
@@ -275,14 +276,14 @@ export default function ResultsPage() {
                             <img src={selectedEvent.coverImage} alt={selectedEvent.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0" />
                             <div className="min-w-0">
                                 <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 truncate">{selectedEvent.title}</h2>
-                                <p className="text-slate-400 text-xs sm:text-sm">{formatDate(selectedEvent.date)} · {selectedEvent.city}</p>
+                                <p className="text-slate-400 text-xs sm:text-sm">{formatDate(eventStartDate(selectedEvent))} · {selectedEvent.city}</p>
                             </div>
                         </div>
                         <h3 className="font-display font-700 text-sm text-slate-500 uppercase tracking-wide border-b border-slate-200 pb-2 mb-3">
                             Seleziona una gara
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {selectedEvent.races.map(race => {
+                            {allRaces(selectedEvent).map(race => {
                                 const hasResults = !!mockResults[race.id]?.length;
                                 const isLap = race.raceType !== 'linear';
                                 return (
@@ -330,7 +331,7 @@ export default function ResultsPage() {
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-slate-400 text-xs sm:text-sm truncate">{selectedEvent.title} · {formatDate(selectedEvent.date)}</p>
+                                    <p className="text-slate-400 text-xs sm:text-sm truncate">{selectedEvent.title} · {formatDate(eventStartDate(selectedEvent))}</p>
                                 </div>
                                 {isLapRace && (
                                     <button

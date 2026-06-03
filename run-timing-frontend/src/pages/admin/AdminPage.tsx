@@ -52,7 +52,11 @@ export default function AdminPage() {
             lat: 41.9028,
             lng: 12.4964,
             coverImage: '',
-            races: [],
+            days: [{
+                id: `${id}-d1`,
+                date: new Date(Date.now() + 30 * 864e5).toISOString(),
+                races: [],
+            }],
             isFeatured: false,
             isLive: false,
             organizer: '',

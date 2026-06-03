@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { eventStartDate } from '../../utils/event';
 import { Search } from 'lucide-react';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import EventRow from '../ui/EventRow';
@@ -14,12 +15,12 @@ export default function FeaturedEvents() {
     );
 
     const upcoming = filtered
-        .filter(e => new Date(e.date) >= now)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        .filter(e => new Date(eventStartDate(e)) >= now)
+        .sort((a, b) => new Date(eventStartDate(a)).getTime() - new Date(eventStartDate(b)).getTime());
 
     const past = filtered
-        .filter(e => new Date(e.date) < now)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .filter(e => new Date(eventStartDate(e)) < now)
+        .sort((a, b) => new Date(eventStartDate(b)).getTime() - new Date(eventStartDate(a)).getTime());
 
     return (
         <section className="py-10 px-4">

@@ -5,8 +5,7 @@
 
 ## A. Modello dati & architettura (fondamenta — da fare per prime)
 
-- 🔴 ⭐ **Eventi multi-giorno** — introdurre `Evento → Giornata (data propria) → Gare`.
-  L'evento semplice = una sola giornata. Impatta model, editor admin, pagina evento, iscrizione.
+- 🟡 ⭐ **Eventi multi-giorno** — modello `Evento → Giornata → Gara` ✅ (modello + helper + EventEditor a giornate). Resta: pagina pubblica evento che mostri le giornate, e iscrizione consapevole della giornata.
 - 🔴 ⭐ **Iscrizione a 3 blocchi + profilo unico** — refactor `RegisterPage`:
   profilo riusato (no reinserimento), form per-gara = **solo campi extra**, check requisiti gara, pagamento.
 - 🟡 **FormBuilder**: distinguere **campi profilo** (auto/nascosti) da **campi extra gara** (gli unici configurabili).

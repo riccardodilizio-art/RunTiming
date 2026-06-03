@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { eventStartDate } from '../../utils/event';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -106,7 +107,7 @@ export default function EventsMap({ events }: Props) {
                                     {event.title}
                                 </p>
                                 <p style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>
-                                    {new Date(event.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {new Date(eventStartDate(event)).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                                     {' · '}{event.city} ({event.province})
                                 </p>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

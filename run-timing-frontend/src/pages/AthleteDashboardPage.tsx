@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { allRaces, eventStartDate } from '../utils/event';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
@@ -24,7 +25,7 @@ function EditRegModal({ reg, formData, onChange, onSave, onClose, events }: {
     onClose: () => void;
     events: EventType[];
 }) {
-    const race = events.flatMap(e => e.races).find(r => r.id === reg.raceId);
+    const race = events.flatMap(e => allRaces(e)).find(r => r.id === reg.raceId);
     const fields = (race?.formSchema ?? []).filter(f => !f.readOnly);
     return (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -96,11 +97,11 @@ function buildRaceLookup() {
     } catch { /* ignore */ }
 
     for (const ev of allEvents) {
-        for (const race of ev.races) {
+        for (const race of allRaces(ev)) {
             map[race.id] = {
                 eventTitle: ev.title,
                 raceName:   race.name,
-                date:       ev.date,
+                date:       eventStartDate(ev),
                 city:       ev.city,
                 distanceKm: parseKm(race.distance),
             };

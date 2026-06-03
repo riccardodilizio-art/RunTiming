@@ -78,6 +78,22 @@ export interface RegistrationSubmission {
 
 // ─── Athlete account (public users) ──────────────────────────────────────────
 
+/**
+ * Un tesseramento dell'atleta presso un ente. Un atleta può averne più d'uno
+ * (es. FIDAL con società A + UISP con società B). All'iscrizione, l'ente della
+ * gara determina quale affiliazione usare (vedi RaceEnte).
+ */
+export interface Affiliation {
+    id: string;
+    ente: RaceEnte;             // 'fidal' | 'uisp' | 'csi' | ...
+    societaNome: string;
+    codiceSocieta?: string;
+    numeroTessera?: string;
+    certScadenza?: string;      // ISO YYYY-MM-DD
+    /** Origine del dato: importato dal DB FIDAL o inserito manualmente. */
+    source?: 'fidal_db' | 'manual';
+}
+
 export interface AthleteAccount {
     id: string;
     email: string;
@@ -89,7 +105,11 @@ export interface AthleteAccount {
     phone?: string;
     club?: string;
     codFiscale?: string;
+    /** Tesseramenti multipli dell'atleta (canonico). */
+    affiliations?: Affiliation[];
+    /** @deprecated usare `affiliations`. */
     fidalTessera?: string;
+    /** @deprecated usare `affiliations`. */
     runcardTessera?: string;
     /** Certificato medico — verificato una volta, valido per tutte le gare */
     certType?: 'agonistico' | 'non_agonistico' | 'esenzione';
@@ -150,6 +170,15 @@ export type RaceType =
     | 'laps_fixed'
     | 'laps_timed';
 
+/** Ente di riferimento della gara. Determina il tesseramento richiesto all'iscrizione. */
+export type RaceEnte =
+    | 'fidal'
+    | 'uisp' | 'csi' | 'acsi' | 'aics' | 'libertas' | 'altro'
+    | 'non_competitiva';
+
+/** Modalità di pagamento ammesse per la gara. */
+export type PaymentMode = 'none' | 'online' | 'onsite' | 'both';
+
 export interface LapSplit {
     lap: number;
     split: string;
@@ -161,6 +190,10 @@ export interface Race {
     name: string;
     distance: string;
     raceType: RaceType;
+    /** Ente della gara: se 'fidal' impone il tesseramento FIDAL all'iscrizione. */
+    ente?: RaceEnte;
+    /** Modalità di pagamento (online / in loco / entrambe / nessun pagamento). */
+    paymentMode?: PaymentMode;
     lapDistanceKm?: number;
     totalLaps?: number;
     timeLimitMinutes?: number;
@@ -217,19 +250,39 @@ export interface RouteInfo {
     profile: ElevationPoint[];
 }
 
+/**
+ * Una giornata/tappa dell'evento, con data propria e le sue gare.
+ * Un evento "semplice" ha una sola giornata.
+ */
+export interface EventDay {
+    id: string;
+    date: string;        // ISO datetime
+    label?: string;      // es. "Giorno 1 — 12 luglio"
+    races: Race[];
+}
+
 export interface Event {
     id: string;
     title: string;
     slug: string;
     category: SportCategory;
-    date: string;
     location: string;
     city: string;
     province: string;
     lat: number;
     lng: number;
     coverImage: string;
-    races: Race[];
+    /** Volantino della manifestazione (PDF/immagine). */
+    flyerUrl?: string;
+    /**
+     * Struttura canonica multi-giorno. Leggere SEMPRE tramite gli helper in
+     * `utils/event.ts` (`eventDays`, `allRaces`, `eventStartDate`).
+     */
+    days?: EventDay[];
+    /** @deprecated legacy single-day — usare `days`. Mantenuto per i mock e la migrazione. */
+    date?: string;
+    /** @deprecated legacy single-day — usare `days`. */
+    races?: Race[];
     isFeatured: boolean;
     isLive: boolean;
     organizer: string;

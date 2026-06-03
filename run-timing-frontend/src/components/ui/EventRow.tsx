@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { allRaces, eventStartDate } from '../../utils/event';
 import { Calendar, MapPin } from 'lucide-react';
 import type { Event } from '../../types';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
@@ -10,18 +11,18 @@ function formatDate(iso: string) {
 }
 
 function priceRange(event: Event): string {
-    const prices = event.races.map(r => r.price);
+    const prices = allRaces(event).map(r => r.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     return min === max ? `€${min}` : `€${min} – €${max}`;
 }
 
 function totalParticipants(event: Event) {
-    return event.races.reduce((sum, r) => sum + r.participants, 0);
+    return allRaces(event).reduce((sum, r) => sum + r.participants, 0);
 }
 
 export default function EventRow({ event }: { event: Event }) {
-    const distances = event.races.map(r => r.distance).join(' · ');
+    const distances = allRaces(event).map(r => r.distance).join(' · ');
 
     return (
         <Link
@@ -41,7 +42,7 @@ export default function EventRow({ event }: { event: Event }) {
                 <div className="flex items-center gap-2 mb-1">
                     <span className="flex items-center gap-1 text-xs text-brand-600 font-medium">
                         <Calendar className="w-3 h-3" />
-                        {formatDate(event.date)}
+                        {formatDate(eventStartDate(event))}
                     </span>
                     {event.isLive && (
                         <span className="flex items-center gap-1 bg-red-50 text-red-500 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">

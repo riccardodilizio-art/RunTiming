@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { allRaces, eventStartDate } from '../../utils/event';
 import {
     Plus, Edit2, Trash2, Calendar, MapPin, Image, Search,
     LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
@@ -15,12 +16,12 @@ function AdminEventRow({
     onEdit: () => void;
     onDelete?: () => void;
 }) {
-    const prices = event.races.map(r => r.price);
+    const prices = allRaces(event).map(r => r.price);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
     const priceStr = prices.length === 0 ? '—' : minP === maxP ? `€${minP}` : `€${minP} – €${maxP}`;
-    const hasOpenRaces = event.races.some(r => r.isOpen);
-    const isPast = new Date(event.date) < new Date();
+    const hasOpenRaces = allRaces(event).some(r => r.isOpen);
+    const isPast = new Date(eventStartDate(event)) < new Date();
 
     return (
         <div className="group flex items-center gap-4 bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors"
@@ -37,7 +38,7 @@ function AdminEventRow({
                 <div className="flex items-center gap-2 mb-0.5">
                     <span className="flex items-center gap-1 text-xs text-brand-600 font-medium">
                         <Calendar className="w-3 h-3" />
-                        {new Date(event.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(eventStartDate(event)).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                     {event.isLive && (
                         <span className="flex items-center gap-1 bg-red-50 text-red-500 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">
@@ -56,7 +57,7 @@ function AdminEventRow({
                     <span className={`text-xs px-2 py-0.5 rounded border ${categoryColors[event.category]}`}>
                         {categoryLabels[event.category]}
                     </span>
-                    <span className="text-slate-400 text-xs">{event.races.length} distanze</span>
+                    <span className="text-slate-400 text-xs">{allRaces(event).length} distanze</span>
                 </div>
             </div>
             <div className="flex-shrink-0 flex flex-col items-end gap-2">
@@ -102,11 +103,11 @@ function AdminEventGridCard({
     onEdit: () => void;
     onDelete?: () => void;
 }) {
-    const prices = event.races.map(r => r.price);
+    const prices = allRaces(event).map(r => r.price);
     const minP = prices.length ? Math.min(...prices) : 0;
     const maxP = prices.length ? Math.max(...prices) : 0;
-    const hasOpenRaces = event.races.some(r => r.isOpen);
-    const isPast = new Date(event.date) < new Date();
+    const hasOpenRaces = allRaces(event).some(r => r.isOpen);
+    const isPast = new Date(eventStartDate(event)) < new Date();
 
     return (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all flex flex-col">
@@ -137,7 +138,7 @@ function AdminEventGridCard({
                 <div className="space-y-1 mb-3">
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <Calendar className="w-3 h-3 text-brand-400 flex-shrink-0" />
-                        {new Date(event.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(eventStartDate(event)).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <MapPin className="w-3 h-3 text-brand-400 flex-shrink-0" />
@@ -149,7 +150,7 @@ function AdminEventGridCard({
                         <span className="font-semibold text-brand-700 text-sm">
                             {prices.length === 0 ? '—' : minP === maxP ? `€${minP}` : `€${minP} – €${maxP}`}
                         </span>
-                        <span className="text-slate-400 text-xs ml-1.5">{event.races.length} gare</span>
+                        <span className="text-slate-400 text-xs ml-1.5">{allRaces(event).length} gare</span>
                     </div>
                     {isPast ? (
                         <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Concluso</span>
@@ -243,18 +244,18 @@ export default function EventsListSection({
                     e.organizer.toLowerCase().includes(q);
                 const matchesCat  = category === 'all' || e.category === category;
                 const matchesTab  = tab === 'all' ? true
-                    : tab === 'upcoming' ? new Date(e.date) >= now
-                    : new Date(e.date) < now;
-                const matchesOpen = !onlyOpen || e.races.some(r => r.isOpen);
+                    : tab === 'upcoming' ? new Date(eventStartDate(e)) >= now
+                    : new Date(eventStartDate(e)) < now;
+                const matchesOpen = !onlyOpen || allRaces(e).some(r => r.isOpen);
                 return matchesQuery && matchesCat && matchesTab && matchesOpen;
             })
             .sort((a, b) => {
                 switch (sort) {
-                    case 'date-asc':  return new Date(a.date).getTime() - new Date(b.date).getTime();
-                    case 'date-desc': return new Date(b.date).getTime() - new Date(a.date).getTime();
+                    case 'date-asc':  return new Date(eventStartDate(a)).getTime() - new Date(eventStartDate(b)).getTime();
+                    case 'date-desc': return new Date(eventStartDate(b)).getTime() - new Date(eventStartDate(a)).getTime();
                     case 'name-asc':  return a.title.localeCompare(b.title, 'it');
-                    case 'popular':   return b.races.reduce((s, r) => s + r.participants, 0)
-                                           - a.races.reduce((s, r) => s + r.participants, 0);
+                    case 'popular':   return allRaces(b).reduce((s, r) => s + r.participants, 0)
+                                           - allRaces(a).reduce((s, r) => s + r.participants, 0);
                 }
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,8 +264,8 @@ export default function EventsListSection({
     const countFor = (cat: SportCategory | 'all') =>
         events.filter(e => {
             const matchesTab = tab === 'all' ? true
-                : tab === 'upcoming' ? new Date(e.date) >= now
-                : new Date(e.date) < now;
+                : tab === 'upcoming' ? new Date(eventStartDate(e)) >= now
+                : new Date(eventStartDate(e)) < now;
             return matchesTab && (cat === 'all' || e.category === cat);
         }).length;
 
