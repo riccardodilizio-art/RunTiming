@@ -100,14 +100,21 @@ Decisioni prese:
 - **Pass cumulativo**: **opzionale per evento** — alcuni organizzatori attivano un pass "tutto incluso" scontato, altri no. Configurabile dall'admin.
 - Classifica generale multi-tappa: **fuori ambito** (vedi §0, gestita dalla piattaforma di cronometraggio).
 
-### 4.8 Risultati / classifiche  🟡 solo upload finale
-- Le classifiche sono **caricate dall'admin a fine gara** per la sola visualizzazione pubblica (no calcolo lato sito).
-- Modalità di caricamento **da definire** (es. import CSV/Excel esportato dal cronometraggio, o incolla/editor manuale già presente).
-- Esiste già un editor risultati per gara + import "laps"; va riallineato a "upload classifica finale".
+### 4.8 Risultati / classifiche  🟡 solo upload finale (formato Excel, modulare)
+- Le classifiche sono **caricate dall'admin a fine gara** in **Excel (.xlsx)**, per sola visualizzazione pubblica (no calcolo lato sito).
+- Il tracciato **varia da gara a gara** → l'import deve essere **modulare**: si leggono le intestazioni del file e si mostra la tabella così com'è (eventuale mapping/conferma colonne da parte dell'admin).
+- Un singolo file può contenere **più sezioni** (es. una riga "10K" che fa da intestazione di sotto-classifica, poi le righe). Vanno gestite le righe-sezione.
+- **Esempio reale fornito** (`Class_Generale29.xlsx`), colonne osservate:
+  `Pos. | PosSex | Pett. | Cognome | Nome | Team | Sesso | PosCat | Cat. | Media | Time | Partenza | Diff`
+  con righe-sezione tipo `10K` a separare i gruppi.
+- Oggi esiste un editor risultati manuale + import "laps": da rifare come **import Excel modulare**.
 
-### 4.9 Esportazione iscritti  🟡 base presente
-- A iscrizioni chiuse, export elenco iscritti (CSV) per caricarlo sulla piattaforma di cronometraggio.
-- Esiste già un export CSV per gara; da verificare che il formato sia compatibile con il cronometraggio.
+### 4.9 Esportazione iscritti → cronometraggio  🟡 formato Excel FISSO
+- A iscrizioni chiuse, export elenco iscritti in **Excel (.xlsx)** con tracciato **fisso** richiesto dal software di cronometraggio.
+- **Tracciato (foglio `Tabelle1`)** — esempio fornito `Esempio101.xlsx`:
+  `Pettorale | Titolo | Cognome | Nome | AnnoDiNascita | DataDiNascita | Genere | Nazione | Via | Regione | CAP | Città | Paese | Gara | Società | Licenza | Stato | Commento | Email | Telefono | Cellulare | AccountNum | FilialeNum | IBAN | BIC | MandatoSEPA | Banca | ProprietarioAccount | Transponder1 | Transponder2`
+  - Note formato: `DataDiNascita` come **seriale Excel**; `Genere` minuscolo (`m`/`f`); `Gara` come **codice numerico**; molti campi (bancari/SEPA, transponder) restano vuoti — riempiti dal cronometraggio.
+- Oggi esiste un export CSV per gara: va aggiunto/sostituito con **export .xlsx in questo tracciato** (libreria `xlsx` già presente nel progetto).
 
 ---
 
@@ -119,11 +126,13 @@ Decisioni prese:
 - [x] DB FIDAL: dataset interno importato (no dipendenza da API esterna).
 - [x] Form per-gara = solo campi extra (il resto dal profilo).
 - [x] Multi-giorno: `Event → Giornata → Gare`; iscrizione singola o intero evento; pass scontato opzionale.
+- [x] Export iscritti: **Excel (.xlsx)** con tracciato **fisso** (§4.9).
+- [x] Import classifica: **Excel (.xlsx)** **modulare** (tracciato variabile per gara) (§4.8).
 
 ## Domande aperte / da definire più avanti
 - Enti tessera per non-FIDAL (RunCard, UISP, CSI, ACSI…): elenco e regole.
 - Gestione pagamenti: provider (PayPal già abbozzato), rimborsi, ricevute.
 - Stati iscrizione e loro transizioni complete.
 - Permessi fini dell'organizzatore.
-- **Upload classifica finale (§4.8)**: formato del file esportato dal cronometraggio? Mapping colonne (pettorale, tempo, categoria…)?
-- **Formato export iscritti (§4.9)**: quale layout CSV/Excel si aspetta la piattaforma di cronometraggio?
+- Import classifica (§4.8): l'admin deve poter **mappare/confermare** le colonne, o si mostra il file as-is? Come gestire al meglio le **righe-sezione**?
+- Export iscritti (§4.9): da dove arriva il **codice numerico `Gara`** atteso dal cronometraggio (lo assegna l'admin per ogni gara)?
