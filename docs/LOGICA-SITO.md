@@ -115,10 +115,12 @@ Decisioni prese:
   - Note: `DataDiNascita` seriale Excel; `Genere` minuscolo; **`Gara` lasciato vuoto** (lo definisce l'admin nel proprio portale di cronometraggio); campi bancari/transponder vuoti.
 - Oggi c'è export CSV: va aggiunto **export .xlsx in questo tracciato** (libreria `xlsx` già presente).
 
-### 4.10 Generazione attestati  🚧 NUOVO — da progettare
-- **Dopo l'import della classifica**, il sistema genera un **attestato/diploma per ogni atleta** della gara.
-- L'attestato riporta i dati dell'atleta + risultato (es. nome, gara, posizione, tempo, categoria, data, logo/evento).
-- Decisioni aperte: vedi domande sotto (template, dati, distribuzione).
+### 4.10 Generazione attestati  🚧 NUOVO — definito
+- **Template**: l'admin **carica un'immagine di sfondo** (diploma grafico) e **posiziona i campi** sopra (nome, gara, posizione, tempo, categoria, data…). Configurazione del template **per gara** (o per evento, riusabile).
+- **Generazione**: **subito dopo l'import della classifica** → si crea e si salva un attestato (PDF) per ogni atleta in classifica.
+- **Distribuzione**: **solo l'atleta**, dal proprio profilo (sezione gara/risultati), dopo la pubblicazione.
+- Dati attestato presi da: profilo atleta + riga di classifica importata.
+- Tecnica (per backend): rendering PDF da template (sfondo immagine + testo posizionato).
 
 ---
 
@@ -139,6 +141,5 @@ Decisioni prese:
 - Gestione pagamenti: provider (PayPal già abbozzato), rimborsi, ricevute.
 - Stati iscrizione e loro transizioni complete.
 - Permessi fini dell'organizzatore.
-- Attestati (§4.10): come si definisce il **template** (immagine di sfondo + posizionamento campi, o layout predefinito configurabile)? È **per evento/gara**?
-- Attestati: **quali dati** stampare (posizione, tempo, categoria, logo…) e **chi li scarica** (atleta dal profilo, admin in massa, entrambi)? Generazione **PDF**.
 - Import classifica (§4.8): come gestire al meglio le **righe-sezione** nel mapping?
+- Attestati (§4.10): l'editor di posizionamento campi sullo sfondo — definire i campi disponibili e l'unità di posizione (%, px). Font/colori personalizzabili?
