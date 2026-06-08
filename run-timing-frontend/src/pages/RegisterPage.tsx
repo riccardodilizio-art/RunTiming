@@ -8,6 +8,7 @@ import {
 import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/useAdminStore';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
+import { useAuth } from '../context/useAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { lookupByTessera, lookupByName } from '../data/mockFidal';
@@ -697,8 +698,10 @@ export default function RegisterPage() {
     const navigate = useNavigate();
     const { getEvent, commission, validateDiscountCode, applyDiscountCode } = useAdminStore();
     const { currentAthlete, register: registerAthlete } = useAthleteAuth();
+    const { isAdmin, isOrganizer, canManageEvent } = useAuth();
 
     const event = slug ? getEvent(slug) : undefined;
+    const staffEnroll = !!event && (isAdmin || (isOrganizer && canManageEvent(event.id)));
     const eventRaces = useMemo(() => event ? allRaces(event) : [], [event]);
     const raceParam = searchParams.get('race');
     const initialRaceId = raceParam ?? eventRaces[0]?.id ?? '';
@@ -874,6 +877,28 @@ export default function RegisterPage() {
                 <div className="text-center">
                     <p className="text-slate-500 mb-4">Evento non trovato.</p>
                     <Link to="/events" className="text-brand-600 hover:underline text-sm">← Torna agli eventi</Link>
+                </div>
+            </main>
+        );
+    }
+
+    // Lo staff (admin / organizzatore) non si iscrive come atleta: lo indirizziamo
+    // all'iscrizione rapida dalla scheda evento.
+    if (staffEnroll) {
+        return (
+            <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+                <div className="text-center max-w-sm bg-white border border-slate-200 rounded-2xl p-8" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                    <p className="font-display font-700 text-lg text-slate-800 mb-2">Sei loggato come staff</p>
+                    <p className="text-sm text-slate-500 mb-5">
+                        Come admin/organizzatore non puoi iscriverti come atleta. Usa
+                        l'<strong>iscrizione rapida</strong> dalla scheda evento per registrare gli atleti.
+                    </p>
+                    <Link
+                        to={`/events/${event.slug}`}
+                        className="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                    >
+                        Vai alla scheda evento
+                    </Link>
                 </div>
             </main>
         );

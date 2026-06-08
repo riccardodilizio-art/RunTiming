@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import {
-    ShieldCheck, ShieldX, ShieldAlert, Search, User, Mail, X,
+    ShieldCheck, ShieldX, ShieldAlert, Search, User, Mail, X, BadgeCheck, Info,
 } from 'lucide-react';
 import { loadAthleteAccounts, updateAthleteAccount } from '../../context/athleteAccounts';
 import { syncAthleteRegistrationsCert } from '../../hooks/useAdminStore';
+import { hasFidalAffiliation } from '../../utils/cert';
 import type { AthleteAccount, CertStatus } from '../../types';
 
 type CertFilter = 'tutti' | 'in_attesa' | 'verificato' | 'rifiutato';
@@ -126,7 +127,9 @@ export default function AccountsSection() {
     const filtered = useMemo(() => {
         return accounts
             .filter(a => {
-                if (certFilter === 'in_attesa')  return a.certStatus === 'in_attesa';
+                // I tesserati FIDAL hanno la verifica automatica: non entrano mai
+                // nella coda "Da verificare".
+                if (certFilter === 'in_attesa')  return a.certStatus === 'in_attesa' && !hasFidalAffiliation(a);
                 if (certFilter === 'verificato') return a.certStatus === 'verificato';
                 if (certFilter === 'rifiutato')  return a.certStatus === 'rifiutato';
                 return true;
@@ -148,8 +151,9 @@ export default function AccountsSection() {
             });
     }, [accounts, search, certFilter]);
 
-    const pendingCount   = accounts.filter(a => a.certStatus === 'in_attesa').length;
-    const verifiedCount  = accounts.filter(a => a.certStatus === 'verificato').length;
+    // FIDAL = verifica automatica → fuori dalla coda manuale.
+    const pendingCount   = accounts.filter(a => a.certStatus === 'in_attesa' && !hasFidalAffiliation(a)).length;
+    const verifiedCount  = accounts.filter(a => a.certStatus === 'verificato' || hasFidalAffiliation(a)).length;
     const rejectedCount  = accounts.filter(a => a.certStatus === 'rifiutato').length;
 
     return (
@@ -167,6 +171,16 @@ export default function AccountsSection() {
                         <p className="font-display font-700 text-xl leading-none">{c.value}</p>
                     </div>
                 ))}
+            </div>
+
+            {/* Come funziona la verifica certificati */}
+            <div className="mb-4 flex items-start gap-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl px-4 py-3 text-xs">
+                <Info className="h-4 w-4 shrink-0 mt-0.5 text-brand-500" />
+                <span>
+                    Il certificato si verifica <strong>una volta sola per atleta</strong> e vale per
+                    tutte le sue iscrizioni — non gara per gara. I tesserati <strong>FIDAL</strong> sono
+                    verificati <strong>automaticamente</strong> e non richiedono controllo manuale.
+                </span>
             </div>
 
             {/* Notifica email simulata */}
@@ -263,7 +277,11 @@ export default function AccountsSection() {
 
                                     {/* Certificato */}
                                     <td className="px-4 py-3">
-                                        {a.certType && a.certStatus && a.certStatus !== 'non_richiesto' ? (
+                                        {hasFidalAffiliation(a) ? (
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                                <BadgeCheck className="h-3.5 w-3.5" /> Automatico (FIDAL)
+                                            </span>
+                                        ) : a.certType && a.certStatus && a.certStatus !== 'non_richiesto' ? (
                                             <div className="space-y-1">
                                                 <CertBadge status={a.certStatus} />
                                                 <p className="text-xs text-slate-500">
@@ -288,7 +306,10 @@ export default function AccountsSection() {
                                     {/* Azioni */}
                                     <td className="px-4 py-3 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
-                                            {a.certType && a.certStatus === 'in_attesa' && (
+                                            {hasFidalAffiliation(a) && (
+                                                <span className="text-xs text-slate-400 italic">Nessuna azione</span>
+                                            )}
+                                            {!hasFidalAffiliation(a) && a.certType && a.certStatus === 'in_attesa' && (
                                                 <>
                                                     <button
                                                         onClick={() => approveCert(a)}
@@ -304,7 +325,7 @@ export default function AccountsSection() {
                                                     </button>
                                                 </>
                                             )}
-                                            {a.certType && a.certStatus === 'verificato' && (
+                                            {!hasFidalAffiliation(a) && a.certType && a.certStatus === 'verificato' && (
                                                 <button
                                                     onClick={() => setRejectingAccount(a)}
                                                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200 text-xs font-medium hover:bg-red-100 transition-colors"
@@ -312,7 +333,7 @@ export default function AccountsSection() {
                                                     <ShieldX className="h-3.5 w-3.5" /> Revoca
                                                 </button>
                                             )}
-                                            {a.certType && a.certStatus === 'rifiutato' && (
+                                            {!hasFidalAffiliation(a) && a.certType && a.certStatus === 'rifiutato' && (
                                                 <button
                                                     onClick={() => approveCert(a)}
                                                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-100 transition-colors"

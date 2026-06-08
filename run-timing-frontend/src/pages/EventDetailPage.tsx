@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate, eventEndDate, eventDays, isMultiDay } from '../utils/event';
 import {
     Calendar, MapPin, ChevronLeft, Clock, Building2, ShieldCheck, Users,
-    TrendingUp, Mountain, Download, Layers,
+    TrendingUp, Mountain, Download, Layers, UserPlus,
 } from 'lucide-react';
 import type { Race, ElevationPoint } from '../types';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import { useAdminStore } from '../hooks/useAdminStore';
+import { useAuth } from '../context/useAuth';
+import QuickEnrollModal from '../components/admin/QuickEnrollModal';
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('it-IT', {
@@ -153,6 +156,8 @@ function openRegulation(regulationUrl: string | undefined, title: string, slug: 
 export default function EventDetailPage() {
     const { slug } = useParams<{ slug: string }>();
     const { getEvent } = useAdminStore();
+    const { isAdmin, isOrganizer, canManageEvent } = useAuth();
+    const [enrollRace, setEnrollRace] = useState<Race | null>(null);
     const event = getEvent(slug ?? '');
 
     if (!event) {
@@ -165,6 +170,10 @@ export default function EventDetailPage() {
             </main>
         );
     }
+
+    // Staff (admin / organizzatore della gara) NON si iscrive come atleta:
+    // dalla pagina pubblica può iscrivere atleti in modo rapido.
+    const staffEnroll = isAdmin || (isOrganizer && canManageEvent(event.id));
 
     const isPast = new Date(eventStartDate(event)) < new Date();
     const totalParticipants = allRaces(event).reduce((s, r) => s + r.participants, 0);
@@ -326,12 +335,21 @@ export default function EventDetailPage() {
                                                 <div className="flex-shrink-0 text-right">
                                                     <p className="font-bold text-brand-700 text-lg">€{race.price}</p>
                                                     {!isPast && race.isOpen && (
-                                                        <Link
-                                                            to={`/events/${event.slug}/register?race=${race.id}`}
-                                                            className="mt-2 inline-block bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
-                                                        >
-                                                            Iscriviti
-                                                        </Link>
+                                                        staffEnroll ? (
+                                                            <button
+                                                                onClick={() => setEnrollRace(race)}
+                                                                className="mt-2 inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                                                            >
+                                                                <UserPlus className="w-3.5 h-3.5" /> Iscrivi atleta
+                                                            </button>
+                                                        ) : (
+                                                            <Link
+                                                                to={`/events/${event.slug}/register?race=${race.id}`}
+                                                                className="mt-2 inline-block bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                                                            >
+                                                                Iscriviti
+                                                            </Link>
+                                                        )
                                                     )}
                                                     {isPast && (
                                                         <Link to="/results" className="mt-2 inline-block text-brand-600 hover:underline text-xs">
@@ -467,7 +485,11 @@ export default function EventDetailPage() {
                                 <p className="text-slate-400 text-xs mt-1">{allRaces(event).length} gare disponibili</p>
                             </div>
 
-                            {!isPast && openRaces.length > 0 ? (
+                            {!isPast && openRaces.length > 0 && staffEnroll ? (
+                                <p className="text-center text-sm text-brand-700 bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 mb-4">
+                                    Modalità staff: usa <strong>Iscrivi atleta</strong> sulle gare per registrare i partecipanti.
+                                </p>
+                            ) : !isPast && openRaces.length > 0 ? (
                                 <p className="text-center text-sm text-slate-500 mb-4">
                                     Scegli una gara e iscriviti
                                 </p>
@@ -521,6 +543,14 @@ export default function EventDetailPage() {
 
                 </div>
             </div>
+
+            {enrollRace && (
+                <QuickEnrollModal
+                    race={enrollRace}
+                    eventId={event.id}
+                    onClose={() => setEnrollRace(null)}
+                />
+            )}
         </main>
     );
 }
