@@ -1,0 +1,8 @@
+# Normalizzazione fine-riga: gli script shell DEVONO essere LF (girano in Linux/Docker)
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.png binary
+*.jpg binary
+*.xlsx binary
+*.svg text
