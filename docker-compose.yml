@@ -1,0 +1,48 @@
+# Stack completo di sviluppo: db + cache + backend + frontend.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: runtiming
+      POSTGRES_PASSWORD: runtiming
+      POSTGRES_DB: runtiming
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U runtiming"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://runtiming:runtiming@db:5432/runtiming
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change-me-in-prod
+      PORT: "3000"
+      CORS_ORIGIN: http://localhost:8080
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports: ["3000:3000"]
+
+  frontend:
+    build:
+      context: ./run-timing-frontend
+      args:
+        VITE_API_URL: http://localhost:3000
+    depends_on: [backend]
+    ports: ["8080:80"]
+
+volumes:
+  pgdata:
