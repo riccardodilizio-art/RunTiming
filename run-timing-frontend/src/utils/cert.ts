@@ -23,18 +23,36 @@ export function hasFidalAffiliation(account: Pick<AthleteAccount, 'affiliations'
 }
 
 /**
+ * Sceglie il tesseramento da usare per iscriversi a una gara di un dato ente.
+ * Se la gara è FIDAL serve il tesseramento FIDAL; per gli altri enti si prende
+ * quello dell'ente corrispondente, altrimenti il primo disponibile.
+ */
+export function pickAffiliationForEnte(
+    affiliations: Affiliation[],
+    ente: RaceEnte | undefined,
+): Affiliation | null {
+    if (!affiliations.length) return null;
+    if (ente === 'fidal') return affiliations.find(a => a.ente === 'fidal') ?? null;
+    return affiliations.find(a => a.ente === ente) ?? affiliations[0];
+}
+
+/**
  * Stato certificato da assegnare a una NUOVA iscrizione, dato:
  *  - se la gara richiede il certificato,
  *  - l'affiliazione usata per l'iscrizione (può essere FIDAL → auto-ok),
- *  - lo stato del certificato già presente sull'account atleta (verifica unica).
+ *  - lo stato del certificato già presente sull'account atleta (verifica unica),
+ *  - se l'iscrizione arriva da una società (il presidente garantisce i certificati
+ *    dei propri atleti → nessuna verifica admin richiesta).
  */
 export function resolveCertStatus(opts: {
     requiresMedicalCert: boolean;
     affiliation?: Pick<Affiliation, 'ente'> | null;
     accountCertStatus?: CertStatus;
+    societyVouched?: boolean;
 }): CertStatus {
     if (!opts.requiresMedicalCert) return 'non_richiesto';
     if (isFidalEnte(opts.affiliation?.ente)) return 'verificato';   // FIDAL → automatico
     if (opts.accountCertStatus === 'verificato') return 'verificato'; // già verificato una volta
+    if (opts.societyVouched) return 'verificato';                    // garantito dalla società
     return 'in_attesa';
 }

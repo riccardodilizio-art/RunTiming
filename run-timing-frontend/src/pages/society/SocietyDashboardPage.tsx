@@ -6,6 +6,7 @@ import {
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
 import { allRaces } from '../../utils/event';
+import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
 import { lookupBySociety } from '../../data/mockFidal';
@@ -353,6 +354,14 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
             const formData = buildFormData(race, ath, societaNome);
             const birthYear = ath.dataNascita ? new Date(ath.dataNascita).getFullYear() : 0;
             const cat = race.categories?.length ? assignCategory(race.categories, birthYear, ath.sesso) : null;
+            // Stessa logica certificato degli altri flussi: FIDAL automatico,
+            // gli altri sono garantiti dalla società (nessuna verifica admin).
+            const aff = pickAffiliationForEnte(ath.affiliations, race.ente);
+            const certStatus = resolveCertStatus({
+                requiresMedicalCert: race.requiresMedicalCert,
+                affiliation: aff,
+                societyVouched: true,
+            });
             const sub: RegistrationSubmission = {
                 id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
                 eventId: event.id,
@@ -363,6 +372,8 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                 paymentMethod: 'manual',
                 paymentStatus: 'pending',
                 assignedCategory: cat?.name,
+                fidalVerified: aff?.ente === 'fidal',
+                certStatus,
                 societyId,
             };
             saveRegistration(sub);
