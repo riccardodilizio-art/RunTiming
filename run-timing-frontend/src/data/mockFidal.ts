@@ -1,8 +1,11 @@
 /**
  * Mock FIDAL/RunCard athlete database.
  * In produzione questo sarà sostituito da una chiamata API al backend
- * che interrogherà il DB ufficiale FIDAL.
+ * che interrogherà il DB ufficiale FIDAL. Se l'admin importa un dataset FIDAL
+ * reale (vedi fidalDataset), i lookup qui sotto lo usano al posto dei dati demo.
  */
+
+import { datasetActive, dsLookupByName, dsLookupBySociety, dsLookupByTessera } from './fidalDataset';
 
 export interface FidalAthlete {
     tessera: string;        // numero tessera FIDAL o RunCard
@@ -31,11 +34,13 @@ export const MOCK_FIDAL_DB: FidalAthlete[] = [
 
 /** Cerca un atleta per numero tessera (case-insensitive) */
 export function lookupByTessera(tessera: string): FidalAthlete | null {
+    if (datasetActive()) return dsLookupByTessera(tessera);
     return MOCK_FIDAL_DB.find(a => a.tessera.toLowerCase() === tessera.trim().toLowerCase()) ?? null;
 }
 
 /** Restituisce tutti gli atleti di una società dato il suo codice FIDAL */
 export function lookupBySociety(codiceSocieta: string): FidalAthlete[] {
+    if (datasetActive()) return dsLookupBySociety(codiceSocieta);
     const code = codiceSocieta.trim().toLowerCase();
     if (!code) return [];
     return MOCK_FIDAL_DB.filter(a => a.codiceSocieta.toLowerCase() === code);
@@ -43,6 +48,7 @@ export function lookupBySociety(codiceSocieta: string): FidalAthlete[] {
 
 /** Cerca atleti per cognome + nome (parziale, case-insensitive) */
 export function lookupByName(cognome: string, nome?: string): FidalAthlete[] {
+    if (datasetActive()) return dsLookupByName(cognome, nome);
     const q = cognome.trim().toLowerCase();
     const n = nome?.trim().toLowerCase() ?? '';
     return MOCK_FIDAL_DB.filter(a => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-    Settings, Calendar, Tag, UserCheck, LogOut, Check,
+    Settings, Calendar, Tag, UserCheck, LogOut, Check, Database,
 } from 'lucide-react';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
@@ -10,9 +10,10 @@ import EventsListSection from './EventsListSection';
 import AccountsSection from './AccountsSection';
 import DiscountSection from './DiscountSection';
 import UsersSection from './UsersSection';
+import FidalImportSection from './FidalImportSection';
 import type { Event } from '../../types';
 
-type AdminSection = 'gare' | 'account' | 'sconti' | 'utenti';
+type AdminSection = 'gare' | 'account' | 'sconti' | 'utenti' | 'fidal';
 
 export default function AdminPage() {
     const { events, saveEvent, deleteEvent } = useAdminStore();
@@ -34,6 +35,7 @@ export default function AdminPage() {
             { key: 'account' as AdminSection, label: 'Account atleti',   icon: <UserCheck className="h-4 w-4" /> },
             { key: 'sconti'  as AdminSection, label: 'Sconti',           icon: <Tag className="h-4 w-4" /> },
             { key: 'utenti'  as AdminSection, label: 'Organizzatori',    icon: <UserCheck className="h-4 w-4" /> },
+            { key: 'fidal'   as AdminSection, label: 'DB FIDAL',         icon: <Database className="h-4 w-4" /> },
         ] : []),
     ];
 
@@ -136,6 +138,8 @@ export default function AdminPage() {
                     <DiscountSection />
                 ) : section === 'utenti' ? (
                     <UsersSection />
+                ) : section === 'fidal' ? (
+                    <FidalImportSection />
                 ) : (
                     <EventsListSection
                         events={visibleEvents}
