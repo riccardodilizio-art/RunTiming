@@ -2,8 +2,10 @@ import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Database, Upload, Trash2, Check, AlertTriangle, Loader2, Search } from 'lucide-react';
 import { parseFidalRows } from '../../data/fidalImport';
+import { parseSocietyDbf } from '../../data/dbfImport';
 import {
     replaceFidalDataset, clearFidalDataset, getFidalMeta, datasetActive,
+    replaceSocietyDataset, clearSocietyDataset, getSocietyMeta,
     dsLookupByTessera, dsLookupByName, type FidalMeta,
 } from '../../data/fidalDataset';
 import type { FidalAthlete } from '../../data/mockFidal';
@@ -18,6 +20,11 @@ export default function FidalImportSection() {
     const [error, setError] = useState('');
     const [fileName, setFileName] = useState('');
     const [testQuery, setTestQuery] = useState('');
+
+    const socRef = useRef<HTMLInputElement>(null);
+    const [socMeta, setSocMeta] = useState<FidalMeta | null>(() => getSocietyMeta());
+    const [socBusy, setSocBusy] = useState(false);
+    const [socError, setSocError] = useState('');
 
     async function handleFile(file: File) {
         setError('');
@@ -58,6 +65,31 @@ export default function FidalImportSection() {
         setMeta(null);
         setPhase('idle');
         setProgress(0);
+    }
+
+    async function handleSocietyFile(file: File) {
+        setSocError('');
+        setSocBusy(true);
+        try {
+            const buf = await file.arrayBuffer();
+            const societies = parseSocietyDbf(buf);
+            if (societies.length === 0) {
+                setSocError('Nessuna società trovata nel file .dbf.');
+                return;
+            }
+            const m = await replaceSocietyDataset(societies, file.name);
+            setSocMeta(m);
+        } catch (e) {
+            setSocError(e instanceof Error ? e.message : 'Errore durante l\'importazione società.');
+        } finally {
+            setSocBusy(false);
+        }
+    }
+
+    async function handleSocietyClear() {
+        if (!confirm('Rimuovere l\'anagrafica società importata?')) return;
+        await clearSocietyDataset();
+        setSocMeta(null);
     }
 
     const busy = phase === 'reading' || phase === 'parsing' || phase === 'writing';
@@ -150,6 +182,51 @@ export default function FidalImportSection() {
                 )}
             </div>
 
+            {/* Anagrafica società (.dbf) */}
+            <div className="border border-slate-200 rounded-xl p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <p className="text-sm font-semibold text-slate-700">Anagrafica società (.dbf)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            {socMeta
+                                ? `${socMeta.count.toLocaleString('it-IT')} società · ${socMeta.fileName}`
+                                : 'Opzionale: collega il codice società alla denominazione reale (altrimenti si usa il comune).'}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            ref={socRef}
+                            type="file"
+                            accept=".dbf"
+                            className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleSocietyFile(f); e.target.value = ''; }}
+                        />
+                        {socMeta && (
+                            <button
+                                onClick={handleSocietyClear}
+                                disabled={socBusy}
+                                className="flex items-center gap-1.5 text-xs font-medium text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" /> Rimuovi
+                            </button>
+                        )}
+                        <button
+                            onClick={() => socRef.current?.click()}
+                            disabled={socBusy}
+                            className="flex items-center gap-1.5 text-xs font-medium text-brand-700 border border-brand-200 hover:bg-brand-50 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
+                        >
+                            {socBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                            {socMeta ? 'Sostituisci' : 'Carica .dbf'}
+                        </button>
+                    </div>
+                </div>
+                {socError && (
+                    <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5" /> {socError}
+                    </p>
+                )}
+            </div>
+
             {phase === 'done' && (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm">
                     <Check className="h-4 w-4 shrink-0" /> Import completato con successo.
@@ -195,8 +272,9 @@ export default function FidalImportSection() {
 
             <p className="text-xs text-slate-400">
                 Nota: provvisorio. I dati sono in IndexedDB nel browser; con il backend l'import
-                passerà su Postgres. Il tracciato attuale non include la denominazione società
-                (si usa il comune) né la data di nascita completa (solo l'anno).
+                passerà su Postgres. Caricando anche l'anagrafica società (.dbf) gli atleti
+                mostrano la denominazione reale; altrimenti si usa il comune. La data di nascita
+                nel tracciato atleti contiene solo l'anno.
             </p>
         </div>
     );

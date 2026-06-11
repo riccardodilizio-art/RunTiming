@@ -1,4 +1,5 @@
 import type { FidalAthlete } from './mockFidal';
+import type { SocietyInfo } from './dbfImport';
 
 // Dataset FIDAL importato dall'admin.
 //
@@ -12,9 +13,11 @@ import type { FidalAthlete } from './mockFidal';
 
 const DB_NAME = 'rt_fidal';
 const STORE = 'athletes';
+const SOC_STORE = 'societies';
 const META = 'meta';
 const META_KEY = 'current';
-const DB_VERSION = 1;
+const SOC_META_KEY = 'societies';
+const DB_VERSION = 2;
 
 export interface FidalMeta {
     fileName: string;
@@ -22,15 +25,29 @@ export interface FidalMeta {
     importedAt: string;   // ISO
 }
 
-// ─── Indice in memoria ──────────────────────────────────────────────────────────
+// ─── Indici in memoria ──────────────────────────────────────────────────────────
 let memByTessera = new Map<string, FidalAthlete>();
 let memList: FidalAthlete[] = [];
 let meta: FidalMeta | null = null;
+
+let memSocieties = new Map<string, SocietyInfo>();   // COD_SOC → società
+let socMeta: FidalMeta | null = null;
 
 function rebuildMemory(records: FidalAthlete[], m: FidalMeta | null) {
     memList = records;
     memByTessera = new Map(records.map(r => [r.tessera.toUpperCase(), r]));
     meta = m;
+}
+
+function rebuildSocieties(societies: SocietyInfo[], m: FidalMeta | null) {
+    memSocieties = new Map(societies.map(s => [s.codice.toUpperCase(), s]));
+    socMeta = m;
+}
+
+/** Sovrascrive il nome società con la denominazione reale, se disponibile. */
+function withSocietyName(a: FidalAthlete): FidalAthlete {
+    const soc = a.codiceSocieta ? memSocieties.get(a.codiceSocieta.toUpperCase()) : undefined;
+    return soc?.denom ? { ...a, societa: soc.denom } : a;
 }
 
 // ─── IndexedDB ──────────────────────────────────────────────────────────────────
@@ -41,6 +58,7 @@ function openDb(): Promise<IDBDatabase> {
         req.onupgradeneeded = () => {
             const db = req.result;
             if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'tessera' });
+            if (!db.objectStoreNames.contains(SOC_STORE)) db.createObjectStore(SOC_STORE, { keyPath: 'codice' });
             if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
         };
         req.onsuccess = () => resolve(req.result);
@@ -60,22 +78,30 @@ function txDone(tx: IDBTransaction): Promise<void> {
 export async function initFidalDataset(): Promise<void> {
     try {
         const db = await openDb();
-        const tx = db.transaction([STORE, META], 'readonly');
-        const records = await new Promise<FidalAthlete[]>((resolve, reject) => {
-            const r = tx.objectStore(STORE).getAll();
-            r.onsuccess = () => resolve(r.result as FidalAthlete[]);
+        const tx = db.transaction([STORE, SOC_STORE, META], 'readonly');
+        const getAll = <T>(storeName: string) => new Promise<T[]>((resolve, reject) => {
+            const r = tx.objectStore(storeName).getAll();
+            r.onsuccess = () => resolve(r.result as T[]);
             r.onerror = () => reject(r.error);
         });
-        const m = await new Promise<FidalMeta | null>((resolve) => {
-            const r = tx.objectStore(META).get(META_KEY);
+        const getMeta = (key: string) => new Promise<FidalMeta | null>((resolve) => {
+            const r = tx.objectStore(META).get(key);
             r.onsuccess = () => resolve((r.result as FidalMeta) ?? null);
             r.onerror = () => resolve(null);
         });
+        const [records, societies, m, sm] = await Promise.all([
+            getAll<FidalAthlete>(STORE),
+            getAll<SocietyInfo>(SOC_STORE),
+            getMeta(META_KEY),
+            getMeta(SOC_META_KEY),
+        ]);
         db.close();
         rebuildMemory(records, m);
+        rebuildSocieties(societies, sm);
     } catch {
         // IndexedDB non disponibile → si usa il dataset demo (mockFidal).
         rebuildMemory([], null);
+        rebuildSocieties([], null);
     }
 }
 
@@ -108,7 +134,7 @@ export async function replaceFidalDataset(
     return newMeta;
 }
 
-/** Svuota il dataset importato (si torna ai dati demo). */
+/** Svuota il dataset atleti importato (si torna ai dati demo). */
 export async function clearFidalDataset(): Promise<void> {
     const db = await openDb();
     const tx = db.transaction([STORE, META], 'readwrite');
@@ -117,6 +143,39 @@ export async function clearFidalDataset(): Promise<void> {
     await txDone(tx);
     db.close();
     rebuildMemory([], null);
+}
+
+/** Sostituisce COMPLETAMENTE l'anagrafica società e aggiorna l'indice in memoria. */
+export async function replaceSocietyDataset(
+    societies: SocietyInfo[],
+    fileName: string,
+): Promise<FidalMeta> {
+    const db = await openDb();
+    const tx = db.transaction([SOC_STORE, META], 'readwrite');
+    const store = tx.objectStore(SOC_STORE);
+    store.clear();
+    for (const s of societies) store.put(s);
+    const newMeta: FidalMeta = { fileName, count: societies.length, importedAt: new Date().toISOString() };
+    tx.objectStore(META).put(newMeta, SOC_META_KEY);
+    await txDone(tx);
+    db.close();
+    rebuildSocieties(societies, newMeta);
+    return newMeta;
+}
+
+/** Svuota l'anagrafica società importata. */
+export async function clearSocietyDataset(): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction([SOC_STORE, META], 'readwrite');
+    tx.objectStore(SOC_STORE).clear();
+    tx.objectStore(META).delete(SOC_META_KEY);
+    await txDone(tx);
+    db.close();
+    rebuildSocieties([], null);
+}
+
+export function getSocietyMeta(): FidalMeta | null {
+    return socMeta;
 }
 
 // ─── Accessori sincroni (per i lookup) ───────────────────────────────────────────
@@ -131,13 +190,14 @@ export function getFidalMeta(): FidalMeta | null {
 }
 
 export function dsLookupByTessera(tessera: string): FidalAthlete | null {
-    return memByTessera.get(tessera.trim().toUpperCase()) ?? null;
+    const a = memByTessera.get(tessera.trim().toUpperCase());
+    return a ? withSocietyName(a) : null;
 }
 
 export function dsLookupBySociety(codiceSocieta: string): FidalAthlete[] {
     const code = codiceSocieta.trim().toLowerCase();
     if (!code) return [];
-    return memList.filter(a => a.codiceSocieta.toLowerCase() === code);
+    return memList.filter(a => a.codiceSocieta.toLowerCase() === code).map(withSocietyName);
 }
 
 export function dsLookupByName(cognome: string, nome?: string, limit = 50): FidalAthlete[] {
@@ -148,7 +208,7 @@ export function dsLookupByName(cognome: string, nome?: string, limit = 50): Fida
     for (const a of memList) {
         if (!a.cognome.toLowerCase().includes(q)) continue;
         if (n && !a.nome.toLowerCase().includes(n)) continue;
-        out.push(a);
+        out.push(withSocietyName(a));
         if (out.length >= limit) break;
     }
     return out;
