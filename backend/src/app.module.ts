@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { EventsModule } from './events/events.module';
+import { FidalModule } from './fidal/fidal.module';
 
 @Module({
     imports: [
@@ -12,8 +13,9 @@ import { EventsModule } from './events/events.module';
         HealthModule,
         AuthModule,
         EventsModule,
+        FidalModule,
         // TODO (moduli successivi, stessa struttura): athletes, registrations,
-        // societies, races, discounts, results, certificates, fidal, storage, jobs.
+        // societies, races, discounts, results, certificates, storage, jobs.
     ],
 })
 export class AppModule {}
