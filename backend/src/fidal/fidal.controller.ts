@@ -1,4 +1,7 @@
-import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
+import {
+    BadRequestException, Controller, Get, Param, Post, Query, UploadedFile, UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
 
 // API pulita esposta al frontend. Il frontend chiama SEMPRE queste rotte, mai
@@ -41,5 +44,17 @@ export class FidalController {
     societa(@Param('codice') codice: string) {
         if (!codice?.trim()) throw new BadRequestException('Codice società mancante');
         return this.fidal.listBySociety(codice.trim());
+    }
+
+    /**
+     * POST /api/fidal/import — carica il dump tesseramenti FIDAL (.xlsx) come
+     * campo "file" (multipart). È l'unica fonte della scadenza certificato.
+     * TODO: proteggere con guard admin.
+     */
+    @Post('import')
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
+    importDump(@UploadedFile() file?: Express.Multer.File) {
+        if (!file?.buffer?.length) throw new BadRequestException('File .xlsx mancante');
+        return this.fidal.importDump(file.buffer);
     }
 }

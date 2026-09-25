@@ -9,6 +9,7 @@ import {
     dsLookupByTessera, dsLookupByName, type FidalMeta,
 } from '../../data/fidalDataset';
 import type { FidalAthlete } from '../../data/mockFidal';
+import { apiUpload, USE_API } from '../../lib/api';
 
 type Phase = 'idle' | 'reading' | 'parsing' | 'writing' | 'done' | 'error';
 
@@ -30,6 +31,22 @@ export default function FidalImportSection() {
         setError('');
         setFileName(file.name);
         setProgress(0);
+
+        // Con API attiva l'import va sul backend (Postgres): è lì che serve la
+        // scadenza certificato, disponibile a tutte le iscrizioni.
+        if (USE_API) {
+            try {
+                setPhase('writing');
+                const res = await apiUpload<{ count: number }>('/api/fidal/import', file);
+                setMeta({ fileName: file.name, count: res.count, importedAt: new Date().toISOString() });
+                setPhase('done');
+            } catch (e) {
+                setPhase('error');
+                setError(e instanceof Error ? e.message : 'Errore durante l\'importazione sul backend.');
+            }
+            return;
+        }
+
         try {
             setPhase('reading');
             const buf = await file.arrayBuffer();
