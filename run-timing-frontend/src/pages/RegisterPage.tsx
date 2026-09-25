@@ -11,7 +11,7 @@ import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
-import { lookupByTessera, lookupByName } from '../data/mockFidal';
+import { verifyTessera, searchByName } from '../data/fidalLookup';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
 import { assignCategory } from '../types';
@@ -169,17 +169,24 @@ function FidalLookup({
     const [results, setResults] = useState<FidalAthlete[] | null>(null);
     const [found, setFound] = useState<FidalAthlete | null>(null);
     const [open, setOpen] = useState(true);
+    const [searching, setSearching] = useState(false);
 
-    function handleSearch() {
-        if (mode === 'tessera') {
-            const a = lookupByTessera(tessera);
-            setResults(null);
-            setFound(a);
-            if (!a) setResults([]);
-        } else {
-            const list = lookupByName(cognome, nome);
-            setResults(list);
-            setFound(null);
+    async function handleSearch() {
+        if (searching) return;
+        setSearching(true);
+        try {
+            if (mode === 'tessera') {
+                const a = await verifyTessera(tessera);
+                setResults(null);
+                setFound(a);
+                if (!a) setResults([]);
+            } else {
+                const list = await searchByName(cognome, nome);
+                setResults(list);
+                setFound(null);
+            }
+        } finally {
+            setSearching(false);
         }
     }
 
@@ -234,9 +241,9 @@ function FidalLookup({
                         placeholder="es. RM001234 oppure RC001122"
                         className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
                     />
-                    <button type="button" onClick={handleSearch} disabled={!tessera.trim()}
+                    <button type="button" onClick={handleSearch} disabled={!tessera.trim() || searching}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
-                        <Search className="h-4 w-4" /> Cerca
+                        <Search className="h-4 w-4" /> {searching ? 'Cerco…' : 'Cerca'}
                     </button>
                 </div>
             ) : (
@@ -246,7 +253,7 @@ function FidalLookup({
                     <div className="flex gap-2">
                         <input type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome (opzionale)"
                             className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                        <button type="button" onClick={handleSearch} disabled={!cognome.trim()}
+                        <button type="button" onClick={handleSearch} disabled={!cognome.trim() || searching}
                             className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
                             <Search className="h-4 w-4" />
                         </button>

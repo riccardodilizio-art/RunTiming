@@ -46,6 +46,9 @@ services:
       context: ./run-timing-frontend
       args:
         VITE_API_URL: http://localhost:3000
+        # Metti VITE_USE_API=true nel .env di root per far usare al sito la
+        # verifica FIDAL in tempo reale via backend (default: dataset locale).
+        VITE_USE_API: ${VITE_USE_API:-false}
     depends_on: [backend]
     ports: ["8080:80"]
 

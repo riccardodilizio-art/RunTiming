@@ -4,9 +4,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-# URL del backend, iniettato a build-time (Vite)
+# URL del backend + flag uso API, iniettati a build-time (Vite)
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_USE_API="false"
+ENV VITE_USE_API=$VITE_USE_API
 RUN npm run build
 
 # ---- runtime stage (static, served by nginx) ----
