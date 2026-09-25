@@ -43,9 +43,9 @@ export class WiseClient {
             baseUrl: (config.get<string>('WISE_BASE_URL') ?? '').replace(/\/$/, ''),
             username: config.get<string>('WISE_USERNAME'),
             password: config.get<string>('WISE_PASSWORD'),
-            loginPath: config.get<string>('WISE_LOGIN_PATH') ?? '/Identity/Account/Login',
-            userField: config.get<string>('WISE_USER_FIELD') ?? 'Input.Email',
-            passField: config.get<string>('WISE_PASS_FIELD') ?? 'Input.Password',
+            loginPath: config.get<string>('WISE_LOGIN_PATH') ?? '/Admin/Account/LogIn',
+            userField: config.get<string>('WISE_USER_FIELD') ?? 'UserName',
+            passField: config.get<string>('WISE_PASS_FIELD') ?? 'Password',
             staticCookie: config.get<string>('WISE_COOKIE') || undefined,
         };
     }
@@ -70,8 +70,11 @@ export class WiseClient {
     }
 
     private extractAntiforgeryToken(html: string): string | null {
-        const m = html.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/i);
-        return m ? m[1] : null;
+        // L'input nascosto può avere gli attributi in ordine diverso.
+        const after = html.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/i);
+        if (after) return after[1];
+        const before = html.match(/value="([^"]+)"[^>]*name="__RequestVerificationToken"/i);
+        return before ? before[1] : null;
     }
 
     /** Esegue il login su WISE (form ASP.NET Core Identity con anti-forgery). */
@@ -93,6 +96,7 @@ export class WiseClient {
         const body = new URLSearchParams();
         body.set(this.cfg.userField, this.cfg.username);
         body.set(this.cfg.passField, this.cfg.password);
+        body.set('RememberMe', 'false');
         if (token) body.set('__RequestVerificationToken', token);
 
         const postRes = await fetch(loginUrl, {
