@@ -31,6 +31,11 @@ services:
       JWT_SECRET: change-me-in-prod
       PORT: "3000"
       CORS_ORIGIN: http://localhost:8080
+      # Integrazione FIDAL/WISE. Le credenziali arrivano dal file .env di root
+      # (git-ignored): crealo con WISE_USERNAME=... e WISE_PASSWORD=...
+      WISE_BASE_URL: http://wise.fidalservizi.it
+      WISE_USERNAME: ${WISE_USERNAME:-}
+      WISE_PASSWORD: ${WISE_PASSWORD:-}
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }

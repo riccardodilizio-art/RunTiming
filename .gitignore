@@ -1,0 +1,8 @@
+# File di ambiente con segreti (credenziali WISE/FIDAL, ecc.) — mai committare.
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Log
+*.log
