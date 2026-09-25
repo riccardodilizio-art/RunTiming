@@ -36,21 +36,48 @@ export function pickAffiliationForEnte(
     return affiliations.find(a => a.ente === ente) ?? affiliations[0];
 }
 
+/** Estrae la parte data (YYYY-MM-DD) da una stringa ISO. */
+function dateOnly(iso: string | undefined): string {
+    return (iso ?? '').slice(0, 10);
+}
+
+/**
+ * True SOLO se sappiamo con certezza che il certificato scade PRIMA della data
+ * dell'evento (entrambe le date note e scadenza < data evento). La validità va
+ * misurata sul giorno della gara, non su oggi: un certificato valido adesso ma
+ * in scadenza prima dell'evento NON è valido per quell'evento.
+ * Scadenza sconosciuta → false (non possiamo affermare che sia scaduto).
+ */
+export function certExpiresBeforeEvent(
+    certScadenza: string | undefined,
+    eventDate: string | undefined,
+): boolean {
+    const cert = dateOnly(certScadenza);
+    const event = dateOnly(eventDate);
+    if (!cert || !event) return false;
+    return cert < event;
+}
+
 /**
  * Stato certificato da assegnare a una NUOVA iscrizione, dato:
  *  - se la gara richiede il certificato,
  *  - l'affiliazione usata per l'iscrizione (può essere FIDAL → auto-ok),
  *  - lo stato del certificato già presente sull'account atleta (verifica unica),
- *  - se l'iscrizione arriva da una società (il presidente garantisce i certificati
- *    dei propri atleti → nessuna verifica admin richiesta).
+ *  - se l'iscrizione arriva da una società (il presidente garantisce i certificati),
+ *  - la scadenza del certificato e la data dell'evento: se il certificato scade
+ *    PRIMA dell'evento non è auto-valido, va rinnovato/verificato (→ in_attesa).
  */
 export function resolveCertStatus(opts: {
     requiresMedicalCert: boolean;
     affiliation?: Pick<Affiliation, 'ente'> | null;
     accountCertStatus?: CertStatus;
     societyVouched?: boolean;
+    certScadenza?: string;
+    eventDate?: string;
 }): CertStatus {
     if (!opts.requiresMedicalCert) return 'non_richiesto';
+    // Scade prima dell'evento → nessuna scorciatoia: serve un certificato valido.
+    if (certExpiresBeforeEvent(opts.certScadenza, opts.eventDate)) return 'in_attesa';
     if (isFidalEnte(opts.affiliation?.ente)) return 'verificato';   // FIDAL → automatico
     if (opts.accountCertStatus === 'verificato') return 'verificato'; // già verificato una volta
     if (opts.societyVouched) return 'verificato';                    // garantito dalla società

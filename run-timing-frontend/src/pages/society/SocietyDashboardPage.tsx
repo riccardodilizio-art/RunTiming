@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
-import { allRaces } from '../../utils/event';
+import { allRaces, eventStartDate } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
@@ -361,6 +361,8 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                 requiresMedicalCert: race.requiresMedicalCert,
                 affiliation: aff,
                 societyVouched: true,
+                certScadenza: aff?.certScadenza,
+                eventDate: eventStartDate(event),
             });
             const sub: RegistrationSubmission = {
                 id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,

@@ -7,6 +7,18 @@
 
 import { api, USE_API } from '../lib/api';
 import { lookupByName, lookupByTessera, type FidalAthlete } from './mockFidal';
+import { dsLookupByTessera } from './fidalDataset';
+
+/**
+ * WISE (real-time) NON restituisce la scadenza del certificato; il dump FIDAL
+ * importato sì. Se manca, la recuperiamo dal dump locale per tessera, così la
+ * validità rispetto alla data evento è verificabile.
+ */
+function enrichCertScadenza(a: FidalAthlete): FidalAthlete {
+    if (a.certScadenza) return a;
+    const local = dsLookupByTessera(a.tessera);
+    return local?.certScadenza ? { ...a, certScadenza: local.certScadenza } : a;
+}
 
 interface VerifyResponse {
     tessera: string;
@@ -34,7 +46,7 @@ export async function verifyTessera(tessera: string): Promise<FidalAthlete | nul
     if (USE_API) {
         try {
             const r = await api.get<VerifyResponse>(`/api/fidal/verifica?tessera=${encodeURIComponent(tessera)}`);
-            return r.atleta ? normalize(r.atleta) : null; // risposta valida: nessun fallback
+            return r.atleta ? enrichCertScadenza(normalize(r.atleta)) : null; // risposta valida: nessun fallback
         } catch {
             return lookupByTessera(tessera); // API irraggiungibile → dataset locale
         }
