@@ -59,6 +59,15 @@ export function mapAtleta(raw: RawAtleta): FidalAthleteDto {
  */
 export function extractAtleti(json: unknown): RawAtleta[] {
     if (json == null) return [];
+
+    // WISE restituisce spesso JSON doppio-codificato: una stringa che contiene
+    // a sua volta JSON (es. "{\"tesserato\":{...}}"). Qui la spacchettiamo.
+    if (typeof json === 'string') {
+        const s = json.trim();
+        if (!s) return [];
+        try { return extractAtleti(JSON.parse(s)); } catch { return []; }
+    }
+
     if (Array.isArray(json)) return json as RawAtleta[];
 
     const obj = json as Record<string, unknown>;

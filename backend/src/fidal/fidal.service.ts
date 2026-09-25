@@ -24,8 +24,8 @@ export class FidalService {
         private readonly prisma: PrismaService,
         config: ConfigService,
     ) {
-        this.atletaPath  = config.get('WISE_ATLETA_PATH')  ?? '/Iscrizioni/Iscritti/OnGetAtleta';
-        this.atletaParam = config.get('WISE_ATLETA_PARAM') ?? 'ntessera';
+        this.atletaPath  = config.get('WISE_ATLETA_PATH')  ?? '/Iscrizioni/Iscritti/OngGetAtletaFidalByTessera';
+        this.atletaParam = config.get('WISE_ATLETA_PARAM') ?? 'tessera';
         this.searchPath  = config.get('WISE_SEARCH_PATH')  ?? '/Iscrizioni/Iscritti/OngGetAtletaFidalByParametri';
         this.societyPath = config.get('WISE_SOCIETY_PATH') ?? '/Iscrizioni/Iscritti/OngGetAtletiSocieta';
     }
