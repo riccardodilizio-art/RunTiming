@@ -225,13 +225,17 @@ function EventCalendar({ events }: { events: Event[] }) {
 export default function EventsPage() {
     const { events } = useAdminStore();
     const [searchParams] = useSearchParams();
+    const validCat = (c: string | null): SportCategory | 'all' =>
+        c && CATEGORIES.some(x => x.value === c) ? (c as SportCategory) : 'all';
     const [query,     setQuery]     = useState(() => searchParams.get('q') ?? '');
-    const [category,  setCategory]  = useState<SportCategory | 'all'>('all');
+    const [category,  setCategory]  = useState<SportCategory | 'all'>(() => validCat(searchParams.get('cat')));
 
-    // keep query in sync if the URL param changes (e.g. from hero search)
+    // keep query/category in sync if the URL params change (e.g. from hero)
     useEffect(() => {
         const q = searchParams.get('q');
         if (q !== null) setQuery(q);
+        const c = searchParams.get('cat');
+        if (c !== null) setCategory(validCat(c));
     }, [searchParams]);
     const [tab,       setTab]       = useState<Tab>('upcoming');
     const [sort,      setSort]      = useState<Sort>('date-asc');
