@@ -88,10 +88,16 @@ export default function FidalImportSection() {
         setSocError('');
         setSocBusy(true);
         try {
+            // Con API attiva l'anagrafica società va sul backend (Postgres).
+            if (USE_API) {
+                const res = await apiUpload<{ count: number }>('/api/fidal/import-societa', file);
+                setSocMeta({ fileName: file.name, count: res.count, importedAt: new Date().toISOString() });
+                return;
+            }
             const buf = await file.arrayBuffer();
             const societies = parseSocietyDbf(buf);
             if (societies.length === 0) {
-                setSocError('Nessuna società trovata nel file .dbf.');
+                setSocError('Nessuna società trovata nel file.');
                 return;
             }
             const m = await replaceSocietyDataset(societies, file.name);
@@ -164,7 +170,7 @@ export default function FidalImportSection() {
                 <input
                     ref={fileRef}
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".csv,.xlsx,.xls"
                     className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
                 />
@@ -190,7 +196,7 @@ export default function FidalImportSection() {
                             onClick={() => fileRef.current?.click()}
                             className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
                         >
-                            {meta ? 'Sostituisci database (.xlsx)' : 'Carica database FIDAL (.xlsx)'}
+                            {meta ? 'Sostituisci database (.csv/.xlsx)' : 'Carica database FIDAL (.csv/.xlsx)'}
                         </button>
                         <p className="text-xs text-slate-400 mt-2">
                             Un nuovo import sostituisce completamente il dataset precedente.
@@ -203,7 +209,7 @@ export default function FidalImportSection() {
             <div className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                        <p className="text-sm font-semibold text-slate-700">Anagrafica società (.dbf)</p>
+                        <p className="text-sm font-semibold text-slate-700">Anagrafica società (.csv/.dbf)</p>
                         <p className="text-xs text-slate-500 mt-0.5">
                             {socMeta
                                 ? `${socMeta.count.toLocaleString('it-IT')} società · ${socMeta.fileName}`
@@ -214,7 +220,7 @@ export default function FidalImportSection() {
                         <input
                             ref={socRef}
                             type="file"
-                            accept=".dbf"
+                            accept=".csv,.dbf"
                             className="hidden"
                             onChange={e => { const f = e.target.files?.[0]; if (f) handleSocietyFile(f); e.target.value = ''; }}
                         />
@@ -233,7 +239,7 @@ export default function FidalImportSection() {
                             className="flex items-center gap-1.5 text-xs font-medium text-brand-700 border border-brand-200 hover:bg-brand-50 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
                         >
                             {socBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                            {socMeta ? 'Sostituisci' : 'Carica .dbf'}
+                            {socMeta ? 'Sostituisci' : 'Carica .csv/.dbf'}
                         </button>
                     </div>
                 </div>

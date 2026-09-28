@@ -47,14 +47,25 @@ export class FidalController {
     }
 
     /**
-     * POST /api/fidal/import — carica il dump tesseramenti FIDAL (.xlsx) come
-     * campo "file" (multipart). È l'unica fonte della scadenza certificato.
+     * POST /api/fidal/import — dump tesseramenti FIDAL atleti (.csv o .xlsx)
+     * come campo "file" (multipart). Fonte di scadenza cert e data di nascita.
      * TODO: proteggere con guard admin.
      */
     @Post('import')
     @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
     importDump(@UploadedFile() file?: Express.Multer.File) {
-        if (!file?.buffer?.length) throw new BadRequestException('File .xlsx mancante');
-        return this.fidal.importDump(file.buffer);
+        if (!file?.buffer?.length) throw new BadRequestException('File dump mancante');
+        return this.fidal.importDump(file.buffer, file.originalname);
+    }
+
+    /**
+     * POST /api/fidal/import-societa — anagrafica società FIDAL (.csv) come
+     * campo "file" (multipart). Fornisce la denominazione reale per codice.
+     */
+    @Post('import-societa')
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+    importSocieties(@UploadedFile() file?: Express.Multer.File) {
+        if (!file?.buffer?.length) throw new BadRequestException('File società mancante');
+        return this.fidal.importSocieties(file.buffer);
     }
 }

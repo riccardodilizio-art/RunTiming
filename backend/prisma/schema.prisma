@@ -198,6 +198,17 @@ model FidalAthlete {
   @@index([codiceSocieta])
 }
 
+// Anagrafica società FIDAL (codice → denominazione). Popolata dall'import del
+// relativo dump; usata per mostrare il nome reale della società al posto del codice.
+model FidalSociety {
+  codice        String  @id
+  denominazione String
+  citta         String?
+  provincia     String?
+  regione       String?
+  ente          String?
+}
+
 model ResultUpload {
   id            String      @id @default(cuid())
   raceId        String
