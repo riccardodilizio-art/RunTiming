@@ -6,7 +6,7 @@
 // al dataset locale così l'iscrizione non si blocca mai.
 
 import { api, USE_API } from '../lib/api';
-import { lookupByName, lookupByTessera, type FidalAthlete } from './mockFidal';
+import { lookupByName, lookupBySociety, lookupByTessera, type FidalAthlete } from './mockFidal';
 import { dsLookupByTessera } from './fidalDataset';
 
 /**
@@ -52,6 +52,21 @@ export async function verifyTessera(tessera: string): Promise<FidalAthlete | nul
         }
     }
     return lookupByTessera(tessera);
+}
+
+/** Elenca gli atleti di una società per codice FIDAL (per popolare il roster). */
+export async function listBySociety(codiceSocieta: string): Promise<FidalAthlete[]> {
+    if (USE_API) {
+        try {
+            const list = await api.get<(Partial<FidalAthlete> & { tessera: string })[]>(
+                `/api/fidal/societa/${encodeURIComponent(codiceSocieta)}`,
+            );
+            return list.map(normalize);
+        } catch {
+            return lookupBySociety(codiceSocieta);
+        }
+    }
+    return lookupBySociety(codiceSocieta);
 }
 
 /** Cerca atleti per cognome (+ nome opzionale). */

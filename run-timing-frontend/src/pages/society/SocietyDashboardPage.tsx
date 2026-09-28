@@ -9,7 +9,7 @@ import { allRaces, eventStartDate } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
-import { lookupBySociety } from '../../data/mockFidal';
+import { listBySociety } from '../../data/fidalLookup';
 import { fidalToRoster, newRosterId } from './rosterUtils';
 import type { RosterAthlete, Race, RegistrationSubmission, Event as EventType } from '../../types';
 
@@ -88,9 +88,9 @@ export default function SocietyDashboardPage() {
         if (!currentSociety) return;
         updateSociety({ roster: roster.filter(r => r.id !== id) });
     }
-    function reimportFidal() {
+    async function reimportFidal() {
         if (!currentSociety?.codiceFidal) return;
-        const imported = lookupBySociety(currentSociety.codiceFidal).map(fidalToRoster);
+        const imported = (await listBySociety(currentSociety.codiceFidal)).map(fidalToRoster);
         // merge: skip athletes already present by name+birthdate
         const key = (a: RosterAthlete) => `${a.nome}|${a.cognome}|${a.dataNascita}`.toLowerCase();
         const existing = new Set(roster.map(key));

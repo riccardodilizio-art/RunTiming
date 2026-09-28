@@ -5,6 +5,7 @@ import { WiseClient } from './wise.client';
 import { extractAtleti, mapAtleta, type FidalAthleteDto } from './fidal.mapper';
 import { parseFidalDump } from './fidal.dump';
 import { parseAthletesCsv, parseSocietiesCsv } from './fidal.csv';
+import type { FidalAthlete } from '@prisma/client';
 
 // Servizio FIDAL: interroga WISE (proxy), normalizza i dati e li mette in cache
 // su Postgres (tabella FidalAthlete). La SCADENZA CERTIFICATO — che WISE non
@@ -50,13 +51,47 @@ export class FidalService {
         return list;
     }
 
-    /** Elenco atleti di una società (per codice società FIDAL). */
+    /**
+     * Elenco atleti di una società (per codice società FIDAL). Fonte primaria:
+     * il dump importato in Postgres (completo). Solo se vuoto tenta WISE.
+     */
     async listBySociety(codiceSocieta: string): Promise<FidalAthleteDto[]> {
-        const raw = await this.wise.getJson<unknown>(this.societyPath, { societa: codiceSocieta });
-        const list = extractAtleti(raw).map(mapAtleta).filter(a => a.tessera);
-        await this.enrich(list);
-        await this.cacheMany(list);
-        return list;
+        const code = codiceSocieta.trim().toUpperCase();
+        const rows = await this.prisma.fidalAthlete.findMany({
+            where: { codiceSocieta: code },
+            orderBy: [{ cognome: 'asc' }, { nome: 'asc' }],
+        });
+        if (rows.length > 0) {
+            const list = rows.map(r => this.rowToDto(r));
+            await this.enrich(list); // denominazione società reale
+            return list;
+        }
+        // Fallback: WISE (endpoint non ancora confermato).
+        try {
+            const raw = await this.wise.getJson<unknown>(this.societyPath, { societa: code });
+            const list = extractAtleti(raw).map(mapAtleta).filter(a => a.tessera);
+            await this.enrich(list);
+            await this.cacheMany(list);
+            return list;
+        } catch {
+            return [];
+        }
+    }
+
+    /** Converte una riga Postgres FidalAthlete nel DTO. */
+    private rowToDto(r: FidalAthlete): FidalAthleteDto {
+        return {
+            tessera: r.tessera,
+            tipo: r.tipo,
+            nome: r.nome,
+            cognome: r.cognome,
+            dataNascita: r.dataNascita ? r.dataNascita.toISOString().slice(0, 10) : null,
+            sesso: r.sesso,
+            categoria: '',
+            codiceSocieta: r.codiceSocieta,
+            societa: r.societa,
+            certScadenza: r.certScadenza ? r.certScadenza.toISOString().slice(0, 10) : null,
+        };
     }
 
     /**
