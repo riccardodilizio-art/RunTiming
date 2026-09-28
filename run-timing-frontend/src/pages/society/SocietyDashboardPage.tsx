@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
-import { allRaces, eventStartDate } from '../../utils/event';
+import { allRaces, eventStartDate, eventEndDate } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
@@ -335,8 +335,14 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [done, setDone] = useState(0);
 
-    const event = useMemo(() => events.find(e => e.id === eventId), [events, eventId]);
-    const races = useMemo(() => event ? allRaces(event) : [], [event]);
+    // Solo eventi non conclusi: non si iscrive a gare passate.
+    const openEvents = useMemo(
+        () => events.filter(e => new Date(eventEndDate(e)) >= new Date()),
+        [events],
+    );
+    const event = useMemo(() => openEvents.find(e => e.id === eventId), [openEvents, eventId]);
+    // Solo gare con iscrizioni aperte.
+    const races = useMemo(() => (event ? allRaces(event).filter(r => r.isOpen) : []), [event]);
     const race = useMemo(() => races.find(r => r.id === raceId), [races, raceId]);
 
     function toggle(id: string) {
@@ -406,7 +412,7 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                                     <label className="block text-xs font-medium text-slate-600 mb-1">Evento</label>
                                     <select className={inputCls} value={eventId} onChange={e => { setEventId(e.target.value); setRaceId(''); }}>
                                         <option value="">— seleziona —</option>
-                                        {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+                                        {openEvents.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
                                     </select>
                                 </div>
                                 <div>

@@ -9,6 +9,7 @@ import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/use
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
+import { useSocietyAuth } from '../context/useSocietyAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { verifyTessera, searchByName } from '../data/fidalLookup';
@@ -707,6 +708,7 @@ export default function RegisterPage() {
     const { getEvent, commission, validateDiscountCode, applyDiscountCode } = useAdminStore();
     const { currentAthlete, register: registerAthlete } = useAthleteAuth();
     const { isAdmin, isOrganizer, canManageEvent } = useAuth();
+    const { currentSociety } = useSocietyAuth();
 
     const event = slug ? getEvent(slug) : undefined;
     const staffEnroll = !!event && (isAdmin || (isOrganizer && canManageEvent(event.id)));
@@ -918,6 +920,27 @@ export default function RegisterPage() {
                         className="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
                     >
                         Vai alla scheda evento
+                    </Link>
+                </div>
+            </main>
+        );
+    }
+
+    // La società non si iscrive come singolo: iscrive i propri atleti dalla dashboard.
+    if (currentSociety) {
+        return (
+            <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+                <div className="text-center max-w-sm bg-white border border-slate-200 rounded-2xl p-8" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                    <p className="font-display font-700 text-lg text-slate-800 mb-2">Sei loggato come società</p>
+                    <p className="text-sm text-slate-500 mb-5">
+                        Iscrivi i tuoi atleti alle gare dalla <strong>dashboard società</strong>,
+                        non come singolo partecipante.
+                    </p>
+                    <Link
+                        to="/societa"
+                        className="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                    >
+                        Vai alla dashboard società
                     </Link>
                 </div>
             </main>
