@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate } from '../utils/event';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -7,8 +7,19 @@ import {
     ChevronLeft, ChevronRight, Calendar, Map,
 } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
+import { regionOf } from '../data/regioni';
 import { useAdminStore } from '../hooks/useAdminStore';
 import type { Event, SportCategory } from '../types';
+
+const ENTE_LABELS: Record<string, string> = {
+    fidal: 'FIDAL', uisp: 'UISP', csi: 'CSI', acsi: 'ACSI', aics: 'AICS',
+    libertas: 'Libertas', altro: 'Altro ente', non_competitiva: 'Non competitiva',
+};
+
+function monthLabel(ym: string): string {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+}
 import EventRow from '../components/ui/EventRow';
 import EventGridCard from '../components/ui/EventGridCard';
 import EventsMap from '../components/map/EventsMap';
@@ -220,6 +231,36 @@ function EventCalendar({ events }: { events: Event[] }) {
     );
 }
 
+// ─── Facet select (regione / mese / ente) ───────────────────────────────────
+
+function FacetSelect({
+    value, onChange, allLabel, options,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+    allLabel: string;
+    options: Array<{ value: string; label: string }>;
+}) {
+    return (
+        <div className="relative">
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <select
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                disabled={options.length === 0}
+                className={`appearance-none bg-white border rounded-lg pl-3 pr-8 py-2 text-sm cursor-pointer focus:outline-none focus:border-brand-400 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    value !== 'all' ? 'border-brand-400 text-brand-700 font-medium' : 'border-slate-300 text-slate-600'
+                }`}
+            >
+                <option value="all">{allLabel}</option>
+                {options.map(o => (
+                    <option key={o.value} value={o.value} className="capitalize">{o.label}</option>
+                ))}
+            </select>
+        </div>
+    );
+}
+
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
@@ -241,8 +282,28 @@ export default function EventsPage() {
     const [sort,      setSort]      = useState<Sort>('date-asc');
     const [onlyOpen,  setOnlyOpen]  = useState(false);
     const [view,      setView]      = useState<View>('list');
+    const [region,    setRegion]    = useState<string>('all');
+    const [month,     setMonth]     = useState<string>('all');   // 'YYYY-MM'
+    const [ente,      setEnte]      = useState<string>('all');
 
     const now = new Date();
+
+    // Opzioni filtri derivate dagli eventi presenti (solo ciò che esiste).
+    const regionOptions = useMemo(() => {
+        const s = new Set<string>();
+        events.forEach(e => { const r = regionOf(e.province); if (r) s.add(r); });
+        return [...s].sort();
+    }, [events]);
+    const monthOptions = useMemo(() => {
+        const s = new Set<string>();
+        events.forEach(e => s.add(eventStartDate(e).slice(0, 7)));
+        return [...s].sort();
+    }, [events]);
+    const enteOptions = useMemo(() => {
+        const s = new Set<string>();
+        events.forEach(e => allRaces(e).forEach(r => { if (r.ente) s.add(r.ente); }));
+        return [...s].sort();
+    }, [events]);
 
     const countFor = (cat: SportCategory | 'all') =>
         events.filter(e => {
@@ -263,7 +324,11 @@ export default function EventsPage() {
             const matchesTab      = tab === 'all' ? true : tab === 'upcoming'
                 ? new Date(eventStartDate(e)) >= now : new Date(eventStartDate(e)) < now;
             const matchesOpen     = !onlyOpen || allRaces(e).some(r => r.isOpen);
-            return matchesQuery && matchesCategory && matchesTab && matchesOpen;
+            const matchesRegion   = region === 'all' || regionOf(e.province) === region;
+            const matchesMonth    = month === 'all' || eventStartDate(e).slice(0, 7) === month;
+            const matchesEnte     = ente === 'all' || allRaces(e).some(r => r.ente === ente);
+            return matchesQuery && matchesCategory && matchesTab && matchesOpen
+                && matchesRegion && matchesMonth && matchesEnte;
         })
         .sort((a, b) => {
             switch (sort) {
@@ -275,13 +340,17 @@ export default function EventsPage() {
             }
         });
 
-    const hasActiveFilters = category !== 'all' || onlyOpen || sort !== 'date-asc';
+    const hasActiveFilters = category !== 'all' || onlyOpen || sort !== 'date-asc'
+        || region !== 'all' || month !== 'all' || ente !== 'all';
 
     function resetFilters() {
         setQuery('');
         setCategory('all');
         setOnlyOpen(false);
         setSort('date-asc');
+        setRegion('all');
+        setMonth('all');
+        setEnte('all');
     }
 
     return (
@@ -397,6 +466,27 @@ export default function EventsPage() {
                     })}
                 </div>
 
+                {/* Facet filters: regione / mese / ente */}
+                {view !== 'calendar' && view !== 'map' && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <FacetSelect
+                            value={region} onChange={setRegion}
+                            allLabel="Tutte le regioni"
+                            options={regionOptions.map(r => ({ value: r, label: r }))}
+                        />
+                        <FacetSelect
+                            value={month} onChange={setMonth}
+                            allLabel="Tutti i mesi"
+                            options={monthOptions.map(m => ({ value: m, label: monthLabel(m) }))}
+                        />
+                        <FacetSelect
+                            value={ente} onChange={setEnte}
+                            allLabel="Tutti gli enti"
+                            options={enteOptions.map(en => ({ value: en, label: ENTE_LABELS[en] ?? en }))}
+                        />
+                    </div>
+                )}
+
                 {/* Tabs + quick filter */}
                 <div className="flex items-center justify-between border-b border-slate-200 mb-5">
                     <div className="flex">
@@ -453,6 +543,24 @@ export default function EventsPage() {
                                     <button onClick={() => setSort('date-asc')} className="hover:text-brand-900">
                                         <X className="w-3 h-3" />
                                     </button>
+                                </span>
+                            )}
+                            {region !== 'all' && (
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full">
+                                    {region}
+                                    <button onClick={() => setRegion('all')} className="hover:text-brand-900"><X className="w-3 h-3" /></button>
+                                </span>
+                            )}
+                            {month !== 'all' && (
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full capitalize">
+                                    {monthLabel(month)}
+                                    <button onClick={() => setMonth('all')} className="hover:text-brand-900"><X className="w-3 h-3" /></button>
+                                </span>
+                            )}
+                            {ente !== 'all' && (
+                                <span className="flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 text-xs px-2.5 py-1 rounded-full">
+                                    {ENTE_LABELS[ente] ?? ente}
+                                    <button onClick={() => setEnte('all')} className="hover:text-brand-900"><X className="w-3 h-3" /></button>
                                 </span>
                             )}
                             {hasActiveFilters && (
