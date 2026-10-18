@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-    Settings, Calendar, Tag, UserCheck, LogOut, Check, Database,
+    Settings, Calendar, Tag, UserCheck, LogOut, Check, Database, Timer, ExternalLink,
 } from 'lucide-react';
 import { useAdminStore } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
@@ -78,9 +79,18 @@ export default function AdminPage() {
             {/* Top bar */}
             <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Settings className="h-5 w-5 text-brand-600" />
-                    <span className="font-semibold text-slate-800 text-lg">
-                        {isAdmin ? 'Admin Panel' : 'Pannello Organizzatore'}
+                    <Link to="/" className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-brand-600 rounded-md flex items-center justify-center">
+                            <Timer className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="font-display font-700 text-lg text-slate-800 tracking-wide hidden sm:inline">
+                            Run<span className="text-brand-600">Timing</span>
+                        </span>
+                    </Link>
+                    <span className="h-5 w-px bg-slate-200" />
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-3 py-1">
+                        <Settings className="h-3.5 w-3.5" />
+                        {isAdmin ? 'Admin Panel' : 'Organizzatore'}
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -89,6 +99,12 @@ export default function AdminPage() {
                             <Check className="h-4 w-4" /> Salvato
                         </span>
                     )}
+                    <Link
+                        to="/"
+                        className="hidden sm:flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600 transition-colors"
+                    >
+                        <ExternalLink className="h-4 w-4" /> Vai al sito
+                    </Link>
                     <span className="hidden sm:block text-sm text-slate-500">
                         {currentUser?.displayName}
                     </span>

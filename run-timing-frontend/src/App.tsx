@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AthleteAuthProvider } from './context/AthleteAuthContext';
 import { SocietyAuthProvider } from './context/SocietyAuthContext';
@@ -23,6 +23,47 @@ import SocietyRegisterPage from './pages/society/SocietyRegisterPage';
 import SocietyLoginPage from './pages/society/SocietyLoginPage';
 import SocietyDashboardPage from './pages/society/SocietyDashboardPage';
 
+// Le aree "back-office" hanno un proprio menu: nascondiamo header/footer pubblici
+// per evitare il doppio menu.
+function isBackOffice(pathname: string): boolean {
+    return pathname.startsWith('/admin');
+}
+
+function Shell() {
+    const { pathname } = useLocation();
+    const chrome = !isBackOffice(pathname);
+    return (
+        <div className="min-h-screen flex flex-col">
+            {chrome && <Navbar />}
+            <div className="flex-1 flex flex-col">
+                <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/events" element={<EventsPage />} />
+                    <Route path="/events/:slug" element={<EventDetailPage />} />
+                    <Route path="/results" element={<ResultsPage />} />
+                    <Route path="/contacts" element={<ContactsPage />} />
+                    <Route path="/events/:slug/register" element={<RegisterPage />} />
+                    <Route path="/events/:slug/partecipanti" element={<ParticipantsPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/accedi" element={<AthleteLoginPage />} />
+                    <Route path="/registrati" element={<AthleteRegisterPage />} />
+                    <Route path="/profilo" element={<AthleteDashboardPage />} />
+                    <Route path="/admin" element={
+                        <ProtectedRoute>
+                            <AdminPage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/organizer" element={<OrganizerPage />} />
+                    <Route path="/societa/registrati" element={<SocietyRegisterPage />} />
+                    <Route path="/societa/accedi" element={<SocietyLoginPage />} />
+                    <Route path="/societa" element={<SocietyDashboardPage />} />
+                </Routes>
+            </div>
+            {chrome && <Footer />}
+        </div>
+    );
+}
+
 export default function App() {
     return (
         <AuthProvider>
@@ -30,34 +71,7 @@ export default function App() {
                 <SocietyAuthProvider>
                 <BrowserRouter>
                     <ScrollToTop />
-                    <div className="min-h-screen flex flex-col">
-                    <Navbar />
-                    <div className="flex-1 flex flex-col">
-                    <Routes>
-                        <Route path="/" element={<HomePage />} />
-                        <Route path="/events" element={<EventsPage />} />
-                        <Route path="/events/:slug" element={<EventDetailPage />} />
-                        <Route path="/results" element={<ResultsPage />} />
-                        <Route path="/contacts" element={<ContactsPage />} />
-                        <Route path="/events/:slug/register" element={<RegisterPage />} />
-                        <Route path="/events/:slug/partecipanti" element={<ParticipantsPage />} />
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/accedi" element={<AthleteLoginPage />} />
-                        <Route path="/registrati" element={<AthleteRegisterPage />} />
-                        <Route path="/profilo" element={<AthleteDashboardPage />} />
-                        <Route path="/admin" element={
-                            <ProtectedRoute>
-                                <AdminPage />
-                            </ProtectedRoute>
-                        } />
-                        <Route path="/organizer" element={<OrganizerPage />} />
-                        <Route path="/societa/registrati" element={<SocietyRegisterPage />} />
-                        <Route path="/societa/accedi" element={<SocietyLoginPage />} />
-                        <Route path="/societa" element={<SocietyDashboardPage />} />
-                    </Routes>
-                    </div>
-                    <Footer />
-                    </div>
+                    <Shell />
                 </BrowserRouter>
                 </SocietyAuthProvider>
             </AthleteAuthProvider>
