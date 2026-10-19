@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate } from '../utils/event';
-import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload, User, Calendar } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import { useAdminStore } from '../hooks/useAdminStore';
 import { mockResults, raceClassifications } from '../data/mockResults';
-import type { Event, Race, Result, LapSplit } from '../types';
+import type { Event, Race, Result, LapSplit, ResultStatus } from '../types';
+
+// ─── Indice risultati per atleta (aggregazione su tutte le gare) ──────────────
+
+interface AthleteEntry {
+    eventTitle: string;
+    eventSlug: string;
+    raceName: string;
+    date: string;
+    position: number;
+    category: string;
+    team?: string;
+    time: string;
+    status: ResultStatus;
+    isLap: boolean;
+    lapsCompleted?: number;
+}
+interface AthleteAgg { name: string; entries: AthleteEntry[] }
 import CertificateModal from '../components/results/CertificateModal';
 import LapDetail from '../components/results/LapDetail';
 import ImportLapsModal from '../components/results/ImportLapsModal';
@@ -143,6 +161,82 @@ function TableHeader({ isLapRace }: { isLapRace: boolean }) {
     );
 }
 
+// ─── Storico risultati di un atleta ──────────────────────────────────────────
+
+function AthleteHistory({ agg, onBack }: { agg: AthleteAgg; onBack: () => void }) {
+    const finishers = agg.entries.filter(e => e.status === 'finisher');
+    const wins = finishers.filter(e => e.position === 1).length;
+    const podi = finishers.filter(e => e.position <= 3).length;
+
+    const stats = [
+        { label: 'Gare',      val: agg.entries.length },
+        { label: 'Vittorie',  val: wins },
+        { label: 'Podi',      val: podi },
+    ];
+
+    return (
+        <div>
+            <button onClick={onBack} className="inline-flex items-center gap-1.5 text-slate-400 hover:text-brand-600 text-sm mb-4 transition-colors">
+                <ChevronLeft className="w-4 h-4" /> Tutti gli atleti
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl p-5 mb-4" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+                    <User className="w-7 h-7 text-brand-600" />
+                </div>
+                <div className="min-w-0">
+                    <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 leading-tight">{agg.name}</h2>
+                    <p className="text-slate-400 text-sm">Storico risultati su RunTiming</p>
+                </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5">
+                {stats.map(s => (
+                    <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-3 py-3 text-center" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                        <p className="text-[10px] sm:text-xs text-slate-400">{s.label}</p>
+                        <p className="font-display font-700 text-lg sm:text-2xl text-brand-700">{s.val}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* History */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                <div className="hidden sm:flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                    <span className="w-24 flex-shrink-0">Data</span>
+                    <span className="flex-1">Evento · Gara</span>
+                    <span className="w-24 flex-shrink-0 hidden md:block">Categoria</span>
+                    <span className="w-10 flex-shrink-0 text-center">Pos.</span>
+                    <span className="w-16 flex-shrink-0 text-right">Tempo</span>
+                </div>
+                {agg.entries.map((e, i) => (
+                    <div key={i} className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors">
+                        <span className="w-24 flex-shrink-0 text-xs text-slate-400 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 hidden sm:block" />{formatDate(e.date)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                            <Link to={`/events/${e.eventSlug}`} className="text-sm font-medium text-slate-800 hover:text-brand-600 transition-colors truncate block">
+                                {e.eventTitle}
+                            </Link>
+                            <p className="text-xs text-slate-400 truncate">{e.raceName}{e.team ? ` · ${e.team}` : ''}</p>
+                        </div>
+                        <span className="w-24 flex-shrink-0 text-xs text-slate-400 hidden md:block truncate">{e.category}</span>
+                        <span className="w-10 flex-shrink-0 flex items-center justify-center">
+                            {e.status === 'finisher'
+                                ? (positionIcon(e.position) ?? <span className="text-xs font-bold text-slate-600 tabular-nums">{e.position}</span>)
+                                : <span className="text-[10px] text-slate-400 font-semibold uppercase">{e.status}</span>}
+                        </span>
+                        <span className="w-16 flex-shrink-0 text-right font-mono text-sm font-semibold text-slate-800 tabular-nums">
+                            {e.isLap ? `${e.lapsCompleted ?? '—'}g` : (e.status === 'finisher' ? e.time : '—')}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
@@ -157,6 +251,38 @@ export default function ResultsPage() {
     const [importedLaps, setImportedLaps] = useState<Record<string, LapSplit[]>>({});
     const [showImport,   setShowImport]   = useState(false);
     const [expandedBib,  setExpandedBib]  = useState<string | null>(null);
+    // Modalità scoperta risultati: per evento (default) o per atleta.
+    const [mode, setMode] = useState<'eventi' | 'atleti'>('eventi');
+    const [athQuery, setAthQuery] = useState('');
+    const [selectedAthleteKey, setSelectedAthleteKey] = useState<string | null>(null);
+
+    // Aggrega i risultati di tutte le gare per atleta (nome).
+    const athleteIndex = useMemo(() => {
+        const idx = new Map<string, AthleteAgg>();
+        for (const ev of events) {
+            for (const race of allRaces(ev)) {
+                const stored = getResults(race.id);
+                const list = stored.length > 0 ? stored : (mockResults[race.id] ?? []);
+                for (const r of list) {
+                    const key = r.athleteName.trim().toLowerCase();
+                    if (!key) continue;
+                    let a = idx.get(key);
+                    if (!a) { a = { name: r.athleteName.trim(), entries: [] }; idx.set(key, a); }
+                    a.entries.push({
+                        eventTitle: ev.title, eventSlug: ev.slug, raceName: race.name,
+                        date: eventStartDate(ev), position: r.position, category: r.category,
+                        team: r.team, time: r.time, status: r.status,
+                        isLap: race.raceType !== 'linear', lapsCompleted: r.lapsCompleted,
+                    });
+                }
+            }
+        }
+        for (const a of idx.values()) {
+            a.entries.sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime());
+        }
+        return idx;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [events]);
 
     const storedResults = selectedRace ? getResults(selectedRace.id) : [];
     const results = storedResults.length > 0
@@ -225,6 +351,15 @@ export default function ResultsPage() {
         }
     }
 
+    const athleteList = [...athleteIndex.values()];
+    const athMatches = athQuery.trim().length >= 2
+        ? athleteList
+            .filter(a => a.name.toLowerCase().includes(athQuery.trim().toLowerCase()))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .slice(0, 40)
+        : [];
+    const selectedAthlete = selectedAthleteKey ? athleteIndex.get(selectedAthleteKey) : null;
+
     return (
         <main className="min-h-screen bg-slate-50">
 
@@ -242,8 +377,74 @@ export default function ResultsPage() {
                     </button>
                 )}
 
-                {/* ── STEP 1: Event list ── */}
+                {/* ── Mode toggle (top level) ── */}
                 {!selectedEvent && (
+                    <div className="flex gap-2 mb-5">
+                        {([
+                            { id: 'eventi', label: 'Per evento', icon: <Trophy className="w-3.5 h-3.5" /> },
+                            { id: 'atleti', label: 'Per atleta', icon: <User className="w-3.5 h-3.5" /> },
+                        ] as const).map(t => (
+                            <button key={t.id}
+                                onClick={() => { setMode(t.id); setSelectedAthleteKey(null); }}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                    mode === t.id ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-300'
+                                }`}>
+                                {t.icon} {t.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* ── Per atleta: ricerca + storico ── */}
+                {!selectedEvent && mode === 'atleti' && (
+                    <div>
+                        {!selectedAthlete ? (
+                            <>
+                                <div className="relative mb-4 max-w-lg">
+                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="text" autoFocus
+                                        placeholder="Cerca un atleta per nome o cognome…"
+                                        value={athQuery}
+                                        onChange={e => setAthQuery(e.target.value)}
+                                        className="w-full bg-white border border-slate-300 focus:border-brand-400 focus:outline-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 transition-colors"
+                                    />
+                                </div>
+                                {athQuery.trim().length < 2 ? (
+                                    <p className="text-sm text-slate-400">Digita almeno 2 lettere per cercare un atleta tra tutte le classifiche.</p>
+                                ) : athMatches.length === 0 ? (
+                                    <p className="text-sm text-slate-400">Nessun atleta trovato per “{athQuery}”.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {athMatches.map(a => {
+                                            const key = a.name.toLowerCase();
+                                            const wins = a.entries.filter(e => e.status === 'finisher' && e.position === 1).length;
+                                            return (
+                                                <button key={key} onClick={() => setSelectedAthleteKey(key)}
+                                                    className="group w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3.5 hover:border-brand-300 hover:shadow-md transition-all text-left"
+                                                    style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                                                    <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+                                                        <User className="w-5 h-5 text-brand-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-semibold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">{a.name}</p>
+                                                        <p className="text-xs text-slate-400">{a.entries.length} {a.entries.length === 1 ? 'gara' : 'gare'}{wins > 0 ? ` · ${wins} ${wins === 1 ? 'vittoria' : 'vittorie'}` : ''}</p>
+                                                    </div>
+                                                    <ChevronLeft className="w-4 h-4 text-slate-300 rotate-180 group-hover:text-brand-500" />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <AthleteHistory agg={selectedAthlete} onBack={() => setSelectedAthleteKey(null)} />
+                        )}
+                    </div>
+                )}
+
+                {/* ── STEP 1: Event list ── */}
+                {!selectedEvent && mode === 'eventi' && (
                     <div>
                         <h2 className="font-display font-700 text-base sm:text-xl text-slate-700 uppercase tracking-wide border-b border-slate-200 pb-2 mb-4">
                             Seleziona un evento
