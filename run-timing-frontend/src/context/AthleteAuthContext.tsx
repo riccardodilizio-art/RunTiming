@@ -1,6 +1,7 @@
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { AthleteAccount } from '../types';
 import { AthleteAuthContext } from './useAthleteAuth';
+import { announceLogin, onExclusiveLogin } from './authBus';
 import {
     loadAthleteAccounts, persistAccounts,
     loadAthleteSession, persistAthleteSession,
@@ -17,6 +18,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
         if (!found) return null;
         setCurrentAthlete(found);
         persistAthleteSession(found);
+        announceLogin('athlete');
         return found;
     }, []);
 
@@ -35,6 +37,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
             persistAccounts(updated);
             setCurrentAthlete(newAccount);
             persistAthleteSession(newAccount);
+            announceLogin('athlete');
             return newAccount;
         },
         []
@@ -44,6 +47,9 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
         setCurrentAthlete(null);
         persistAthleteSession(null);
     }, []);
+
+    // Disconnette l'atleta se si accede con un'altra identità.
+    useEffect(() => onExclusiveLogin('athlete', logout), [logout]);
 
     const updateProfile = useCallback((data: Partial<AthleteAccount>) => {
         setCurrentAthlete(prev => {

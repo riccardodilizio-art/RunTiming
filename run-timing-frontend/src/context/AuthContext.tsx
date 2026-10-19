@@ -1,6 +1,7 @@
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { AppUser } from '../types';
 import { AuthContext } from './useAuth';
+import { announceLogin, onExclusiveLogin } from './authBus';
 
 // ─── Default admin user (always exists) ──────────────────────────────────────
 
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!found) return null;
         setCurrentUser(found);
         persistSession(found);
+        announceLogin('admin');
         return found;
     }, []);
 
@@ -51,6 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(null);
         persistSession(null);
     }, []);
+
+    // Disconnette l'admin se si accede con un'altra identità.
+    useEffect(() => onExclusiveLogin('admin', logout), [logout]);
 
     const canManageEvent = useCallback((eventId: string): boolean => {
         if (!currentUser) return false;

@@ -1,6 +1,7 @@
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { SocietyAccount } from '../types';
 import { SocietyAuthContext, type SocietyRegisterData } from './useSocietyAuth';
+import { announceLogin, onExclusiveLogin } from './authBus';
 import {
     loadSocietyAccounts, persistSocietyAccounts,
     loadSocietySession, persistSocietySession,
@@ -16,6 +17,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         if (!found) return null;
         setCurrentSociety(found);
         persistSocietySession(found);
+        announceLogin('society');
         return found;
     }, []);
 
@@ -33,6 +35,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         persistSocietyAccounts([...accounts, newAccount]);
         setCurrentSociety(newAccount);
         persistSocietySession(newAccount);
+        announceLogin('society');
         return newAccount;
     }, []);
 
@@ -40,6 +43,9 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         setCurrentSociety(null);
         persistSocietySession(null);
     }, []);
+
+    // Disconnette la società se si accede con un'altra identità.
+    useEffect(() => onExclusiveLogin('society', logout), [logout]);
 
     const updateSociety = useCallback((data: Partial<SocietyAccount>) => {
         setCurrentSociety(prev => {
