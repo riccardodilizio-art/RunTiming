@@ -26,7 +26,9 @@ import SocietyDashboardPage from './pages/society/SocietyDashboardPage';
 // Le aree "back-office" hanno un proprio menu: nascondiamo header/footer pubblici
 // per evitare il doppio menu.
 function isBackOffice(pathname: string): boolean {
-    return pathname.startsWith('/admin');
+    // Dashboard autenticate con menu proprio (no header pubblico). Esclude le
+    // pagine di registrazione/accesso società, che restano pubbliche.
+    return pathname.startsWith('/admin') || pathname === '/societa' || pathname === '/profilo';
 }
 
 function Shell() {

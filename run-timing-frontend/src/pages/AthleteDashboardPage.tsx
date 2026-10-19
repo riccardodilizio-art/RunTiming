@@ -4,9 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
-    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award,
+    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award, LayoutDashboard,
 } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
+import DashboardLayout from '../components/layout/DashboardLayout';
 import { loadResults, useAdminStore } from '../hooks/useAdminStore';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
@@ -123,7 +124,7 @@ type Tab = 'overview' | 'races' | 'settings';
 
 export default function AthleteDashboardPage() {
     const navigate = useNavigate();
-    const { currentAthlete, updateProfile } = useAthleteAuth();
+    const { currentAthlete, updateProfile, logout } = useAthleteAuth();
 
     const [tab, setTab] = useState<Tab>('overview');
     const [editing, setEditing] = useState(false);
@@ -340,7 +341,19 @@ export default function AthleteDashboardPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <DashboardLayout
+            title="Il mio profilo"
+            subtitle={`${currentAthlete.name} ${currentAthlete.surname}`}
+            items={[
+                { key: 'overview', label: 'Panoramica', icon: <LayoutDashboard className="h-4 w-4" /> },
+                { key: 'races',    label: 'Le mie gare', icon: <Flag className="h-4 w-4" /> },
+                { key: 'settings', label: 'Profilo',     icon: <User className="h-4 w-4" /> },
+            ]}
+            active={tab}
+            onSelect={k => setTab(k as Tab)}
+            userLabel={currentAthlete.email}
+            onLogout={() => { logout(); navigate('/'); }}
+        >
             <div className="max-w-5xl mx-auto px-4 py-8">
                 {/* Profile header */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6 flex items-center gap-5">
@@ -361,20 +374,6 @@ export default function AthleteDashboardPage() {
                             <Check className="w-4 h-4" /> Salvato
                         </div>
                     )}
-                </div>
-
-                {/* Tabs */}
-                <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 mb-6 w-fit">
-                    {(['overview', 'races', 'settings'] as Tab[]).map(t => (
-                        <button key={t} onClick={() => setTab(t)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                tab === t
-                                    ? 'bg-brand-600 text-white'
-                                    : 'text-slate-500 hover:text-slate-800'
-                            }`}>
-                            {{ overview: 'Panoramica', races: 'Gare', settings: 'Profilo' }[t]}
-                        </button>
-                    ))}
                 </div>
 
                 {/* ── OVERVIEW ─────────────────────────────────────────── */}
@@ -804,6 +803,6 @@ export default function AthleteDashboardPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </DashboardLayout>
     );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Building2, LogOut, Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw,
+    Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw,
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
@@ -9,9 +9,12 @@ import { allRaces, eventStartDate, eventEndDate } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import { listBySociety } from '../../data/fidalLookup';
 import { fidalToRoster, newRosterId } from './rosterUtils';
 import type { RosterAthlete, Race, RegistrationSubmission, Event as EventType } from '../../types';
+
+type SocietySection = 'roster' | 'storico';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -50,6 +53,7 @@ export default function SocietyDashboardPage() {
     const [editing, setEditing] = useState<RosterAthlete | null>(null);
     const [showRegModal, setShowRegModal] = useState(false);
     const [reimported, setReimported] = useState(0);
+    const [section, setSection] = useState<SocietySection>('roster');
 
     useEffect(() => {
         if (!currentSociety) navigate('/societa/accedi', { replace: true });
@@ -103,25 +107,21 @@ export default function SocietyDashboardPage() {
     if (!currentSociety) return null;
 
     return (
-        <main className="min-h-screen bg-slate-50">
-            {/* Top bar */}
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-                        <Building2 className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                        <span className="font-semibold text-slate-800">{currentSociety.societaNome}</span>
-                        <p className="text-xs text-slate-400">{currentSociety.presidentName} {currentSociety.presidentSurname}</p>
-                    </div>
-                </div>
-                <button onClick={() => { logout(); navigate('/'); }}
-                    className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors">
-                    <LogOut className="h-4 w-4" /> Esci
-                </button>
-            </div>
-
+        <DashboardLayout
+            title={currentSociety.societaNome}
+            subtitle={`${currentSociety.presidentName} ${currentSociety.presidentSurname}`}
+            items={[
+                { key: 'roster',  label: 'Roster atleti',      icon: <Users className="h-4 w-4" /> },
+                { key: 'storico', label: 'Storico iscrizioni', icon: <ClipboardList className="h-4 w-4" />, badge: societyRegs.length || undefined },
+            ]}
+            active={section}
+            onSelect={k => setSection(k as SocietySection)}
+            userLabel={`${currentSociety.presidentName} ${currentSociety.presidentSurname}`}
+            onLogout={() => { logout(); navigate('/'); }}
+        >
             <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+              {section === 'roster' && (
+                <>
                 {/* Header actions */}
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                     <div>
@@ -201,10 +201,18 @@ export default function SocietyDashboardPage() {
                         </table>
                     </div>
                 )}
+                </>
+              )}
 
-                {/* Storico iscrizioni società */}
-                {societyRegs.length > 0 && (
-                    <div className="mt-8">
+              {section === 'storico' && (
+                societyRegs.length === 0 ? (
+                    <div className="text-center py-16 bg-white border border-slate-200 rounded-xl">
+                        <ClipboardList className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+                        <p className="text-slate-600 font-medium">Nessuna iscrizione effettuata</p>
+                        <p className="text-slate-400 text-sm mt-1">Iscrivi i tuoi atleti a una gara dalla sezione Roster.</p>
+                    </div>
+                ) : (
+                    <div>
                         <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                             <ClipboardList className="h-5 w-5 text-brand-600" /> Iscrizioni effettuate ({societyRegs.length})
                         </h2>
@@ -241,7 +249,8 @@ export default function SocietyDashboardPage() {
                             </table>
                         </div>
                     </div>
-                )}
+                )
+              )}
             </div>
 
             {editing && (
@@ -256,7 +265,7 @@ export default function SocietyDashboardPage() {
                     onClose={() => setShowRegModal(false)}
                 />
             )}
-        </main>
+        </DashboardLayout>
     );
 }
 
