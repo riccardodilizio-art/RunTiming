@@ -33,7 +33,7 @@ function normalize(a: Partial<FidalAthlete> & { tessera: string }): FidalAthlete
 export async function verifyTessera(tessera: string): Promise<FidalAthlete | null> {
     if (USE_API) {
         try {
-            const r = await api.get<VerifyResponse>(`/api/fidal/verifica?tessera=${encodeURIComponent(tessera)}`);
+            const r = await api.get<VerifyResponse>(`/fidal/verifica?tessera=${encodeURIComponent(tessera)}`);
             return r.atleta ? normalize(r.atleta) : null; // risposta valida: nessun fallback
         } catch {
             return lookupByTessera(tessera); // API irraggiungibile → dataset locale
@@ -48,7 +48,7 @@ export async function searchByName(cognome: string, nome?: string): Promise<Fida
         try {
             const q = new URLSearchParams({ cognome });
             if (nome) q.set('nome', nome);
-            const list = await api.get<(Partial<FidalAthlete> & { tessera: string })[]>(`/api/fidal/cerca?${q.toString()}`);
+            const list = await api.get<(Partial<FidalAthlete> & { tessera: string })[]>(`/fidal/cerca?${q.toString()}`);
             return list.map(normalize);
         } catch {
             return lookupByName(cognome, nome);

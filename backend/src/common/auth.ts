@@ -60,3 +60,21 @@ export class AuthGuard implements CanActivate {
         return true;
     }
 }
+
+/** Come AuthGuard ma senza token lascia passare (utente = undefined). */
+@Injectable()
+export class OptionalAuthGuard implements CanActivate {
+    constructor(private readonly jwt: JwtService) {}
+
+    canActivate(ctx: ExecutionContext): boolean {
+        const req = ctx.switchToHttp().getRequest();
+        const token = bearer(req);
+        if (!token) return true;
+        try {
+            req.user = this.jwt.verify<AuthUser>(token);
+        } catch {
+            throw new UnauthorizedException('Sessione scaduta o non valida');
+        }
+        return true;
+    }
+}

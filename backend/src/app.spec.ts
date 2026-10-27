@@ -45,8 +45,15 @@ describe('App (smoke)', () => {
         expect(c.body).toMatchObject({ fixedFee: 0, percentFee: 0 });
     });
 
-    it('iscrizione senza login → 401', () =>
-        request(app.getHttpServer()).post('/api/registrations').send({ raceId: 'x' }).expect(401));
+    it('iscrizione con token non valido → 401', () =>
+        request(app.getHttpServer())
+            .post('/api/registrations')
+            .set('Authorization', 'Bearer non-valido')
+            .send({ raceId: 'x' })
+            .expect(401));
+
+    it('staff list senza login → 401', () =>
+        request(app.getHttpServer()).get('/api/races/x/registrations').expect(401));
 
     it('ruolo sbagliato → 403', () =>
         request(app.getHttpServer()).post('/api/events').set('Authorization', token('ATHLETE')).send({}).expect(403));
