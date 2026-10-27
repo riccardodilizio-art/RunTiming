@@ -8,6 +8,8 @@ import { FidalModule } from './fidal/fidal.module';
 import { SettingsModule } from './settings/settings.module';
 import { DiscountsModule } from './discounts/discounts.module';
 import { RegistrationsModule } from './registrations/registrations.module';
+import { AccessModule } from './common/access';
+import { ProfilesModule } from './profiles/profiles.module';
 
 @Module({
     imports: [
@@ -15,13 +17,14 @@ import { RegistrationsModule } from './registrations/registrations.module';
         PrismaModule,
         HealthModule,
         AuthModule,
+        AccessModule,
         SettingsModule,
         EventsModule,
         FidalModule,
         DiscountsModule,
         RegistrationsModule,
-        // TODO (moduli successivi, stessa struttura): athletes, societies,
-        // races (CRUD admin), results, certificates, storage, payments.
+        ProfilesModule,
+        // TODO: results (da Race Result), certificates, storage file, payments.
     ],
 })
 export class AppModule {}

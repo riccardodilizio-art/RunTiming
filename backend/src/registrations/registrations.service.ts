@@ -1,7 +1,6 @@
 import {
     BadRequestException,
     ConflictException,
-    ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +8,7 @@ import { CertStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
 import { AuthUser } from '../common/auth';
+import { EventAccess } from '../common/access';
 import { discountProblem, normCode } from '../discounts/discounts.module';
 import {
     CommissionConfig,
@@ -62,6 +62,7 @@ export class RegistrationsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly settings: SettingsService,
+        private readonly access: EventAccess,
     ) {}
 
     // ─── Lettura gara / permessi ────────────────────────────────────────────
@@ -75,15 +76,8 @@ export class RegistrationsService {
         return race;
     }
 
-    /** Admin: tutto. Organizzatore: solo gli eventi assegnati o creati da lui. */
-    private async assertCanManage(user: AuthUser, eventId: string, createdById?: string | null) {
-        if (user.role === Role.ADMIN) return;
-        if (user.role === Role.ORGANIZER) {
-            if (createdById === user.sub) return;
-            const acc = await this.prisma.account.findUnique({ where: { id: user.sub } });
-            if (acc?.assignedEventIds.includes(eventId)) return;
-        }
-        throw new ForbiddenException('Non puoi gestire questo evento');
+    private assertCanManage(user: AuthUser, eventId: string, createdById?: string | null) {
+        return this.access.assert(user, eventId, createdById);
     }
 
     // ─── Preventivo ─────────────────────────────────────────────────────────

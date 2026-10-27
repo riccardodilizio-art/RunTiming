@@ -15,6 +15,6 @@ import { AuthGuard } from '../common/auth';
     ],
     controllers: [AuthController],
     providers: [AuthService, AuthGuard],
-    exports: [JwtModule, AuthGuard],
+    exports: [JwtModule, AuthGuard, AuthService],
 })
 export class AuthModule {}
