@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, UserCheck, X, Check, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
-import { useAdminStore } from '../../hooks/useAdminStore';
+import { useAdminStore, reportApiError } from '../../hooks/useAdminStore';
+import { USE_API } from '../../lib/api';
+import { listOrganizersApi, saveOrganizerApi } from '../../lib/accounts';
 import type { AppUser } from '../../types';
 
 const inputCls =
@@ -149,18 +151,36 @@ function UserModal({
 // ─── UsersSection ─────────────────────────────────────────────────────────────
 
 export default function UsersSection() {
-    const { users, saveUser, deleteUser, events } = useAdminStore();
+    const { users: localUsers, saveUser, deleteUser, events } = useAdminStore();
+    // Con il backend gli organizzatori sono account veri sul server
+    const [apiUsers, setApiUsers] = useState<AppUser[]>([]);
+    const reloadApi = () => listOrganizersApi().then(setApiUsers).catch(reportApiError);
+    useEffect(() => { if (USE_API) void reloadApi(); }, []);
+    const users = USE_API ? apiUsers : localUsers;
     const [editing, setEditing] = useState<AppUser | null | 'new'>(null);
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
     const eventList = events.map(e => ({ id: e.id, title: e.title }));
 
-    function handleSave(u: AppUser) {
+    async function handleSave(u: AppUser) {
+        if (USE_API) {
+            try {
+                await saveOrganizerApi(u, !apiUsers.some(x => x.id === u.id));
+            } catch (e) { reportApiError(e); return; }
+            setEditing(null);
+            void reloadApi();
+            return;
+        }
         saveUser(u);
         setEditing(null);
     }
 
     function handleDelete(id: string) {
+        if (USE_API) {
+            window.alert("Con il backend un account non si elimina: togli gli eventi assegnati per disattivarlo.");
+            setConfirmDelete(null);
+            return;
+        }
         deleteUser(id);
         setConfirmDelete(null);
     }

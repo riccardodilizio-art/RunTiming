@@ -34,7 +34,7 @@ export default function SocietyRegisterPage() {
         setPreview(found.map(fidalToRoster));
     }
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError('');
         if (!form.presidentName.trim() || !form.presidentSurname.trim() || !form.email.trim() || !form.password || !form.societaNome.trim()) {
@@ -42,7 +42,8 @@ export default function SocietyRegisterPage() {
             return;
         }
         const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal ? lookupBySociety(form.codiceFidal).map(fidalToRoster) : []);
-        const res = register({
+        if (form.password.length < 8) { setError('La password deve essere di almeno 8 caratteri.'); return; }
+        const res = await register({
             presidentName: form.presidentName.trim(),
             presidentSurname: form.presidentSurname.trim(),
             email: form.email.trim(),

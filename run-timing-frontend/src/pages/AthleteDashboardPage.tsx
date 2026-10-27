@@ -7,7 +7,8 @@ import {
     Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award,
 } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
-import { loadResults, useAdminStore } from '../hooks/useAdminStore';
+import { loadResults, useAdminStore, loadMyRegistrationsApi, reportApiError } from '../hooks/useAdminStore';
+import { USE_API } from '../lib/api';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
 import AffiliationsEditor from '../components/athlete/AffiliationsEditor';
@@ -89,12 +90,12 @@ function parseKm(dist: string): number {
 }
 
 /** Build a quick lookup: raceId → { eventTitle, raceName, date, city, race } */
-function buildRaceLookup() {
+function buildRaceLookup(apiEvents?: import('../types').Event[]) {
     const map: Record<string, { eventTitle: string; raceName: string; date: string; city: string; distanceKm: number; race: import('../types').Race }> = {};
 
-    // load admin overrides
-    const allEvents = [...mockEvents];
-    try {
+    // Con il backend gli eventi arrivano dal server; altrimenti mock + modifiche locali
+    const allEvents = apiEvents ? [...apiEvents] : [...mockEvents];
+    if (!apiEvents) try {
         const overrides = JSON.parse(localStorage.getItem('rt_admin_events') ?? '[]');
         for (const ov of overrides) {
             const idx = allEvents.findIndex(e => e.id === ov.id);
@@ -154,6 +155,11 @@ export default function AthleteDashboardPage() {
             ?? affiliationsFromLegacy(currentAthlete?.fidalTessera, currentAthlete?.runcardTessera, currentAthlete?.club),
     }));
 
+    // Con il backend: le iscrizioni dell'atleta arrivano dal server
+    useEffect(() => {
+        if (USE_API && currentAthlete) loadMyRegistrationsApi().catch(reportApiError);
+    }, [currentAthlete]);
+
     // Redirect to login if not authenticated (in an effect — never during render)
     useEffect(() => {
         if (!currentAthlete) navigate('/accedi', { replace: true });
@@ -161,7 +167,7 @@ export default function AthleteDashboardPage() {
 
     // ── data ─────────────────────────────────────────────────────────────────
 
-    const raceLookup = useMemo(() => buildRaceLookup(), []);
+    const raceLookup = useMemo(() => buildRaceLookup(USE_API ? events : undefined), [events]);
     const resultsMap = useMemo(() => loadResults(), []);
 
     const athleteId = currentAthlete?.id;
@@ -272,20 +278,21 @@ export default function AthleteDashboardPage() {
             setEditForm(f => ({ ...f, [field]: e.target.value }));
     }
 
-    function handleSaveProfile(e: React.FormEvent) {
+    async function handleSaveProfile(e: React.FormEvent) {
         e.preventDefault();
         setSaveError('');
         if (!editForm.name.trim() || !editForm.surname.trim()) {
             setSaveError('Nome e cognome sono obbligatori.');
             return;
         }
-        updateProfile({
+        const err = await updateProfile({
             name:           editForm.name.trim(),
             surname:        editForm.surname.trim(),
             phone:          editForm.phone.trim() || undefined,
             club:           editForm.club.trim() || undefined,
             affiliations:   editForm.affiliations,
         });
+        if (err) { setSaveError(err); return; }
         setEditing(false);
         setSaveOk(true);
         setTimeout(() => setSaveOk(false), 3000);
@@ -305,10 +312,10 @@ export default function AthleteDashboardPage() {
         setSaveError('');
     }
 
-    function handleCertReupload(e: React.FormEvent) {
+    async function handleCertReupload(e: React.FormEvent) {
         e.preventDefault();
         if (!newCertExpiry) return;
-        updateProfile({
+        const err = await updateProfile({
             certType:            newCertType,
             certExpiry:          newCertExpiry,
             certNumber:          newCertNumber.trim() || undefined,
@@ -316,6 +323,7 @@ export default function AthleteDashboardPage() {
             certStatus:          'in_attesa',
             certRejectionReason: undefined,
         });
+        if (err) { window.alert(err); return; }
         setShowCertReupload(false);
     }
 

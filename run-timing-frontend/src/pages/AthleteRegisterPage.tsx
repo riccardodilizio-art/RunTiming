@@ -47,7 +47,7 @@ export default function AthleteRegisterPage() {
     const certExpired = form.certExpiry && form.certExpiry < today;
     const birthYear   = form.birthDate ? new Date(form.birthDate).getFullYear() : null;
 
-    function handleSubmit(e: FormEvent) {
+    async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError('');
 
@@ -55,16 +55,16 @@ export default function AthleteRegisterPage() {
             setError('Le password non coincidono.');
             return;
         }
-        if (form.password.length < 6) {
-            setError('La password deve essere di almeno 6 caratteri.');
+        if (form.password.length < 8) {
+            setError('La password deve essere di almeno 8 caratteri.');
             return;
         }
         if (!form.gender) { setError('Seleziona il sesso.'); return; }
         if (!form.birthDate) { setError('Inserisci la data di nascita.'); return; }
 
         setLoading(true);
-        setTimeout(() => {
-            const result = register({
+        {
+            const result = await register({
                 email:          form.email.trim(),
                 password:       form.password,
                 name:           form.name.trim(),
@@ -85,7 +85,7 @@ export default function AthleteRegisterPage() {
             setLoading(false);
             if ('error' in result) { setError(result.error); return; }
             navigate(redirectTo, { replace: true });
-        }, 300);
+        }
     }
 
     return (

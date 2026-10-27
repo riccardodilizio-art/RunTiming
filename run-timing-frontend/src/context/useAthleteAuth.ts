@@ -3,10 +3,11 @@ import type { AthleteAccount } from '../types';
 
 export interface AthleteAuthContextValue {
     currentAthlete: AthleteAccount | null;
-    login:    (email: string, password: string) => AthleteAccount | null;
-    register: (data: Omit<AthleteAccount, 'id' | 'createdAt'>) => AthleteAccount | { error: string };
+    login:    (email: string, password: string) => Promise<AthleteAccount | null>;
+    register: (data: Omit<AthleteAccount, 'id' | 'createdAt'>) => Promise<AthleteAccount | { error: string }>;
     logout:   () => void;
-    updateProfile: (data: Partial<AthleteAccount>) => void;
+    /** Con il backend restituisce un messaggio d'errore se il salvataggio fallisce. */
+    updateProfile: (data: Partial<AthleteAccount>) => Promise<string | null>;
 }
 
 export const AthleteAuthContext = createContext<AthleteAuthContextValue | null>(null);

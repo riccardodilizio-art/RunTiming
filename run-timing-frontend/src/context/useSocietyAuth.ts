@@ -6,10 +6,11 @@ export type SocietyRegisterData =
 
 export interface SocietyAuthContextValue {
     currentSociety: SocietyAccount | null;
-    login:    (email: string, password: string) => SocietyAccount | null;
-    register: (data: SocietyRegisterData) => SocietyAccount | { error: string };
+    login:    (email: string, password: string) => Promise<SocietyAccount | null>;
+    register: (data: SocietyRegisterData) => Promise<SocietyAccount | { error: string }>;
     logout:   () => void;
-    updateSociety: (data: Partial<SocietyAccount>) => void;
+    /** Con il backend restituisce un messaggio d'errore se il salvataggio fallisce. */
+    updateSociety: (data: Partial<SocietyAccount>) => Promise<string | null>;
 }
 
 export const SocietyAuthContext = createContext<SocietyAuthContextValue | null>(null);

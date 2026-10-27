@@ -18,19 +18,17 @@ export default function AthleteLoginPage() {
     const [error,   setError]   = useState('');
     const [loading, setLoading] = useState(false);
 
-    function handleSubmit(e: FormEvent) {
+    async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError('');
         setLoading(true);
-        setTimeout(() => {
-            const result = login(email.trim(), password);
-            setLoading(false);
-            if (!result) {
-                setError('Email o password non corretti.');
-                return;
-            }
-            navigate(redirectTo, { replace: true });
-        }, 300);
+        const result = await login(email.trim(), password);
+        setLoading(false);
+        if (!result) {
+            setError('Email o password non corretti.');
+            return;
+        }
+        navigate(redirectTo, { replace: true });
     }
 
     return (
