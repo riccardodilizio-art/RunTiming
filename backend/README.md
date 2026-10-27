@@ -16,6 +16,17 @@ npm run start:dev             # http://localhost:3000/api
 ```
 Con Docker (dalla root del repo): `docker compose up --build`.
 
+## Prova in locale con dati demo
+1. Nella root del repo crea `.env` con `VITE_USE_API=true`, `ADMIN_EMAIL=…`, `ADMIN_PASSWORD=…` (min. 8 caratteri).
+2. `docker compose up --build` → sito su http://localhost:8080, API su http://localhost:3000/api/health.
+3. `docker compose exec backend node dist/seed.js` → crea due eventi demo (uno con iscrizioni aperte,
+   uno concluso con classifica), iscritti inventati, il codice `DEMO10` e tre account di prova
+   (`organizzatore@runtiming.test`, `atleta@runtiming.test`, `societa@runtiming.test`).
+   La password è stampata a fine comando (o fissala con `DEMO_PASSWORD` nel `.env`).
+   Rieseguibile: ricrea solo i dati demo. In produzione è bloccato.
+
+Nessuna password è scritta nel codice: admin da `.env`, account demo con password generata.
+
 ## Endpoint già presenti
 - `GET  /api/health` — liveness + stato DB
 - **Auth**: `POST /api/auth/register` (solo ATHLETE/SOCIETY) · `POST /api/auth/login` · `GET /api/auth/me` · `POST /api/auth/password`.
