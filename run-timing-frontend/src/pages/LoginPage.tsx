@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { loadUsers } from '../hooks/useAdminStore';
+import { USE_API } from '../lib/api';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -17,22 +18,17 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    function handleSubmit(e: FormEvent) {
+    async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError('');
         setLoading(true);
-
-        // small timeout for UX feel
-        setTimeout(() => {
-            const users = loadUsers();
-            const user = login(username.trim(), password, users);
-            setLoading(false);
-            if (!user) {
-                setError('Credenziali non valide o account disabilitato.');
-                return;
-            }
-            navigate('/admin', { replace: true });
-        }, 300);
+        const user = await login(username.trim(), password, USE_API ? [] : loadUsers());
+        setLoading(false);
+        if (!user) {
+            setError('Credenziali non valide o account disabilitato.');
+            return;
+        }
+        navigate('/admin', { replace: true });
     }
 
     return (
@@ -60,7 +56,7 @@ export default function LoginPage() {
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Username
+                            {USE_API ? 'Email' : 'Username'}
                         </label>
                         <input
                             type="text"
@@ -68,7 +64,7 @@ export default function LoginPage() {
                             value={username}
                             onChange={e => setUsername(e.target.value)}
                             className={inputCls}
-                            placeholder="es. admin"
+                            placeholder={USE_API ? 'nome@esempio.it' : 'es. admin'}
                             required
                         />
                     </div>

@@ -1,0 +1,12 @@
+{
+  "sito": "https://www.timingrun.it",
+  "intervallo_secondi": 60,
+  "gare": [
+    {
+      "nome": "Mezza maratona",
+      "lista_race_result": "http://localhost/_XHLTB/api/CHIAVE_SIMPLE_API_DELLA_LISTA",
+      "id_gara": "ID_GARA_SUL_SITO",
+      "chiave": "CHIAVE_SEMILIVE_GENERATA_DALL_ADMIN"
+    }
+  ]
+}

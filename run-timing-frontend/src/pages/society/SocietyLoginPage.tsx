@@ -13,10 +13,10 @@ export default function SocietyLoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError('');
-        const res = login(email.trim(), password);
+        const res = await login(email.trim(), password);
         if (!res) { setError('Email o password non corretti.'); return; }
         navigate('/societa');
     }

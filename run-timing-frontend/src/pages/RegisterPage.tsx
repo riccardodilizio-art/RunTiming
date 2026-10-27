@@ -5,7 +5,8 @@ import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
     CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck, User,
 } from 'lucide-react';
-import { useAdminStore, saveRegistration, loadRegistrations } from '../hooks/useAdminStore';
+import { useAdminStore, saveRegistration, loadRegistrations, checkDiscountApi } from '../hooks/useAdminStore';
+import { USE_API, api, tokenRole } from '../lib/api';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
@@ -327,7 +328,7 @@ function Summary({
     data: Record<string, string | boolean>;
     appliedDiscount: DiscountCode | null;
     onApplyDiscount: (code: DiscountCode | null) => void;
-    validateCode: (code: string) => DiscountCode | null;
+    validateCode: (code: string) => DiscountCode | null | Promise<DiscountCode | null>;
     assignedCat: RaceCategory | null;
     fidalVerified: boolean;
 }) {
@@ -335,8 +336,9 @@ function Summary({
     const [codeInput, setCodeInput] = useState('');
     const [codeError, setCodeError] = useState('');
 
-    function handleApplyCode() {
-        const result = validateCode(codeInput.trim());
+    async function handleApplyCode() {
+        let result: DiscountCode | null = null;
+        try { result = await validateCode(codeInput.trim()); } catch { result = null; }
         if (!result) {
             setCodeError('Codice non valido, scaduto o esaurito.');
             return;
@@ -723,6 +725,16 @@ export default function RegisterPage() {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
     const [submissionId, setSubmissionId] = useState('');
     const [fidalVerified, setFidalVerified] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Con il backend l'evento arriva dopo il primo render: quando c'è, seleziona
+    // la gara (e salta "Scelta gara" se arrivata dal link) come fa il primo render.
+    const firstRaceId = eventRaces[0]?.id;
+    useEffect(() => {
+        if (!selectedRaceId && firstRaceId) setSelectedRaceId(raceParam ?? firstRaceId);
+        if (startAtData) setStep(st => (st === 0 ? 1 : st));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firstRaceId, startAtData]);
 
     // Scelta FIDAL / non-FIDAL (null = non ancora scelto)
     const [isFidal, setIsFidal] = useState<boolean | null>(null);
@@ -928,9 +940,57 @@ export default function RegisterPage() {
         return Object.keys(newErrors).length === 0;
     }
 
+    /** Valore di un campo del modulo per chiave di catalogo (nome, cognome, …). */
+    function byCatalog(key: CatalogKey): string {
+        const f = fields.find(ff => ff.catalogKey === key);
+        const v = f ? formData[f.id] : undefined;
+        return typeof v === 'string' ? v.trim() : '';
+    }
+
+    /** Invio al backend: il server ricalcola prezzo, categoria e controlli. */
+    async function submitToApi() {
+        if (!selectedRace) return;
+        const anno = byCatalog('anno_nascita');
+        const dataNascita = byCatalog('data_nascita') || (anno ? `${anno}-01-01` : '');
+        const sesso = (byCatalog('sesso') || currentAthlete?.gender || '').toUpperCase();
+        setSubmitting(true);
+        try {
+            const asAthlete = tokenRole() === 'ATHLETE' && !!currentAthlete;
+            const r = await api.post<{ registration: { id: string } }>('/registrations', {
+                raceId: selectedRace.id,
+                formData,
+                discountCode: appliedDiscount?.code,
+                paymentMethod: isFree ? undefined : paymentMethod === 'onsite' ? 'onsite' : 'online',
+                // Atleta con account: anagrafica e tesseramento li prende il server dal profilo
+                affiliationId: asAthlete ? selectedAffId || undefined : undefined,
+                athlete: asAthlete ? undefined : {
+                    nome: byCatalog('nome') || currentAthlete?.name || '',
+                    cognome: byCatalog('cognome') || currentAthlete?.surname || '',
+                    dataNascita: dataNascita || currentAthlete?.birthDate || '',
+                    sesso,
+                    societa: byCatalog('societa') || chosenAff?.societaNome || currentAthlete?.club || undefined,
+                    codiceSocieta: byCatalog('codice_societa') || chosenAff?.codiceSocieta || undefined,
+                    tessera: byCatalog('tessera_fidal') || byCatalog('tessera_runcard') || chosenAff?.numeroTessera || undefined,
+                    email: byCatalog('email') || currentAthlete?.email || undefined,
+                },
+            });
+            setSubmissionId(r.registration.id);
+            setStep(s => s + 1);
+            if (isFidal && !currentAthlete) setTimeout(() => setShowAccountModal(true), 600);
+        } catch (e) {
+            window.alert(e instanceof Error ? e.message : 'Iscrizione non riuscita');
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
     function handleNext() {
         if (step === 0 && !selectedRaceId) return;
         if (step === 1 && !validateForm()) return;
+        if (step === 3 && USE_API) {
+            void submitToApi();
+            return;
+        }
         if (step === 3) {
             // Payment confirmed — submit
             if (!selectedRace || !event) return;
@@ -1203,7 +1263,7 @@ export default function RegisterPage() {
                             data={formData}
                             appliedDiscount={appliedDiscount}
                             onApplyDiscount={setAppliedDiscount}
-                            validateCode={validateDiscountCode}
+                            validateCode={USE_API ? checkDiscountApi : validateDiscountCode}
                             assignedCat={assignedCat}
                             fidalVerified={fidalVerified}
                         />
@@ -1246,7 +1306,7 @@ export default function RegisterPage() {
                             <button
                                 type="button"
                                 onClick={handleNext}
-                                disabled={step === 0 && !selectedRaceId}
+                                disabled={(step === 0 && !selectedRaceId) || submitting}
                                 className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-40 transition-colors"
                             >
                                 {nextLabel}
@@ -1292,16 +1352,16 @@ export default function RegisterPage() {
                         </div>
                         <div className="flex gap-3 mt-5">
                             <button type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                     setAccountError('');
                                     if (!accountEmail || !accountPassword) { setAccountError('Compila email e password.'); return; }
-                                    if (accountPassword.length < 6) { setAccountError('Password troppo corta (min. 6 caratteri).'); return; }
+                                    if (accountPassword.length < 8) { setAccountError('Password troppo corta (min. 8 caratteri).'); return; }
                                     // Recupera i dati dal formData
                                     const nameField   = fields.find(f => f.catalogKey === 'nome');
                                     const surnField   = fields.find(f => f.catalogKey === 'cognome');
                                     const sexField    = fields.find(f => f.catalogKey === 'sesso');
                                     const birthField  = fields.find(f => f.catalogKey === 'data_nascita' || f.catalogKey === 'anno_nascita');
-                                    const res = registerAthlete({
+                                    const res = await registerAthlete({
                                         email:    accountEmail.trim(),
                                         password: accountPassword,
                                         name:     nameField ? String(formData[nameField.id] ?? '') : '',

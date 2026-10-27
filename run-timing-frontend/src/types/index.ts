@@ -71,6 +71,8 @@ export interface RegistrationSubmission {
     fidalVerified?: boolean;
     addedByOrganizer?: boolean;
     athleteAccountId?: string;   // collegato all'account atleta se loggato
+    /** "COGNOME NOME" fornito dal backend (non dipende dai campi del modulo). */
+    athleteName?: string;
     societyId?: string;          // se iscritto da una società (presidente)
     certStatus?: CertStatus;
     certInfo?: CertInfo;
@@ -233,6 +235,8 @@ export interface Race {
     price: number;
     maxParticipants: number;
     participants: number;
+    /** Righe di classifica pubblicate (dal backend): > 0 = classifica disponibile. */
+    resultsCount?: number;
     isOpen: boolean;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];

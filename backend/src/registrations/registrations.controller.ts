@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { Response } from 'express';
-import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
+import { AuthGuard, AuthUser, CurrentUser, OptionalAuthGuard, Roles } from '../common/auth';
 import { RegistrationsService } from './registrations.service';
 import {
     CreateRegistrationDto,
@@ -39,9 +39,10 @@ export class RegistrationsController {
 
     // ─── Utente autenticato ──────────────────────────────────────────────
 
+    /** Con login (atleta, società, staff) oppure come ospite con i dati atleta ed email. */
     @Post('registrations')
-    @UseGuards(AuthGuard)
-    create(@CurrentUser() user: AuthUser, @Body() dto: CreateRegistrationDto) {
+    @UseGuards(OptionalAuthGuard)
+    create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateRegistrationDto) {
         return this.regs.create(user, dto);
     }
 

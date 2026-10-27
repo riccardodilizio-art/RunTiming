@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Settings, Calendar, Tag, UserCheck, LogOut, Check, Database,
 } from 'lucide-react';
-import { useAdminStore } from '../../hooks/useAdminStore';
+import { useAdminStore, ensureEventApi, isEventFull, reportApiError } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
 import { newId } from './adminShared';
 import EventEditor from './EventEditor';
@@ -21,6 +21,8 @@ export default function AdminPage() {
     const [section, setSection] = useState<AdminSection>('gare');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
+    // Dopo un salvataggio l'editor riparte dai dati del server (id definitivi)
+    const [editorVersion, setEditorVersion] = useState(0);
 
     // Organizer sees only their assigned events
     const visibleEvents = isAdmin
@@ -28,6 +30,12 @@ export default function AdminPage() {
         : events.filter(e => canManageEvent(e.id));
 
     const editingEvent = editingId ? events.find(e => e.id === editingId) : null;
+    // Con il backend l'editor parte solo dal dettaglio completo (moduli, quote,
+    // categorie): salvare la versione "leggera" del calendario li cancellerebbe.
+    const editingReady = !!editingEvent && isEventFull(editingEvent.id);
+    useEffect(() => {
+        if (editingEvent && !isEventFull(editingEvent.id)) ensureEventApi(editingEvent.slug).catch(reportApiError);
+    }, [editingEvent]);
 
     const NAV_ITEMS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
         { key: 'gare',   label: 'Gare',    icon: <Calendar className="h-4 w-4" /> },
@@ -39,7 +47,7 @@ export default function AdminPage() {
         ] : []),
     ];
 
-    function createEvent() {
+    async function createEvent() {
         const id = `ev_${newId()}`;
         const slug = `nuovo-evento-${id.slice(-5)}`;
         const newEvent: Event = {
@@ -63,12 +71,14 @@ export default function AdminPage() {
             isLive: false,
             organizer: '',
         };
-        saveEvent(newEvent);
-        setEditingId(id);
+        const created = await saveEvent(newEvent);
+        if (created) setEditingId(created.id);
     }
 
-    function handleSave(event: Event) {
-        saveEvent(event);
+    async function handleSave(event: Event) {
+        const ok = await saveEvent(event);
+        if (!ok) return;
+        setEditorVersion(v => v + 1);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     }
@@ -125,8 +135,11 @@ export default function AdminPage() {
             )}
 
             <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
-                {editingEvent ? (
+                {editingEvent && !editingReady ? (
+                    <p className="text-sm text-slate-500 py-10 text-center">Caricamento evento…</p>
+                ) : editingEvent ? (
                     <EventEditor
+                        key={`${editingEvent.id}-${editorVersion}`}
                         event={editingEvent}
                         onSave={handleSave}
                         onBack={() => setEditingId(null)}

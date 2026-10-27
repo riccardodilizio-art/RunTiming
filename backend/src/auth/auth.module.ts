@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { AuthGuard } from '../common/auth';
+import { AuthGuard, OptionalAuthGuard } from '../common/auth';
 
 // Globale: JwtService e AuthGuard sono usati dai controller di tutti i moduli.
 @Global()
@@ -14,7 +14,7 @@ import { AuthGuard } from '../common/auth';
         }),
     ],
     controllers: [AuthController],
-    providers: [AuthService, AuthGuard],
-    exports: [JwtModule, AuthGuard],
+    providers: [AuthService, AuthGuard, OptionalAuthGuard],
+    exports: [JwtModule, AuthGuard, OptionalAuthGuard, AuthService],
 })
 export class AuthModule {}

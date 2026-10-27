@@ -29,6 +29,9 @@ services:
       DATABASE_URL: postgresql://runtiming:runtiming@db:5432/runtiming
       REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-in-prod
+      # Admin iniziale (dal .env di root): ADMIN_EMAIL=... ADMIN_PASSWORD=...
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       PORT: "3000"
       CORS_ORIGIN: http://localhost:8080
       # Integrazione FIDAL/WISE. Le credenziali arrivano dal file .env di root

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, X, Check, Tag, Percent, Euro, Settings2 } from 'lucide-react';
-import { useAdminStore } from '../../hooks/useAdminStore';
+import { useAdminStore, loadDiscountsApi, reportApiError } from '../../hooks/useAdminStore';
+import { USE_API } from '../../lib/api';
 import type { DiscountCode, CommissionConfig } from '../../types';
 
 const inputCls =
@@ -213,6 +214,7 @@ function CommissionCard() {
 
 export default function DiscountSection() {
     const { discountCodes, saveDiscountCode, deleteDiscountCode } = useAdminStore();
+    useEffect(() => { if (USE_API) loadDiscountsApi().catch(reportApiError); }, []);
     const [modal, setModal] = useState<DiscountCode | null | 'new'>(null);
     const today = new Date().toISOString().slice(0, 10);
 

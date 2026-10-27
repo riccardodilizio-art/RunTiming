@@ -6,3 +6,6 @@
 
 # Log
 *.log
+
+# Chiavi del semi-live (tools/rr-semilive)
+tools/rr-semilive/config.json
