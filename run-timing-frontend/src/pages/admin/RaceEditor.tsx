@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import ImportClassificaModal from './ImportClassificaModal';
 import CertificateEditor from './CertificateEditor';
-import { useAdminStore, loadRaceRegistrationsApi, reportApiError } from '../../hooks/useAdminStore';
+import { useAdminStore, loadRaceRegistrationsApi, reportApiError, createSyncKeyApi } from '../../hooks/useAdminStore';
 import { USE_API, ApiError, download } from '../../lib/api';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
@@ -46,6 +46,17 @@ export default function RaceEditor({
     } = useAdminStore();
     const [draftResults, setDraftResults] = useState<Result[]>(() => getResults(race.id));
     const [resultsSaved, setResultsSaved] = useState(false);
+    const [syncKey, setSyncKey] = useState<string | null>(null);
+
+    async function generateSyncKey() {
+        if (!window.confirm('Generare una nuova chiave semi-live? Quella precedente smetterà di funzionare.')) return;
+        try { setSyncKey((await createSyncKeyApi(race.id)).syncKey); }
+        catch (e) {
+            // Gara appena aggiunta: va prima salvata l'evento
+            if (e instanceof ApiError && e.status === 404) window.alert("Salva prima l'evento, poi genera la chiave.");
+            else reportApiError(e);
+        }
+    }
     const [certFilter, setCertFilter] = useState<'all' | 'in_attesa'>('all');
     const [regSearch, setRegSearch] = useState('');
     const [editingAdminReg, setEditingAdminReg] = useState<RegistrationSubmission | null>(null);
@@ -237,6 +248,14 @@ export default function RaceEditor({
 
             {tab === 'risultati' && (
                 <div className="space-y-4">
+                    {syncKey && (
+                        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-slate-700 space-y-1">
+                            <p className="font-semibold text-red-700">Dati per il semi-live (config.json sul PC di gara)</p>
+                            <p>id_gara: <code className="select-all bg-white px-1 rounded">{race.id}</code></p>
+                            <p>chiave: <code className="select-all bg-white px-1 rounded break-all">{syncKey}</code></p>
+                            <p className="text-slate-500">La chiave si vede solo ora: copiala. Istruzioni in <code>tools/rr-semilive/README.md</code>.</p>
+                        </div>
+                    )}
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-slate-500">
                             Inserisci la classifica finale. La posizione è determinata dall'ordine delle righe.
@@ -249,10 +268,20 @@ export default function RaceEditor({
                             >
                                 <FileSpreadsheet className="h-3.5 w-3.5" /> Importa da Excel
                             </button>
+                            {USE_API && (
+                                <button
+                                    type="button"
+                                    onClick={generateSyncKey}
+                                    title="Per il programma che pubblica la classifica dal PC di gara durante la corsa"
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Chiave semi-live
+                                </button>
+                            )}
                             <button
                                 type="button"
-                                onClick={() => {
-                                    saveResults(race.id, draftResults);
+                                onClick={async () => {
+                                    if (!(await saveResults(race.id, draftResults))) return;
                                     setResultsSaved(true);
                                     setTimeout(() => setResultsSaved(false), 2000);
                                 }}
@@ -356,10 +385,10 @@ export default function RaceEditor({
                     {showImportClassifica && (
                         <ImportClassificaModal
                             onClose={() => setShowImportClassifica(false)}
-                            onImport={results => {
+                            onImport={async results => {
                                 setDraftResults(results);
-                                saveResults(race.id, results);
                                 setShowImportClassifica(false);
+                                if (!(await saveResults(race.id, results))) return;
                                 setResultsSaved(true);
                                 setTimeout(() => setResultsSaved(false), 2000);
                             }}

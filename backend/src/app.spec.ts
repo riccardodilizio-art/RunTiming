@@ -15,6 +15,7 @@ const prismaStub = {
     setting: { findUnique: async () => null },
     discountCode: { findUnique: async () => null },
     event: { count: async () => 0, findMany: async () => [] },
+    race: { findUnique: async () => null },
 };
 
 describe('App (smoke)', () => {
@@ -54,6 +55,13 @@ describe('App (smoke)', () => {
 
     it('staff list senza login → 401', () =>
         request(app.getHttpServer()).get('/api/races/x/registrations').expect(401));
+
+    it('semi-live con chiave sbagliata → 401', () =>
+        request(app.getHttpServer())
+            .post('/api/sync/races/x/results')
+            .set('X-Sync-Key', 'sbagliata')
+            .send({ csv: 'Pos;Atleta;Tempo\n1;ROSSI;40:00' })
+            .expect(401));
 
     it('ruolo sbagliato → 403', () =>
         request(app.getHttpServer()).post('/api/events').set('Authorization', token('ATHLETE')).send({}).expect(403));

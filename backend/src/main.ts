@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    // Classifiche e liste Race Result possono superare il limite di default (100 KB)
+    app.useBodyParser('json', { limit: '25mb' });
     app.setGlobalPrefix('api');
     app.enableCors({
         origin: process.env.CORS_ORIGIN?.split(',') ?? true,

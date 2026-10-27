@@ -39,6 +39,12 @@ Con Docker (dalla root del repo): `docker compose up --build`.
   - `POST /api/events/:slug/verify` — "Verifica iscrizione" (cognome + data di nascita)
   - `GET  /api/races/:id/registrations` · `GET /api/races/:id/export.xlsx` · `PATCH /api/registrations/:id/payment|cert` — staff
 
+- **Classifiche**: `GET /api/races/:id/results` (pubblica, cache 15s, stato `live`/`final`) ·
+  `PUT /api/races/:id/results` (staff, import Excel → ufficiale) · `POST /api/races/:id/sync-key` (staff) ·
+  `POST /api/sync/races/:id/results` (programma semi-live, header `X-Sync-Key`, body `{ csv, status? }`:
+  la lista Race Result in CSV viene convertita lato server riconoscendo le colonne — vedi `src/results/rr-csv.ts`
+  e `tools/rr-semilive/`)
+
 Auth: header `Authorization: Bearer <token>`; `AuthGuard` + `@Roles(...)` in `src/common/auth.ts`.
 Test: `npm test` — regole di prezzo/categoria (`rules.spec.ts`) e smoke test dell'app con auth/ruoli/validazione (`app.spec.ts`).
 

@@ -28,7 +28,7 @@ export interface ApiRace {
     categories?: unknown;
     commission?: unknown;
     certificateTemplate?: unknown;
-    _count?: { registrations: number };
+    _count?: { registrations: number; resultRows?: number };
 }
 
 export interface ApiDay {
@@ -113,6 +113,7 @@ export function toRace(r: ApiRace): Race {
         price: r.price,
         maxParticipants: r.maxParticipants,
         participants: r._count?.registrations ?? 0,
+        resultsCount: r._count?.resultRows,
         isOpen: r.isOpen,
         formSchema: opt(r.formSchema) as Race['formSchema'],
         priceSteps: opt(r.priceSteps) as Race['priceSteps'],

@@ -10,6 +10,7 @@ import { DiscountsModule } from './discounts/discounts.module';
 import { RegistrationsModule } from './registrations/registrations.module';
 import { AccessModule } from './common/access';
 import { ProfilesModule } from './profiles/profiles.module';
+import { ResultsModule } from './results/results.module';
 
 @Module({
     imports: [
@@ -24,7 +25,8 @@ import { ProfilesModule } from './profiles/profiles.module';
         DiscountsModule,
         RegistrationsModule,
         ProfilesModule,
-        // TODO: results (da Race Result), certificates, storage file, payments.
+        ResultsModule,
+        // TODO: storage file (certificati, locandine), pagamenti online.
     ],
 })
 export class AppModule {}

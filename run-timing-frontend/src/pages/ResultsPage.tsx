@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import EventCover from '../components/ui/EventCover';
 import { allRaces, eventStartDate } from '../utils/event';
 import { ChevronLeft, ChevronDown, Search, Trophy, Medal, Award, Users, Repeat, Upload } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
-import { useAdminStore } from '../hooks/useAdminStore';
+import { useAdminStore, loadResultsApi } from '../hooks/useAdminStore';
+import { USE_API } from '../lib/api';
 import { mockResults, raceClassifications } from '../data/mockResults';
 import type { Event, Race, Result, LapSplit } from '../types';
 import CertificateModal from '../components/results/CertificateModal';
@@ -146,8 +147,10 @@ function TableHeader({ isLapRace }: { isLapRace: boolean }) {
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
-    const { events, getResults } = useAdminStore();
-    const pastEvents = events.filter(e => new Date(eventStartDate(e)) < new Date());
+    const { events, getResults, resultsMeta } = useAdminStore();
+    // Eventi già iniziati o con una classifica pubblicata (anche live, il giorno della gara)
+    const pastEvents = events.filter(e =>
+        new Date(eventStartDate(e)) < new Date() || allRaces(e).some(r => (r.resultsCount ?? 0) > 0));
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [selectedRace,  setSelectedRace]  = useState<Race | null>(null);
     const [query,      setQuery]      = useState('');
@@ -159,9 +162,18 @@ export default function ResultsPage() {
     const [expandedBib,  setExpandedBib]  = useState<string | null>(null);
 
     const storedResults = selectedRace ? getResults(selectedRace.id) : [];
-    const results = storedResults.length > 0
+    const results = storedResults.length > 0 || USE_API
         ? storedResults
         : (selectedRace ? (mockResults[selectedRace.id] ?? []) : []);
+    const meta = selectedRace ? resultsMeta[selectedRace.id] : undefined;
+    const isLive = meta?.status === 'live';
+
+    // Classifica live (semi-live dal PC di gara): si aggiorna da sola ogni 30 secondi
+    useEffect(() => {
+        if (!USE_API || !selectedRace || !isLive) return;
+        const t = setInterval(() => { loadResultsApi(selectedRace.id, true).catch(() => undefined); }, 30_000);
+        return () => clearInterval(t);
+    }, [selectedRace, isLive]);
     const finishers = results.filter(r => r.status === 'finisher');
     const specials  = selectedRace ? raceClassifications[selectedRace.id]?.specials : undefined;
     const isLapRace = selectedRace?.raceType !== 'linear';
@@ -230,7 +242,7 @@ export default function ResultsPage() {
 
             <div className="py-8 px-4 text-center" style={{ background: 'linear-gradient(135deg, #7a2510 0%, #e8430a 100%)' }}>
                 <h1 className="font-display font-800 text-3xl md:text-4xl text-white mb-1">Risultati</h1>
-                <p className="text-orange-100 text-sm">Classifiche ufficiali degli eventi conclusi</p>
+                <p className="text-orange-100 text-sm">Classifiche ufficiali e risultati in diretta</p>
             </div>
 
             <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
@@ -285,7 +297,7 @@ export default function ResultsPage() {
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {allRaces(selectedEvent).map(race => {
-                                const hasResults = !!mockResults[race.id]?.length;
+                                const hasResults = (race.resultsCount ?? 0) > 0 || !!mockResults[race.id]?.length;
                                 const isLap = race.raceType !== 'linear';
                                 return (
                                     <button key={race.id}
@@ -326,6 +338,15 @@ export default function ResultsPage() {
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                         <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 leading-tight">{selectedRace.name}</h2>
+                                        {isLive && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                LIVE{meta?.updatedAt ? ` · ${new Date(meta.updatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                            </span>
+                                        )}
+                                        {meta?.status === 'final' && (
+                                            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex-shrink-0">Ufficiale</span>
+                                        )}
                                         {isLapRace && (
                                             <span className="text-xs bg-brand-50 text-brand-600 border border-brand-200 px-2 py-0.5 rounded-full flex-shrink-0">
                                                 {selectedRace.raceType === 'laps_fixed' ? `${selectedRace.totalLaps} giri` : `${selectedRace.timeLimitMinutes} min`}

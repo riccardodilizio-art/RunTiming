@@ -235,6 +235,8 @@ export interface Race {
     price: number;
     maxParticipants: number;
     participants: number;
+    /** Righe di classifica pubblicate (dal backend): > 0 = classifica disponibile. */
+    resultsCount?: number;
     isOpen: boolean;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];

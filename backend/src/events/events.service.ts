@@ -11,7 +11,12 @@ const J = (v: unknown) => (v === undefined ? undefined : v === null ? Prisma.Jso
 
 /** Iscritti attivi per gara (esclusi i rifiutati), per mostrare "posti rimasti". */
 const raceCount = {
-    _count: { select: { registrations: { where: { paymentStatus: { not: PaymentStatus.REJECTED } } } } },
+    _count: {
+        select: {
+            registrations: { where: { paymentStatus: { not: PaymentStatus.REJECTED } } },
+            resultRows: true, // > 0 = classifica pubblicata
+        },
+    },
 } as const;
 
 export function slugify(s: string): string {
