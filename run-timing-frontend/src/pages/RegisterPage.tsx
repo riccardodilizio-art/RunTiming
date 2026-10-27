@@ -10,9 +10,11 @@ import { USE_API, api, tokenRole } from '../lib/api';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
+import { useSocietyAuth } from '../context/useSocietyAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { verifyTessera, searchByName } from '../data/fidalLookup';
+import { certExpiresBeforeEvent } from '../utils/cert';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
 import { assignCategory } from '../types';
@@ -708,6 +710,7 @@ export default function RegisterPage() {
     const { getEvent, commission, validateDiscountCode, applyDiscountCode } = useAdminStore();
     const { currentAthlete, register: registerAthlete } = useAthleteAuth();
     const { isAdmin, isOrganizer, canManageEvent } = useAuth();
+    const { currentSociety } = useSocietyAuth();
 
     const event = slug ? getEvent(slug) : undefined;
     const staffEnroll = !!event && (isAdmin || (isOrganizer && canManageEvent(event.id)));
@@ -726,6 +729,9 @@ export default function RegisterPage() {
     const [submissionId, setSubmissionId] = useState('');
     const [fidalVerified, setFidalVerified] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    // Scadenza certificato dell'atleta selezionato via FIDAL (per il controllo
+    // sulla data evento). WISE non la fornisce: arriva dal dump quando presente.
+    const [fidalCertScadenza, setFidalCertScadenza] = useState<string | undefined>(undefined);
 
     // Con il backend l'evento arriva dopo il primo render: quando c'è, seleziona
     // la gara (e salta "Scelta gara" se arrivata dal link) come fa il primo render.
@@ -843,7 +849,16 @@ export default function RegisterPage() {
         });
         setFormData(prev => ({ ...prev, ...updates }));
         setFidalVerified(true);
+        setFidalCertScadenza(athlete.certScadenza);
     }
+
+    // Scadenza certificato nota (da FIDAL o dall'account) e verifica rispetto
+    // alla DATA DELL'EVENTO: un certificato che scade prima della gara non è valido.
+    const certScadenza = fidalCertScadenza ?? currentAthlete?.certExpiry;
+    const eventDateStr = event ? eventStartDate(event) : undefined;
+    const certExpiredForEvent =
+        !!selectedRace?.requiresMedicalCert &&
+        certExpiresBeforeEvent(certScadenza, eventDateStr);
 
     // Price calculation
     const activeStep = useMemo(() => selectedRace ? getActivePrice(selectedRace).step : undefined, [selectedRace]);
@@ -917,6 +932,27 @@ export default function RegisterPage() {
                         className="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
                     >
                         Vai alla scheda evento
+                    </Link>
+                </div>
+            </main>
+        );
+    }
+
+    // La società non si iscrive come singolo: iscrive i propri atleti dalla dashboard.
+    if (currentSociety) {
+        return (
+            <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+                <div className="text-center max-w-sm bg-white border border-slate-200 rounded-2xl p-8" style={{ boxShadow: '2px 4px 6px 0 #eeeeee' }}>
+                    <p className="font-display font-700 text-lg text-slate-800 mb-2">Sei loggato come società</p>
+                    <p className="text-sm text-slate-500 mb-5">
+                        Iscrivi i tuoi atleti alle gare dalla <strong>dashboard società</strong>,
+                        non come singolo partecipante.
+                    </p>
+                    <Link
+                        to="/societa"
+                        className="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                    >
+                        Vai alla dashboard società
                     </Link>
                 </div>
             </main>
@@ -998,7 +1034,10 @@ export default function RegisterPage() {
             if (appliedDiscount) applyDiscountCode(appliedDiscount.id);
             const needsCert = selectedRace.requiresMedicalCert;
             const fidalReg = fidalVerified || chosenAff?.ente === 'fidal';
+            // Se il certificato scade PRIMA dell'evento non è valido: va rinnovato
+            // e verificato, a prescindere dal tesseramento FIDAL.
             const certStatus = !needsCert ? 'non_richiesto'
+                : certExpiredForEvent ? 'in_attesa'
                 : fidalReg ? 'verificato'               // tesserato FIDAL → cert valido in automatico
                 : certValidFromAccount ? 'verificato'   // cert già ok nell'account
                 : 'in_attesa';
@@ -1171,10 +1210,25 @@ export default function RegisterPage() {
                                     )}
 
                                     {/* Cert già verificato nell'account */}
-                                    {(isFidal === true || currentAthlete) && certValidFromAccount && (
+                                    {(isFidal === true || currentAthlete) && certValidFromAccount && !certExpiredForEvent && (
                                         <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-800">
                                             <ShieldCheck className="h-4 w-4 shrink-0" />
                                             Certificato medico già verificato nel tuo account — nessun documento aggiuntivo richiesto.
+                                        </div>
+                                    )}
+
+                                    {/* Certificato in scadenza prima dell'evento */}
+                                    {certExpiredForEvent && (
+                                        <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-800">
+                                            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                            <span>
+                                                Il certificato medico risulta in scadenza il{' '}
+                                                <strong>{certScadenza ? new Date(certScadenza).toLocaleDateString('it-IT') : '—'}</strong>,
+                                                <strong> prima della data della gara</strong>
+                                                {eventDateStr ? ` (${new Date(eventDateStr).toLocaleDateString('it-IT')})` : ''}.
+                                                Puoi completare l'iscrizione, ma non sarà valida finché non presenti un
+                                                certificato in corso di validità: l'iscrizione resterà in attesa di verifica.
+                                            </span>
                                         </div>
                                     )}
                                 </>

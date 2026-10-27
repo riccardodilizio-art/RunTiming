@@ -10,6 +10,7 @@ import type { Race, ElevationPoint } from '../types';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import { useAdminStore } from '../hooks/useAdminStore';
 import { useAuth } from '../context/useAuth';
+import { useSocietyAuth } from '../context/useSocietyAuth';
 import QuickEnrollModal from '../components/admin/QuickEnrollModal';
 
 function formatDate(iso: string) {
@@ -157,6 +158,7 @@ export default function EventDetailPage() {
     const { slug } = useParams<{ slug: string }>();
     const { getEvent } = useAdminStore();
     const { isAdmin, isOrganizer, canManageEvent } = useAuth();
+    const { currentSociety } = useSocietyAuth();
     const [enrollRace, setEnrollRace] = useState<Race | null>(null);
     const event = getEvent(slug ?? '');
 
@@ -342,6 +344,13 @@ export default function EventDetailPage() {
                                                             >
                                                                 <UserPlus className="w-3.5 h-3.5" /> Iscrivi atleta
                                                             </button>
+                                                        ) : currentSociety ? (
+                                                            <Link
+                                                                to="/societa"
+                                                                className="mt-2 inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                                                            >
+                                                                <UserPlus className="w-3.5 h-3.5" /> Iscrivi i tuoi atleti
+                                                            </Link>
                                                         ) : (
                                                             <Link
                                                                 to={`/events/${event.slug}/register?race=${race.id}`}
@@ -489,6 +498,13 @@ export default function EventDetailPage() {
                                 <p className="text-center text-sm text-brand-700 bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 mb-4">
                                     Modalità staff: usa <strong>Iscrivi atleta</strong> sulle gare per registrare i partecipanti.
                                 </p>
+                            ) : !isPast && openRaces.length > 0 && currentSociety ? (
+                                <Link
+                                    to="/societa"
+                                    className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm mb-4"
+                                >
+                                    Iscrivi i tuoi atleti
+                                </Link>
                             ) : !isPast && openRaces.length > 0 ? (
                                 <p className="text-center text-sm text-slate-500 mb-4">
                                     Scegli una gara e iscriviti

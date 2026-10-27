@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building2, Check, AlertCircle, Users } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
-import { lookupBySociety } from '../../data/mockFidal';
+import { listBySociety } from '../../data/fidalLookup';
 import { fidalToRoster } from './rosterUtils';
 import type { RaceEnte, RosterAthlete } from '../../types';
 
@@ -29,8 +29,8 @@ export default function SocietyRegisterPage() {
         setForm(f => ({ ...f, [k]: v }));
     }
 
-    function loadRoster() {
-        const found = lookupBySociety(form.codiceFidal);
+    async function loadRoster() {
+        const found = await listBySociety(form.codiceFidal);
         setPreview(found.map(fidalToRoster));
     }
 
@@ -41,7 +41,9 @@ export default function SocietyRegisterPage() {
             setError('Compila tutti i campi obbligatori.');
             return;
         }
-        const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal ? lookupBySociety(form.codiceFidal).map(fidalToRoster) : []);
+        const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal
+            ? (await listBySociety(form.codiceFidal)).map(fidalToRoster)
+            : []);
         if (form.password.length < 8) { setError('La password deve essere di almeno 8 caratteri.'); return; }
         const res = await register({
             presidentName: form.presidentName.trim(),

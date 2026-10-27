@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { AthleteAccount } from '../types';
 import { AthleteAuthContext } from './useAthleteAuth';
+import { announceLogin, onExclusiveLogin } from './authBus';
 import {
     loadAthleteAccounts, persistAccounts,
     loadAthleteSession, persistAthleteSession,
@@ -33,7 +34,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
     const login = useCallback(async (email: string, password: string): Promise<AthleteAccount | null> => {
         if (USE_API) {
             const a = await loginAthleteApi(email, password).catch(() => null);
-            if (a) setSession(a);
+            if (a) { setSession(a); announceLogin('athlete'); }
             return a;
         }
         const found = loadAthleteAccounts().find(
@@ -41,6 +42,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
         );
         if (!found) return null;
         setSession(found);
+        announceLogin('athlete');
         return found;
     }, [setSession]);
 
@@ -50,6 +52,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
                 try {
                     const a = await registerAthleteApi(data);
                     setSession(a);
+                    announceLogin('athlete');
                     return a;
                 } catch (e) {
                     return { error: errMsg(e) };
@@ -66,6 +69,7 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
             };
             persistAccounts([...accounts, newAccount]);
             setSession(newAccount);
+            announceLogin('athlete');
             return newAccount;
         },
         [setSession]
@@ -75,6 +79,11 @@ export function AthleteAuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         if (USE_API) setAuthToken(null);
     }, [setSession]);
+
+    // Un'altra identità ha fatto login: chiude solo la sessione atleta locale
+    // (il token del backend ora appartiene a chi è appena entrato).
+    const dropSession = useCallback(() => setSession(null), [setSession]);
+    useEffect(() => onExclusiveLogin('athlete', dropSession), [dropSession]);
 
     const updateProfile = useCallback(async (data: Partial<AthleteAccount>): Promise<string | null> => {
         if (!currentAthlete) return 'Accesso richiesto';
