@@ -167,7 +167,20 @@ model Registration {
   athlete          AthleteProfile? @relation(fields: [athleteId], references: [id])
   athleteId        String?
   societyId        String?
+  // Anagrafica "fotografata" al momento dell'iscrizione: serve per elenco
+  // pubblico, ricerca, verifica iscrizione ed export senza leggere formData.
+  cognome          String
+  nome             String
+  sesso            String
+  dataNascita      DateTime?
+  societa          String?
+  codiceSocieta    String?
+  tessera          String?
+  email            String?
   formData         Json
+  basePrice        Float           @default(0)
+  discountAmount   Float           @default(0)
+  commissionAmount Float           @default(0)
   pricePaid        Float
   discountCode     String?
   paymentMethod    String?
@@ -175,12 +188,20 @@ model Registration {
   assignedCategory String?
   fidalVerified    Boolean         @default(false)
   addedByOrganizer Boolean         @default(false)
+  createdById      String?
   certStatus       CertStatus?
   submittedAt      DateTime        @default(now())
 
-  @@index([raceId])
-  @@index([eventId])
+  @@index([raceId, cognome])
+  @@index([eventId, cognome])
   @@index([societyId])
+  @@index([athleteId])
+}
+
+// Impostazioni globali (es. commissione di default) come chiave → JSON.
+model Setting {
+  key   String @id
+  value Json
 }
 
 // Dataset FIDAL importato (lookup interno, no API esterna).

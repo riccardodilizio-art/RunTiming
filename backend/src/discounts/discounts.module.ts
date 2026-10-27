@@ -1,0 +1,141 @@
+import {
+    Body,
+    ConflictException,
+    Controller,
+    Delete,
+    Get,
+    Injectable,
+    Module,
+    NotFoundException,
+    Param,
+    Patch,
+    Post,
+    UseGuards,
+} from '@nestjs/common';
+import { DiscountCode, Prisma, Role } from '@prisma/client';
+import { IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuthGuard, Roles } from '../common/auth';
+
+export const normCode = (c: string) => c.trim().toUpperCase();
+
+/** Motivo per cui un codice non è utilizzabile, oppure null se valido. */
+export function discountProblem(d: DiscountCode | null, now = new Date()): string | null {
+    if (!d || !d.isActive) return 'Codice sconto non valido';
+    if (d.expiresAt && d.expiresAt < now) return 'Codice sconto scaduto';
+    if (d.maxUses != null && d.usedCount >= d.maxUses) return 'Codice sconto esaurito';
+    return null;
+}
+
+class CreateDiscountDto {
+    @IsString() @MinLength(3) code!: string;
+    @IsOptional() @IsString() description?: string;
+    @IsIn(['fixed', 'percent']) type!: string;
+    @IsNumber() @Min(0) value!: number;
+    @IsOptional() @IsInt() @Min(1) maxUses?: number;
+    @IsOptional() @IsDateString() expiresAt?: string;
+    @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+class UpdateDiscountDto {
+    @IsOptional() @IsString() description?: string;
+    @IsOptional() @IsIn(['fixed', 'percent']) type?: string;
+    @IsOptional() @IsNumber() @Min(0) value?: number;
+    @IsOptional() @IsInt() @Min(1) maxUses?: number;
+    @IsOptional() @IsDateString() expiresAt?: string;
+    @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+@Injectable()
+export class DiscountsService {
+    constructor(private readonly prisma: PrismaService) {}
+
+    list() {
+        return this.prisma.discountCode.findMany({ orderBy: { code: 'asc' } });
+    }
+
+    async create(dto: CreateDiscountDto) {
+        try {
+            return await this.prisma.discountCode.create({
+                data: { ...dto, code: normCode(dto.code), expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null },
+            });
+        } catch (e) {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+                throw new ConflictException('Codice già esistente');
+            }
+            throw e;
+        }
+    }
+
+    async update(id: string, dto: UpdateDiscountDto) {
+        await this.get(id);
+        return this.prisma.discountCode.update({
+            where: { id },
+            data: { ...dto, expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined },
+        });
+    }
+
+    async remove(id: string) {
+        await this.get(id);
+        await this.prisma.discountCode.delete({ where: { id } });
+        return { ok: true };
+    }
+
+    /** Verifica pubblica di un codice: restituisce solo tipo e valore. */
+    async check(code: string) {
+        const d = await this.prisma.discountCode.findUnique({ where: { code: normCode(code) } });
+        const problem = discountProblem(d);
+        if (problem) return { valid: false, message: problem };
+        return { valid: true, code: d!.code, type: d!.type, value: d!.value, description: d!.description };
+    }
+
+    private async get(id: string) {
+        const d = await this.prisma.discountCode.findUnique({ where: { id } });
+        if (!d) throw new NotFoundException('Codice non trovato');
+        return d;
+    }
+}
+
+@Controller('discounts')
+export class DiscountsController {
+    constructor(private readonly discounts: DiscountsService) {}
+
+    @Get('check/:code')
+    check(@Param('code') code: string) {
+        return this.discounts.check(code);
+    }
+
+    @Get()
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    list() {
+        return this.discounts.list();
+    }
+
+    @Post()
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    create(@Body() dto: CreateDiscountDto) {
+        return this.discounts.create(dto);
+    }
+
+    @Patch(':id')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    update(@Param('id') id: string, @Body() dto: UpdateDiscountDto) {
+        return this.discounts.update(id, dto);
+    }
+
+    @Delete(':id')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    remove(@Param('id') id: string) {
+        return this.discounts.remove(id);
+    }
+}
+
+@Module({
+    controllers: [DiscountsController],
+    providers: [DiscountsService],
+})
+export class DiscountsModule {}

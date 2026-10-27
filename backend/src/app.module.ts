@@ -5,6 +5,9 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { EventsModule } from './events/events.module';
 import { FidalModule } from './fidal/fidal.module';
+import { SettingsModule } from './settings/settings.module';
+import { DiscountsModule } from './discounts/discounts.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 
 @Module({
     imports: [
@@ -12,10 +15,13 @@ import { FidalModule } from './fidal/fidal.module';
         PrismaModule,
         HealthModule,
         AuthModule,
+        SettingsModule,
         EventsModule,
         FidalModule,
-        // TODO (moduli successivi, stessa struttura): athletes, registrations,
-        // societies, races, discounts, results, certificates, storage, jobs.
+        DiscountsModule,
+        RegistrationsModule,
+        // TODO (moduli successivi, stessa struttura): athletes, societies,
+        // races (CRUD admin), results, certificates, storage, payments.
     ],
 })
 export class AppModule {}
