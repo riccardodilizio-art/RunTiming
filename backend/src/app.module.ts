@@ -11,6 +11,7 @@ import { RegistrationsModule } from './registrations/registrations.module';
 import { AccessModule } from './common/access';
 import { ProfilesModule } from './profiles/profiles.module';
 import { ResultsModule } from './results/results.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
     imports: [
@@ -26,7 +27,8 @@ import { ResultsModule } from './results/results.module';
         RegistrationsModule,
         ProfilesModule,
         ResultsModule,
-        // TODO: storage file (certificati, locandine), pagamenti online.
+        PaymentsModule,
+        // TODO: storage file (certificati, locandine), email.
     ],
 })
 export class AppModule {}

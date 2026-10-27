@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 import type { Response } from 'express';
 import { AuthGuard, AuthUser, CurrentUser, OptionalAuthGuard, Roles } from '../common/auth';
 import { RegistrationsService } from './registrations.service';
+import { PayMethod } from './rules';
 import {
     CreateRegistrationDto,
     ListQueryDto,
@@ -18,10 +19,11 @@ export class RegistrationsController {
 
     // ─── Pubbliche ───────────────────────────────────────────────────────
 
-    /** Prezzo attuale (quota + sconto + commissione). GET /api/races/:id/quote?code=XYZ */
+    /** Prezzo attuale (quota + sconto + commissione + maggiorazione del metodo). ?code=XYZ&method=bank */
     @Get('races/:id/quote')
-    quote(@Param('id') id: string, @Query('code') code?: string) {
-        return this.regs.quote(id, code);
+    quote(@Param('id') id: string, @Query('code') code?: string, @Query('method') method?: string) {
+        const m = ['paypal', 'bank', 'onsite'].includes(method ?? '') ? (method as PayMethod) : undefined;
+        return this.regs.quote(id, code, m);
     }
 
     /** Elenco iscritti pubblico paginato, cache 60s (CDN/browser). */

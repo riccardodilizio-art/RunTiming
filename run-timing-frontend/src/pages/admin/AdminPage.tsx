@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Tag, UserCheck, Check, Database } from 'lucide-react';
+import { Calendar, Tag, UserCheck, Check, Database, Euro } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAdminStore, ensureEventApi, isEventFull, reportApiError } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
@@ -10,9 +10,10 @@ import AccountsSection from './AccountsSection';
 import DiscountSection from './DiscountSection';
 import UsersSection from './UsersSection';
 import FidalImportSection from './FidalImportSection';
+import PaymentsSection from './PaymentsSection';
 import type { Event } from '../../types';
 
-type AdminSection = 'gare' | 'account' | 'sconti' | 'utenti' | 'fidal';
+type AdminSection = 'gare' | 'pagamenti' | 'account' | 'sconti' | 'utenti' | 'fidal';
 
 export default function AdminPage() {
     const { events, saveEvent, deleteEvent } = useAdminStore();
@@ -39,6 +40,7 @@ export default function AdminPage() {
     const NAV_ITEMS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
         { key: 'gare',   label: 'Gare',    icon: <Calendar className="h-4 w-4" /> },
         ...(isAdmin ? [
+            { key: 'pagamenti' as AdminSection, label: 'Pagamenti', icon: <Euro className="h-4 w-4" /> },
             { key: 'account' as AdminSection, label: 'Account atleti',   icon: <UserCheck className="h-4 w-4" /> },
             { key: 'sconti'  as AdminSection, label: 'Sconti',           icon: <Tag className="h-4 w-4" /> },
             { key: 'utenti'  as AdminSection, label: 'Organizzatori',    icon: <UserCheck className="h-4 w-4" /> },
@@ -108,6 +110,8 @@ export default function AdminPage() {
                         onBack={() => setEditingId(null)}
                         isAdmin={isAdmin}
                     />
+                ) : section === 'pagamenti' ? (
+                    <PaymentsSection />
                 ) : section === 'account' ? (
                     <AccountsSection />
                 ) : section === 'sconti' ? (

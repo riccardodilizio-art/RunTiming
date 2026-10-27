@@ -34,6 +34,12 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Dati demo: `docker compose exec backend node dist/seed.js` (solo ambiente locale)
       ALLOW_DEMO_SEED: "true"
+      # Sviluppo locale: aggiorna lo schema del DB senza fermarsi (MAI in produzione)
+      DB_PUSH_ACCEPT_DATA_LOSS: "true"
+      # Pagamenti PayPal (dal .env di root): sandbox per le prove
+      PAYPAL_ENV: ${PAYPAL_ENV:-sandbox}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       PORT: "3000"
       CORS_ORIGIN: http://localhost:8080

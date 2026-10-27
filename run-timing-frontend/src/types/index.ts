@@ -65,7 +65,10 @@ export interface RegistrationSubmission {
     pricePaid: number;
     discountCode?: string;
     discountAmount?: number;
-    paymentMethod?: 'paypal' | 'card' | 'free' | 'manual';
+    /** paypal comprende le carte; bank = bonifico; card = solo dati del prototipo */
+    paymentMethod?: 'paypal' | 'bank' | 'onsite' | 'card' | 'free' | 'manual';
+    /** Codice pagamento (causale bonifico / link di pagamento) */
+    paymentRef?: string;
     paymentStatus: PaymentStatus;
     assignedCategory?: string;
     fidalVerified?: boolean;

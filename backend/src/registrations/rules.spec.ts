@@ -1,5 +1,7 @@
 import {
     activePrice,
+    allowedMethods,
+    paymentFee,
     assignCategory,
     checkAge,
     commissionAmount,
@@ -78,4 +80,23 @@ describe('età e categorie', () => {
 it('normName e todayRome', () => {
     expect(normName('  de  rossi ')).toBe('DE ROSSI');
     expect(todayRome(new Date('2026-10-26T23:30:00Z'))).toBe('2026-10-27');
+});
+
+describe('maggiorazioni metodo di pagamento', () => {
+    const fees = { bankFee: 1, paypalPercent: 3.4, paypalFixed: 0.35 };
+    it('bonifico +1 €, PayPal/carta 3,4% + 0,35 €, sul posto nulla', () => {
+        expect(paymentFee('bank', 20, fees)).toBe(1);
+        expect(paymentFee('paypal', 20, fees)).toBe(1.03);
+        expect(paymentFee('onsite', 20, fees)).toBe(0);
+        expect(paymentFee('bank', 0, fees)).toBe(0); // gratuita
+    });
+    it('metodi ammessi: anticipato obbligatorio vs facoltativo', () => {
+        expect(allowedMethods('online')).toEqual(['paypal', 'bank']);
+        expect(allowedMethods('both')).toEqual(['paypal', 'bank', 'onsite']);
+        expect(allowedMethods('onsite')).toEqual(['onsite']);
+    });
+    it('quote con bonifico: quota + sconto + 1 €', () => {
+        const q = quote({ basePrice: 20, today: '2026-01-01', commissions: {}, discount: { type: 'fixed', value: 2 }, method: 'bank', fees });
+        expect(q).toMatchObject({ afterDiscount: 18, subtotal: 18, paymentFee: 1, total: 19 });
+    });
 });

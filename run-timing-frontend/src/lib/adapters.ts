@@ -80,6 +80,7 @@ export interface ApiRegistration {
     discountAmount?: number;
     discountCode?: string | null;
     paymentMethod?: string | null;
+    paymentRef?: string | null;
     paymentStatus: 'PENDING' | 'CONFIRMED' | 'REJECTED';
     assignedCategory?: string | null;
     fidalVerified: boolean;
@@ -170,7 +171,8 @@ export function toRegistration(r: ApiRegistration): RegistrationSubmission {
         pricePaid: r.pricePaid,
         discountCode: opt(r.discountCode),
         discountAmount: r.discountAmount || undefined,
-        paymentMethod: (r.paymentMethod === 'online' ? 'card' : r.paymentMethod ?? undefined) as RegistrationSubmission['paymentMethod'],
+        paymentMethod: (r.paymentMethod === 'online' ? 'paypal' : r.paymentMethod ?? undefined) as RegistrationSubmission['paymentMethod'],
+        paymentRef: r.paymentRef ?? undefined,
         paymentStatus: PAY[r.paymentStatus],
         assignedCategory: opt(r.assignedCategory),
         fidalVerified: r.fidalVerified,
