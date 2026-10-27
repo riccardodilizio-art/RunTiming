@@ -63,6 +63,9 @@ describe('App (smoke)', () => {
             .send({ csv: 'Pos;Atleta;Tempo\n1;ROSSI;40:00' })
             .expect(401));
 
+    it('import FIDAL senza login → 401', () =>
+        request(app.getHttpServer()).post('/api/fidal/import').expect(401));
+
     it('ruolo sbagliato → 403', () =>
         request(app.getHttpServer()).post('/api/events').set('Authorization', token('ATHLETE')).send({}).expect(403));
 

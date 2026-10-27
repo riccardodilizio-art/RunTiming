@@ -1,7 +1,8 @@
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { AppUser } from '../types';
 import { AuthContext } from './useAuth';
 import { USE_API, api, setAuthToken, tokenRole } from '../lib/api';
+import { announceLogin, onExclusiveLogin } from './authBus';
 
 // ─── Admin della modalità dimostrativa (senza backend) ───────────────────────
 // Nessuna password nel codice: in modalità demo l'admin esiste solo se
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 };
                 setCurrentUser(user);
                 persistSession(user);
+                announceLogin('admin');
                 return user;
             } catch {
                 return null;
@@ -74,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!found) return null;
         setCurrentUser(found);
         persistSession(found);
+        announceLogin('admin');
         return found;
     }, []);
 
@@ -82,6 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persistSession(null);
         if (USE_API) setAuthToken(null);
     }, []);
+
+    // Un'altra identità ha fatto login: chiude solo la sessione staff locale
+    // (non il token del backend, che ora appartiene a chi è appena entrato).
+    const dropSession = useCallback(() => {
+        setCurrentUser(null);
+        persistSession(null);
+    }, []);
+    useEffect(() => onExclusiveLogin('admin', dropSession), [dropSession]);
 
     const canManageEvent = useCallback((eventId: string): boolean => {
         if (!currentUser) return false;

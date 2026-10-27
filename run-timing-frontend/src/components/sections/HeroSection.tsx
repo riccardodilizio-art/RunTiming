@@ -1,6 +1,15 @@
-import { useNavigate } from 'react-router-dom';
-import { Search, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, ArrowRight, Footprints, Mountain, Bike, Activity, Waves } from 'lucide-react';
 import { useState } from 'react';
+
+// Scorciatoie di scoperta per sport (stile ENDU): portano agli eventi filtrati.
+const SPORT_LINKS = [
+    { value: 'running',   label: 'Running',   Icon: Footprints },
+    { value: 'trail',     label: 'Trail',     Icon: Mountain },
+    { value: 'cycling',   label: 'Ciclismo',  Icon: Bike },
+    { value: 'triathlon', label: 'Triathlon', Icon: Activity },
+    { value: 'swimming',  label: 'Nuoto',     Icon: Waves },
+];
 
 // 5 sport photos pulled from the same Unsplash source already used in the app
 const HERO_PHOTOS = [
@@ -103,6 +112,19 @@ export default function HeroSection() {
                         Cerca <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                 </form>
+
+                {/* Scorciatoie per sport */}
+                <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg mx-auto">
+                    {SPORT_LINKS.map(({ value, label, Icon }) => (
+                        <Link
+                            key={value}
+                            to={`/events?cat=${value}`}
+                            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-medium px-3.5 py-2 rounded-full border border-white/20 backdrop-blur-sm transition-colors"
+                        >
+                            <Icon className="w-3.5 h-3.5" /> {label}
+                        </Link>
+                    ))}
+                </div>
             </div>
         </section>
     );

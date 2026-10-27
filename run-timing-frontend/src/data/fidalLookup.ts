@@ -6,7 +6,19 @@
 // al dataset locale così l'iscrizione non si blocca mai.
 
 import { api, USE_API } from '../lib/api';
-import { lookupByName, lookupByTessera, type FidalAthlete } from './mockFidal';
+import { lookupByName, lookupBySociety, lookupByTessera, type FidalAthlete } from './mockFidal';
+import { dsLookupByTessera } from './fidalDataset';
+
+/**
+ * WISE (real-time) NON restituisce la scadenza del certificato; il dump FIDAL
+ * importato sì. Se manca, la recuperiamo dal dump locale per tessera, così la
+ * validità rispetto alla data evento è verificabile.
+ */
+function enrichCertScadenza(a: FidalAthlete): FidalAthlete {
+    if (a.certScadenza) return a;
+    const local = dsLookupByTessera(a.tessera);
+    return local?.certScadenza ? { ...a, certScadenza: local.certScadenza } : a;
+}
 
 interface VerifyResponse {
     tessera: string;
@@ -34,12 +46,27 @@ export async function verifyTessera(tessera: string): Promise<FidalAthlete | nul
     if (USE_API) {
         try {
             const r = await api.get<VerifyResponse>(`/fidal/verifica?tessera=${encodeURIComponent(tessera)}`);
-            return r.atleta ? normalize(r.atleta) : null; // risposta valida: nessun fallback
+            return r.atleta ? enrichCertScadenza(normalize(r.atleta)) : null; // risposta valida: nessun fallback
         } catch {
             return lookupByTessera(tessera); // API irraggiungibile → dataset locale
         }
     }
     return lookupByTessera(tessera);
+}
+
+/** Elenca gli atleti di una società per codice FIDAL (per popolare il roster). */
+export async function listBySociety(codiceSocieta: string): Promise<FidalAthlete[]> {
+    if (USE_API) {
+        try {
+            const list = await api.get<(Partial<FidalAthlete> & { tessera: string })[]>(
+                `/fidal/societa/${encodeURIComponent(codiceSocieta)}`,
+            );
+            return list.map(normalize);
+        } catch {
+            return lookupBySociety(codiceSocieta);
+        }
+    }
+    return lookupBySociety(codiceSocieta);
 }
 
 /** Cerca atleti per cognome (+ nome opzionale). */

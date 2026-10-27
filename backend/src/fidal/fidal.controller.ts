@@ -1,11 +1,15 @@
-import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
+import {
+    BadRequestException, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { AuthGuard, Roles } from '../common/auth';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
 
 // API pulita esposta al frontend. Il frontend chiama SEMPRE queste rotte, mai
 // WISE direttamente (che è HTTP, cookie-based e cross-origin).
-//
-// TODO: proteggere con guard RBAC (admin/organizzatore) quando l'auth sarà
-// cablata su tutti i moduli.
+// Le ricerche restano pubbliche (servono all'iscrizione senza account);
+// gli import del database FIDAL sono riservati all'admin.
 @Controller('fidal')
 export class FidalController {
     constructor(private readonly fidal: FidalService) {}
@@ -41,5 +45,31 @@ export class FidalController {
     societa(@Param('codice') codice: string) {
         if (!codice?.trim()) throw new BadRequestException('Codice società mancante');
         return this.fidal.listBySociety(codice.trim());
+    }
+
+    /**
+     * POST /api/fidal/import — dump tesseramenti FIDAL atleti (.csv o .xlsx)
+     * come campo "file" (multipart). Fonte di scadenza cert e data di nascita.
+     */
+    @Post('import')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
+    importDump(@UploadedFile() file?: Express.Multer.File) {
+        if (!file?.buffer?.length) throw new BadRequestException('File dump mancante');
+        return this.fidal.importDump(file.buffer, file.originalname);
+    }
+
+    /**
+     * POST /api/fidal/import-societa — anagrafica società FIDAL (.csv) come
+     * campo "file" (multipart). Fornisce la denominazione reale per codice.
+     */
+    @Post('import-societa')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+    importSocieties(@UploadedFile() file?: Express.Multer.File) {
+        if (!file?.buffer?.length) throw new BadRequestException('File società mancante');
+        return this.fidal.importSocieties(file.buffer);
     }
 }

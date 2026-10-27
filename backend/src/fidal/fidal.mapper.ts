@@ -16,6 +16,8 @@ export interface FidalAthleteDto {
     categoria: string;
     codiceSocieta: string;
     societa: string;       // qui abbiamo solo codici: arricchito altrove con la denominazione
+    /** Scadenza certificato (ISO YYYY-MM-DD). WISE non la fornisce: arriva dal dump. */
+    certScadenza?: string | null;
 }
 
 interface RawAtleta {

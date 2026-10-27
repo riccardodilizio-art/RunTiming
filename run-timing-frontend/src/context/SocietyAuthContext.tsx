@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { SocietyAccount } from '../types';
 import { SocietyAuthContext, type SocietyRegisterData } from './useSocietyAuth';
+import { announceLogin, onExclusiveLogin } from './authBus';
 import {
     loadSocietyAccounts, persistSocietyAccounts,
     loadSocietySession, persistSocietySession,
@@ -31,7 +32,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
     const login = useCallback(async (email: string, password: string): Promise<SocietyAccount | null> => {
         if (USE_API) {
             const s = await loginSocietyApi(email, password).catch(() => null);
-            if (s) setSession(s);
+            if (s) { setSession(s); announceLogin('society'); }
             return s;
         }
         const found = loadSocietyAccounts().find(
@@ -39,6 +40,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         );
         if (!found) return null;
         setSession(found);
+        announceLogin('society');
         return found;
     }, [setSession]);
 
@@ -47,6 +49,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
             try {
                 const s = await registerSocietyApi(data);
                 setSession(s);
+                announceLogin('society');
                 return s;
             } catch (e) {
                 return { error: errMsg(e) };
@@ -64,6 +67,7 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         };
         persistSocietyAccounts([...accounts, newAccount]);
         setSession(newAccount);
+        announceLogin('society');
         return newAccount;
     }, [setSession]);
 
@@ -71,6 +75,10 @@ export function SocietyAuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         if (USE_API) setAuthToken(null);
     }, [setSession]);
+
+    // Un'altra identità ha fatto login: chiude solo la sessione società locale.
+    const dropSession = useCallback(() => setSession(null), [setSession]);
+    useEffect(() => onExclusiveLogin('society', dropSession), [dropSession]);
 
     const updateSociety = useCallback(async (data: Partial<SocietyAccount>): Promise<string | null> => {
         if (!currentSociety) return 'Accesso richiesto';

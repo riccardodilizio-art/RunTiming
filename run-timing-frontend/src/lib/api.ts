@@ -87,6 +87,20 @@ export async function download(path: string, fileName: string): Promise<void> {
     URL.revokeObjectURL(url);
 }
 
+/** Upload multipart (file) verso il backend. */
+export async function apiUpload<T>(path: string, file: File, field = 'file'): Promise<T> {
+    const fd = new FormData();
+    fd.append(field, file);
+    const headers: Record<string, string> = {};
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE}/api${path}`, { method: 'POST', body: fd, headers });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new ApiError(res.status, errorMessage(text, res.statusText));
+    }
+    return (await res.json()) as T;
+}
+
 export const api = {
     get:   <T>(path: string) => request<T>(path),
     post:  <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST',  body: body !== undefined ? JSON.stringify(body) : undefined }),

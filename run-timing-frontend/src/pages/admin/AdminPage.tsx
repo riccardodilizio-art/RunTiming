@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-    Settings, Calendar, Tag, UserCheck, LogOut, Check, Database,
-} from 'lucide-react';
+import { Calendar, Tag, UserCheck, Check, Database } from 'lucide-react';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAdminStore, ensureEventApi, isEventFull, reportApiError } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
 import { newId } from './adminShared';
@@ -84,57 +83,21 @@ export default function AdminPage() {
     }
 
     return (
-        <main className="min-h-screen bg-slate-50">
-            {/* Top bar */}
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Settings className="h-5 w-5 text-brand-600" />
-                    <span className="font-semibold text-slate-800 text-lg">
-                        {isAdmin ? 'Admin Panel' : 'Pannello Organizzatore'}
-                    </span>
-                </div>
-                <div className="flex items-center gap-3">
-                    {saved && (
-                        <span className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                            <Check className="h-4 w-4" /> Salvato
-                        </span>
-                    )}
-                    <span className="hidden sm:block text-sm text-slate-500">
-                        {currentUser?.displayName}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={logout}
-                        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
-                    >
-                        <LogOut className="h-4 w-4" /> Esci
-                    </button>
-                </div>
-            </div>
-
-            {/* Navigation tabs */}
-            {!editingEvent && (
-                <div className="bg-white border-b border-slate-200 px-4 sm:px-8">
-                    <div className="flex gap-1 max-w-5xl mx-auto">
-                        {NAV_ITEMS.map(item => (
-                            <button
-                                key={item.key}
-                                type="button"
-                                onClick={() => setSection(item.key)}
-                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                                    section === item.key
-                                        ? 'border-brand-600 text-brand-700'
-                                        : 'border-transparent text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
+        <DashboardLayout
+            title={isAdmin ? 'Admin Panel' : 'Organizzatore'}
+            subtitle={currentUser?.displayName}
+            items={NAV_ITEMS}
+            active={section}
+            onSelect={k => { setSection(k as AdminSection); setEditingId(null); }}
+            userLabel={currentUser?.displayName}
+            onLogout={logout}
+        >
             <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+                {saved && (
+                    <div className="mb-4 flex items-center gap-1.5 text-sm text-green-600 font-medium">
+                        <Check className="h-4 w-4" /> Salvato
+                    </div>
+                )}
                 {editingEvent && !editingReady ? (
                     <p className="text-sm text-slate-500 py-10 text-center">Caricamento evento…</p>
                 ) : editingEvent ? (
@@ -163,6 +126,6 @@ export default function AdminPage() {
                     />
                 )}
             </div>
-        </main>
+        </DashboardLayout>
     );
 }
