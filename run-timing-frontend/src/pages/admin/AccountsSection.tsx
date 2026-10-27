@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     ShieldCheck, ShieldX, ShieldAlert, Search, User, Mail, X, BadgeCheck, Info,
 } from 'lucide-react';
 import { loadAthleteAccounts, updateAthleteAccount } from '../../context/athleteAccounts';
-import { syncAthleteRegistrationsCert } from '../../hooks/useAdminStore';
+import { syncAthleteRegistrationsCert, reportApiError } from '../../hooks/useAdminStore';
+import { USE_API } from '../../lib/api';
+import { decideCertApi, listAthletesApi } from '../../lib/accounts';
 import { hasFidalAffiliation } from '../../utils/cert';
 import type { AthleteAccount, CertStatus } from '../../types';
 
@@ -92,17 +94,24 @@ function RejectModal({
 // ─── AccountsSection ──────────────────────────────────────────────────────────
 
 export default function AccountsSection() {
-    const [accounts, setAccounts] = useState<AthleteAccount[]>(() => loadAthleteAccounts());
+    const [accounts, setAccounts] = useState<AthleteAccount[]>(() => USE_API ? [] : loadAthleteAccounts());
     const [search, setSearch]       = useState('');
     const [certFilter, setCertFilter] = useState<CertFilter>('tutti');
     const [rejectingAccount, setRejectingAccount] = useState<AthleteAccount | null>(null);
     const [emailSentFor, setEmailSentFor]         = useState<string | null>(null);
 
     function reload() {
+        if (USE_API) { listAthletesApi().then(setAccounts).catch(reportApiError); return; }
         setAccounts(loadAthleteAccounts());
     }
+    useEffect(() => { if (USE_API) reload(); }, []);
 
-    function approveCert(account: AthleteAccount) {
+    async function approveCert(account: AthleteAccount) {
+        if (USE_API) {
+            try { await decideCertApi(account.id, 'verificato'); } catch (e) { reportApiError(e); }
+            reload();
+            return;
+        }
         updateAthleteAccount(account.id, {
             certStatus: 'verificato',
             certRejectionReason: undefined,
@@ -111,7 +120,14 @@ export default function AccountsSection() {
         reload();
     }
 
-    function rejectCert(account: AthleteAccount, reason: string) {
+    async function rejectCert(account: AthleteAccount, reason: string) {
+        if (USE_API) {
+            // Il motivo per ora non viene salvato sul server: va comunicato all'atleta
+            try { await decideCertApi(account.id, 'rifiutato'); } catch (e) { reportApiError(e); }
+            setRejectingAccount(null);
+            reload();
+            return;
+        }
         updateAthleteAccount(account.id, {
             certStatus: 'rifiutato',
             certRejectionReason: reason,

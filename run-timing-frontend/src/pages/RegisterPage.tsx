@@ -6,7 +6,7 @@ import {
     CreditCard, X, Percent, Euro, Search, ShieldCheck, UserCheck, User,
 } from 'lucide-react';
 import { useAdminStore, saveRegistration, loadRegistrations, checkDiscountApi } from '../hooks/useAdminStore';
-import { USE_API, api } from '../lib/api';
+import { USE_API, api, tokenRole } from '../lib/api';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
@@ -955,12 +955,15 @@ export default function RegisterPage() {
         const sesso = (byCatalog('sesso') || currentAthlete?.gender || '').toUpperCase();
         setSubmitting(true);
         try {
+            const asAthlete = tokenRole() === 'ATHLETE' && !!currentAthlete;
             const r = await api.post<{ registration: { id: string } }>('/registrations', {
                 raceId: selectedRace.id,
                 formData,
                 discountCode: appliedDiscount?.code,
                 paymentMethod: isFree ? undefined : paymentMethod === 'onsite' ? 'onsite' : 'online',
-                athlete: {
+                // Atleta con account: anagrafica e tesseramento li prende il server dal profilo
+                affiliationId: asAthlete ? selectedAffId || undefined : undefined,
+                athlete: asAthlete ? undefined : {
                     nome: byCatalog('nome') || currentAthlete?.name || '',
                     cognome: byCatalog('cognome') || currentAthlete?.surname || '',
                     dataNascita: dataNascita || currentAthlete?.birthDate || '',
@@ -1349,16 +1352,16 @@ export default function RegisterPage() {
                         </div>
                         <div className="flex gap-3 mt-5">
                             <button type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                     setAccountError('');
                                     if (!accountEmail || !accountPassword) { setAccountError('Compila email e password.'); return; }
-                                    if (accountPassword.length < 6) { setAccountError('Password troppo corta (min. 6 caratteri).'); return; }
+                                    if (accountPassword.length < 8) { setAccountError('Password troppo corta (min. 8 caratteri).'); return; }
                                     // Recupera i dati dal formData
                                     const nameField   = fields.find(f => f.catalogKey === 'nome');
                                     const surnField   = fields.find(f => f.catalogKey === 'cognome');
                                     const sexField    = fields.find(f => f.catalogKey === 'sesso');
                                     const birthField  = fields.find(f => f.catalogKey === 'data_nascita' || f.catalogKey === 'anno_nascita');
-                                    const res = registerAthlete({
+                                    const res = await registerAthlete({
                                         email:    accountEmail.trim(),
                                         password: accountPassword,
                                         name:     nameField ? String(formData[nameField.id] ?? '') : '',

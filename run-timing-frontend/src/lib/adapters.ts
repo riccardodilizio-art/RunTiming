@@ -175,6 +175,7 @@ export function toRegistration(r: ApiRegistration): RegistrationSubmission {
         fidalVerified: r.fidalVerified,
         addedByOrganizer: r.addedByOrganizer,
         athleteAccountId: opt(r.athleteId),
+        athleteName: `${r.cognome} ${r.nome}`.trim() || undefined,
         societyId: opt(r.societyId),
         certStatus: r.certStatus ? CERT[r.certStatus] : undefined,
     };

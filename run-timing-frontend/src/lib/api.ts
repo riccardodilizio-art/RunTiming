@@ -69,7 +69,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         throw new ApiError(res.status, errorMessage(text, res.statusText));
     }
     if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    const text = await res.text(); // risposta vuota (es. profilo non ancora creato) → null
+    return (text ? JSON.parse(text) : null) as T;
 }
 
 /** Scarica un file binario autenticato (es. export Excel). */

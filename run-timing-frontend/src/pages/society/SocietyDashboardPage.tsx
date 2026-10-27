@@ -4,7 +4,8 @@ import {
     Building2, LogOut, Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw,
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
-import { useAdminStore, saveRegistration } from '../../hooks/useAdminStore';
+import { useAdminStore, saveRegistration, loadMyRegistrationsApi, reportApiError, ensureEventApi } from '../../hooks/useAdminStore';
+import { USE_API, api } from '../../lib/api';
 import { allRaces } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
@@ -55,6 +56,17 @@ export default function SocietyDashboardPage() {
         if (!currentSociety) navigate('/societa/accedi', { replace: true });
     }, [currentSociety, navigate]);
 
+    // Con il backend: storico iscrizioni della società dal server
+    useEffect(() => {
+        if (USE_API && currentSociety) loadMyRegistrationsApi().catch(reportApiError);
+    }, [currentSociety]);
+
+    /** Salva il roster; con il backend mostra l'eventuale errore del server. */
+    async function saveRoster(next: RosterAthlete[]) {
+        const err = await updateSociety({ roster: next });
+        if (err) window.alert(err);
+    }
+
     const roster = currentSociety?.roster ?? [];
 
     // Storico iscrizioni della società
@@ -68,6 +80,7 @@ export default function SocietyDashboardPage() {
         [registrations, currentSociety?.id]
     );
     function regAthleteName(reg: RegistrationSubmission): string {
+        if (reg.athleteName) return reg.athleteName;
         const info = raceMap[reg.raceId];
         const fs = info?.race.formSchema ?? [];
         const cog = fs.find(x => x.catalogKey === 'cognome');
@@ -81,12 +94,12 @@ export default function SocietyDashboardPage() {
         if (!currentSociety) return;
         const exists = roster.some(r => r.id === ath.id);
         const next = exists ? roster.map(r => r.id === ath.id ? ath : r) : [...roster, ath];
-        updateSociety({ roster: next });
+        void saveRoster(next);
         setEditing(null);
     }
     function removeAthlete(id: string) {
         if (!currentSociety) return;
-        updateSociety({ roster: roster.filter(r => r.id !== id) });
+        void saveRoster(roster.filter(r => r.id !== id));
     }
     function reimportFidal() {
         if (!currentSociety?.codiceFidal) return;
@@ -95,7 +108,7 @@ export default function SocietyDashboardPage() {
         const key = (a: RosterAthlete) => `${a.nome}|${a.cognome}|${a.dataNascita}`.toLowerCase();
         const existing = new Set(roster.map(key));
         const toAdd = imported.filter(a => !existing.has(key(a)));
-        updateSociety({ roster: [...roster, ...toAdd] });
+        void saveRoster([...roster, ...toAdd]);
         setReimported(toAdd.length);
         setTimeout(() => setReimported(0), 3000);
     }
@@ -347,9 +360,49 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
         });
     }
 
+    // Con il backend serve il dettaglio della gara (modulo) per costruire i dati
+    useEffect(() => {
+        if (USE_API && event) ensureEventApi(event.slug).catch(reportApiError);
+    }, [event]);
+    const [sending, setSending] = useState(false);
+
+    /** Con il backend: un'iscrizione per atleta; il server applica tutti i controlli. */
+    async function confirmApi(chosen: RosterAthlete[]) {
+        if (!race) return;
+        setSending(true);
+        const failed: string[] = [];
+        let ok = 0;
+        for (const ath of chosen) {
+            const aff = pickAffiliationForEnte(ath.affiliations, race.ente);
+            try {
+                await api.post('/registrations', {
+                    raceId: race.id,
+                    formData: buildFormData(race, ath, societaNome),
+                    paymentMethod: 'manual',
+                    athlete: {
+                        nome: ath.nome,
+                        cognome: ath.cognome,
+                        dataNascita: ath.dataNascita,
+                        sesso: ath.sesso,
+                        tessera: aff?.numeroTessera || undefined,
+                        codiceSocieta: aff?.codiceSocieta || undefined,
+                    },
+                });
+                ok++;
+            } catch (e) {
+                failed.push(`${ath.cognome} ${ath.nome}: ${e instanceof Error ? e.message : 'errore'}`);
+            }
+        }
+        setSending(false);
+        loadMyRegistrationsApi().catch(() => undefined);
+        if (failed.length) window.alert(`Non iscritti:\n${failed.join('\n')}`);
+        setDone(ok);
+    }
+
     function confirm() {
         if (!event || !race) return;
         const chosen = roster.filter(a => selected.has(a.id));
+        if (USE_API) { void confirmApi(chosen); return; }
         chosen.forEach(ath => {
             const formData = buildFormData(race, ath, societaNome);
             const birthYear = ath.dataNascita ? new Date(ath.dataNascita).getFullYear() : 0;
@@ -441,7 +494,7 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                             <span className="text-sm text-slate-500">
                                 {race ? `${(race.price * selected.size).toFixed(2)} € totali (da saldare)` : ''}
                             </span>
-                            <button disabled={!race || selected.size === 0} onClick={confirm}
+                            <button disabled={!race || selected.size === 0 || sending} onClick={confirm}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50">
                                 <Plus className="h-4 w-4" /> Iscrivi {selected.size > 0 ? selected.size : ''}
                             </button>

@@ -149,6 +149,11 @@ export class ProfilesService {
         if (certStatus === CertStatus.VERIFICATO && (!p.certType || !p.certExpiry)) {
             throw new BadRequestException("L'atleta non ha inserito un certificato");
         }
+        // Le iscrizioni dell'atleta in attesa del certificato seguono la decisione
+        await this.prisma.registration.updateMany({
+            where: { athleteId: id, certStatus: CertStatus.IN_ATTESA },
+            data: { certStatus },
+        });
         return this.prisma.athleteProfile.update({ where: { id }, data: { certStatus } });
     }
 
