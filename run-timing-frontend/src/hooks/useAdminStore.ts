@@ -65,7 +65,11 @@ const athletesStore      = createLocalStore<Athlete[]>('rt_athletes', []);
 const discountsStore     = createLocalStore<DiscountCode[]>('rt_discount_codes', [], LOCAL);
 const commissionStore    = createLocalStore<CommissionConfig>('rt_commission', DEFAULT_COMMISSION, LOCAL);
 const registrationsStore = createLocalStore<RegistrationSubmission[]>('rt_registrations', [], LOCAL);
-const resultsStore       = createLocalStore<Record<string, Result[]>>('rt_results', {});
+const resultsStore       = createLocalStore<Record<string, Result[]>>('rt_results', {}, LOCAL);
+
+/** Stato della classifica per gara (solo backend): live = provvisoria dal semi-live, final = ufficiale. */
+export interface ResultsMeta { status: 'live' | 'final' | null; updatedAt: string | null; source?: string }
+const resultsMetaStore   = createLocalStore<Record<string, ResultsMeta>>('rt_results_meta', {}, false);
 const usersStore         = createLocalStore<AppUser[]>('rt_users', []);
 
 // ─── Sincronizzazione con il backend (solo USE_API) ──────────────────────────
@@ -206,6 +210,24 @@ export function loadEntrantsApi(event: Event): Promise<void> {
     });
 }
 
+const loadedResults = new Set<string>();
+
+/** Classifica pubblica di una gara. `force` per gli aggiornamenti durante la gara (live). */
+export function loadResultsApi(raceId: string, force = false): Promise<void> {
+    if (!force && loadedResults.has(raceId)) return Promise.resolve();
+    loadedResults.add(raceId);
+    return once(`results:${raceId}`, async () => {
+        const r = await api.get<ResultsMeta & { results: Result[] }>(`/races/${raceId}/results`);
+        resultsStore.set({ ...resultsStore.getSnapshot(), [raceId]: r.results });
+        resultsMetaStore.set({ ...resultsMetaStore.getSnapshot(), [raceId]: { status: r.status, updatedAt: r.updatedAt, source: r.source } });
+    });
+}
+
+/** Admin: genera la chiave del programma semi-live per una gara (la precedente smette di valere). */
+export function createSyncKeyApi(raceId: string): Promise<{ raceId: string; syncKey: string }> {
+    return api.post(`/races/${raceId}/sync-key`);
+}
+
 async function loadCommissionApi() {
     commissionStore.set(await api.get<CommissionConfig>('/settings/commission'));
 }
@@ -293,6 +315,7 @@ export function useAdminStore() {
     const commission    = useSyncExternalStore(commissionStore.subscribe, commissionStore.getSnapshot);
     const registrations = useSyncExternalStore(registrationsStore.subscribe, registrationsStore.getSnapshot);
     const resultsMap    = useSyncExternalStore(resultsStore.subscribe, resultsStore.getSnapshot);
+    const resultsMeta   = useSyncExternalStore(resultsMetaStore.subscribe, resultsMetaStore.getSnapshot);
     const users         = useSyncExternalStore(usersStore.subscribe, usersStore.getSnapshot);
 
     useEffect(bootstrapApi, []);
@@ -487,11 +510,20 @@ export function useAdminStore() {
     }
 
     // Results
-    function saveResults(raceId: string, results: Result[]) {
-        resultsStore.set({ ...resultsMap, [raceId]: results });
+    /** Pubblica la classifica (con il backend come UFFICIALE: il semi-live non la sovrascrive più). */
+    async function saveResults(raceId: string, results: Result[]): Promise<boolean> {
+        if (USE_API) {
+            try {
+                await api.put(`/races/${raceId}/results`, { status: 'final', results });
+            } catch (e) { reportApiError(e); return false; }
+            resultsMetaStore.set({ ...resultsMetaStore.getSnapshot(), [raceId]: { status: 'final', updatedAt: new Date().toISOString(), source: 'upload' } });
+        }
+        resultsStore.set({ ...resultsStore.getSnapshot(), [raceId]: results });
+        return true;
     }
 
     function getResults(raceId: string): Result[] {
+        if (USE_API) loadResultsApi(raceId).catch(() => { /* gara senza classifica */ });
         return resultsMap[raceId] ?? [];
     }
 
@@ -522,7 +554,7 @@ export function useAdminStore() {
         getRegistrations, getRegistrationsByEvent, getRegistrationsByRace,
         updatePaymentStatus, updateCertStatus, updateRegistration, deleteRegistration,
         // results
-        saveResults, getResults,
+        saveResults, getResults, resultsMeta,
         // users
         users, saveUser, deleteUser,
     };

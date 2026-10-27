@@ -143,6 +143,8 @@ model Race {
   categories          Json?
   commission          Json?
   certificateTemplate Json?
+  /// Chiave segreta per il programma semi-live (invio classifiche dal PC di gara)
+  syncKey             String?        @unique
   registrations       Registration[]
   resultRows          ResultRow[]
 }
@@ -221,9 +223,13 @@ model FidalAthlete {
 
 model ResultUpload {
   id            String      @id @default(cuid())
-  raceId        String
+  raceId        String      @unique
   fileName      String
   columnMapping Json
+  /// live = provvisoria (semi-live durante la gara), final = ufficiale
+  status        String      @default("final")
+  /// upload = Excel dall'admin, sync = programma semi-live
+  source        String      @default("upload")
   uploadedAt    DateTime    @default(now())
   rows          ResultRow[]
 }
