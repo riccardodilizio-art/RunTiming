@@ -3,17 +3,23 @@ import type { AppUser } from '../types';
 import { AuthContext } from './useAuth';
 import { USE_API, api, setAuthToken, tokenRole } from '../lib/api';
 
-// ─── Default admin user (solo prototipo senza backend) ───────────────────────
+// ─── Admin della modalità dimostrativa (senza backend) ───────────────────────
+// Nessuna password nel codice: in modalità demo l'admin esiste solo se
+// VITE_DEMO_ADMIN_USER e VITE_DEMO_ADMIN_PASSWORD sono impostate nel .env locale.
+// Con il backend (VITE_USE_API=true) l'accesso è solo con gli account veri.
 
-const DEFAULT_ADMIN: AppUser = {
-    id: 'admin',
-    username: 'admin',
-    password: 'admin123',
-    displayName: 'Amministratore',
-    role: 'admin',
-    assignedEventIds: [],
-    isActive: true,
-};
+const DEMO_ADMIN: AppUser | null =
+    import.meta.env.VITE_DEMO_ADMIN_USER && import.meta.env.VITE_DEMO_ADMIN_PASSWORD
+        ? {
+            id: 'admin',
+            username: import.meta.env.VITE_DEMO_ADMIN_USER,
+            password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
+            displayName: 'Amministratore',
+            role: 'admin',
+            assignedEventIds: [],
+            isActive: true,
+        }
+        : null;
 
 // ─── LS helpers ───────────────────────────────────────────────────────────────
 
@@ -61,8 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return null;
             }
         }
-        // always check default admin first
-        const allUsers = [DEFAULT_ADMIN, ...users.filter(u => u.id !== 'admin')];
+        const allUsers = [...(DEMO_ADMIN ? [DEMO_ADMIN] : []), ...users.filter(u => u.id !== 'admin')];
         const found = allUsers.find(
             u => u.username === username && u.password === password && u.isActive
         );
