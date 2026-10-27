@@ -107,11 +107,11 @@ export class RegistrationsService {
 
     // ─── Creazione ──────────────────────────────────────────────────────────
 
-    async create(user: AuthUser, dto: CreateRegistrationDto) {
+    async create(user: AuthUser | undefined, dto: CreateRegistrationDto) {
         const race = await this.race(dto.raceId);
         const event = race.day.event;
-        const isStaff = user.role === Role.ADMIN || user.role === Role.ORGANIZER;
-        if (isStaff) await this.assertCanManage(user, event.id, event.createdById);
+        const isStaff = !!user && (user.role === Role.ADMIN || user.role === Role.ORGANIZER);
+        if (isStaff) await this.assertCanManage(user!, event.id, event.createdById);
         if (!race.isOpen && !isStaff) throw new BadRequestException('Iscrizioni chiuse per questa gara');
 
         const { athlete, athleteId, societyId } = await this.resolveAthlete(user, race, dto);
@@ -217,7 +217,7 @@ export class RegistrationsService {
                     assignedCategory: category?.name,
                     fidalVerified: athlete.fidalVerified,
                     addedByOrganizer: isStaff,
-                    createdById: user.sub,
+                    createdById: user?.sub,
                     certStatus,
                 },
             });
@@ -226,10 +226,10 @@ export class RegistrationsService {
     }
 
     /** Ricava l'anagrafica in base a chi sta iscrivendo. */
-    private async resolveAthlete(user: AuthUser, race: RaceWithEvent, dto: CreateRegistrationDto) {
+    private async resolveAthlete(user: AuthUser | undefined, race: RaceWithEvent, dto: CreateRegistrationDto) {
         const ente = (race.ente ?? '').toLowerCase();
 
-        if (user.role === Role.ATHLETE) {
+        if (user?.role === Role.ATHLETE) {
             const p = await this.prisma.athleteProfile.findUnique({
                 where: { accountId: user.sub },
                 include: { affiliations: true },
@@ -260,10 +260,11 @@ export class RegistrationsService {
 
         if (!dto.athlete) throw new BadRequestException('Dati atleta mancanti');
         const a = dto.athlete;
+        if (!user && !a.email) throw new BadRequestException("Indica un'email per ricevere la conferma");
         let societyId: string | undefined;
         let societa = a.societa;
         let codiceSocieta = a.codiceSocieta;
-        if (user.role === Role.SOCIETY) {
+        if (user?.role === Role.SOCIETY) {
             const s = await this.prisma.society.findUnique({ where: { accountId: user.sub } });
             if (!s) throw new BadRequestException('Profilo società non trovato');
             societyId = s.id;
@@ -281,7 +282,7 @@ export class RegistrationsService {
             tessera: a.tessera,
             email: a.email,
             // Solo lo staff può dichiarare "verificato" (es. dopo controllo WISE)
-            fidalVerified: !!a.fidalVerified && user.role !== Role.SOCIETY,
+            fidalVerified: !!a.fidalVerified && (user?.role === Role.ADMIN || user?.role === Role.ORGANIZER),
             certValid: false,
         };
         return { athlete, athleteId: undefined, societyId };

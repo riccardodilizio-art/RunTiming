@@ -5,7 +5,8 @@ export interface AuthContextValue {
     currentUser: AppUser | null;
     isAdmin: boolean;
     isOrganizer: boolean;
-    login: (username: string, password: string, users: AppUser[]) => AppUser | null;
+    /** Con il backend: email + password verificate dal server. */
+    login: (username: string, password: string, users: AppUser[]) => Promise<AppUser | null>;
     logout: () => void;
     canManageEvent: (eventId: string) => boolean;
 }

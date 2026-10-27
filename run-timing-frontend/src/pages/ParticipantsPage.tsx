@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { allRaces, eventStartDate } from '../utils/event';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Users, Eye, Search, X } from 'lucide-react';
-import { useAdminStore } from '../hooks/useAdminStore';
+import { useAdminStore, loadEntrantsApi, isEventFull, reportApiError } from '../hooks/useAdminStore';
+import { USE_API } from '../lib/api';
 import { categoryLabels, categoryColors } from '../data/mockEvents';
 import type { FormField, RegistrationSubmission, PublicColumn } from '../types';
 
@@ -190,6 +191,11 @@ export default function ParticipantsPage() {
     const { slug } = useParams<{ slug: string }>();
     const { getEvent, registrations } = useAdminStore();
     const event = getEvent(slug ?? '');
+    // Con il backend: elenco pubblico dal server, appena c'è il dettaglio evento (campi del modulo)
+    const eventReady = !!event && isEventFull(event.id);
+    useEffect(() => {
+        if (USE_API && event && eventReady) loadEntrantsApi(event).catch(reportApiError);
+    }, [event, eventReady]);
 
     const [filters, setFilters] = useState<Filters>({ text: '', category: '', societa: '' });
 

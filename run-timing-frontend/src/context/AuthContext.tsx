@@ -1,8 +1,9 @@
 import { useState, useCallback, type ReactNode } from 'react';
 import type { AppUser } from '../types';
 import { AuthContext } from './useAuth';
+import { USE_API, api, setAuthToken, tokenRole } from '../lib/api';
 
-// ─── Default admin user (always exists) ──────────────────────────────────────
+// ─── Default admin user (solo prototipo senza backend) ───────────────────────
 
 const DEFAULT_ADMIN: AppUser = {
     id: 'admin',
@@ -19,6 +20,8 @@ const DEFAULT_ADMIN: AppUser = {
 const LS_SESSION_KEY = 'rt_session';
 
 function loadSession(): AppUser | null {
+    // Con il backend la sessione staff vale solo se c'è ancora un token staff
+    if (USE_API && tokenRole() !== 'ADMIN' && tokenRole() !== 'ORGANIZER') return null;
     try {
         const raw = localStorage.getItem(LS_SESSION_KEY);
         return raw ? JSON.parse(raw) : null;
@@ -35,7 +38,29 @@ function persistSession(user: AppUser | null) {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<AppUser | null>(() => loadSession());
 
-    const login = useCallback((username: string, password: string, users: AppUser[]): AppUser | null => {
+    const login = useCallback(async (username: string, password: string, users: AppUser[]): Promise<AppUser | null> => {
+        if (USE_API) {
+            try {
+                const r = await api.post<{ accessToken: string; role: string }>('/auth/login', { email: username, password });
+                if (r.role !== 'ADMIN' && r.role !== 'ORGANIZER') return null; // atleti e società hanno il loro accesso
+                setAuthToken(r.accessToken);
+                const me = await api.get<{ id: string; email: string; role: string; displayName?: string | null; assignedEventIds: string[] }>('/auth/me');
+                const user: AppUser = {
+                    id: me.id,
+                    username: me.email,
+                    password: '',
+                    displayName: me.displayName || me.email,
+                    role: me.role === 'ADMIN' ? 'admin' : 'organizer',
+                    assignedEventIds: me.assignedEventIds,
+                    isActive: true,
+                };
+                setCurrentUser(user);
+                persistSession(user);
+                return user;
+            } catch {
+                return null;
+            }
+        }
         // always check default admin first
         const allUsers = [DEFAULT_ADMIN, ...users.filter(u => u.id !== 'admin')];
         const found = allUsers.find(
@@ -50,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = useCallback(() => {
         setCurrentUser(null);
         persistSession(null);
+        if (USE_API) setAuthToken(null);
     }, []);
 
     const canManageEvent = useCallback((eventId: string): boolean => {
