@@ -39,6 +39,8 @@ model Account {
   passwordHash    String
   /// Incrementato a ogni cambio password: invalida i login già emessi
   tokenVersion    Int             @default(0)
+  /// Account disattivato dall'admin (es. organizzatore che non collabora più): niente accesso
+  disabled        Boolean         @default(false)
   role            Role
   displayName     String?
   assignedEventIds String[]       // eventi gestibili (organizer)
@@ -46,6 +48,40 @@ model Account {
   athlete         AthleteProfile?
   society         Society?
   createdEvents   Event[]         @relation("OrganizerEvents")
+  passwordResets  PasswordReset[]
+}
+
+/// Link "password dimenticata": nel DB solo l'impronta del token, valido 1 ora, monouso.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([accountId])
+}
+
+/// Coda delle email: si scrivono qui e un processo le invia (con nuovi tentativi
+/// se il servizio non risponde). dedupeKey evita doppioni (es. un solo promemoria).
+model EmailOutbox {
+  id        String    @id @default(cuid())
+  to        String
+  subject   String
+  html      String
+  text      String
+  kind      String    // iscrizione | pagamento | promemoria | annullamento | password
+  dedupeKey String?   @unique
+  status    String    @default("pending") // pending | sending | sent | failed | disabled
+  attempts  Int       @default(0)
+  lastError String?
+  sendAfter DateTime  @default(now())
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, sendAfter])
 }
 
 model AthleteProfile {
@@ -164,6 +200,8 @@ model DiscountCode {
   usedCount   Int       @default(0)
   expiresAt   DateTime?
   isActive    Boolean   @default(true)
+  /// Evento su cui vale il codice (vuoto = tutti gli eventi)
+  eventId     String?
 }
 
 model Registration {
@@ -194,6 +232,10 @@ model Registration {
   /// Codice pagamento univoco: causale del bonifico e chiave per pagare in seguito
   paymentRef       String?         @unique
   paypalOrderId    String?         @unique
+  /// Importo e maggiorazione dell'ordine PayPal al momento della creazione: all'incasso
+  /// si confronta con questi (non con le tariffe attuali, che l'admin può cambiare)
+  paypalAmount     Float?
+  paypalFee        Float?
   paidAt           DateTime?
   discountCode     String?
   paymentMethod    String?
@@ -204,6 +246,8 @@ model Registration {
   createdById      String?
   certStatus       CertStatus?
   submittedAt      DateTime        @default(now())
+  /// Promemoria di pagamento già inviato (gare a pagamento anticipato)
+  reminderSentAt   DateTime?
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])

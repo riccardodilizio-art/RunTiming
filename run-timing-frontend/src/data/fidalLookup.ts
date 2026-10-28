@@ -50,16 +50,17 @@ function rethrowIfServerAnswered(e: unknown) {
 export const FIDAL_SEARCH_ROLES = ['ADMIN', 'ORGANIZER'];
 
 /**
- * Verifica un atleta per numero tessera. Con l'API serve anche il cognome:
- * il server risponde solo se tessera e cognome corrispondono, così la tessera
- * da sola non basta a leggere i dati di qualcun altro.
+ * Verifica un atleta per numero tessera. Con l'API servono anche cognome e data
+ * di nascita: il server risponde solo se corrispondono tutti e tre, così chi
+ * conosce solo la tessera non può leggere i dati di qualcun altro.
  */
-export async function verifyTessera(tessera: string, cognome = ''): Promise<FidalAthlete | null> {
+export async function verifyTessera(tessera: string, cognome = '', dataNascita = ''): Promise<FidalAthlete | null> {
     if (USE_API) {
         try {
-            const q = new URLSearchParams({ tessera, cognome });
+            const q = new URLSearchParams({ tessera, cognome, dataNascita });
             const r = await api.get<VerifyResponse>(`/fidal/verifica?${q.toString()}`);
-            return r.atleta ? enrichCertScadenza(normalize(r.atleta)) : null; // risposta valida: nessun fallback
+            // La data di nascita il server non la rimanda (la conosce già chi chiede)
+            return r.atleta ? enrichCertScadenza(normalize({ ...r.atleta, dataNascita })) : null; // risposta valida: nessun fallback
         } catch (e) {
             if (e instanceof ApiError && e.status === 404) return null;
             rethrowIfServerAnswered(e);

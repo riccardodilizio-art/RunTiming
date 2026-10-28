@@ -61,7 +61,7 @@ const DEFAULT_COMMISSION: CommissionConfig = { fixedFee: 0, percentFee: 0, appli
 // del server: niente localStorage, la fonte di verità è il database.
 const LOCAL = !USE_API;
 const eventsStore        = createLocalStore<Event[]>('rt_admin_events', [], LOCAL);
-const athletesStore      = createLocalStore<Athlete[]>('rt_athletes', []);
+const athletesStore      = createLocalStore<Athlete[]>('rt_athletes', [], LOCAL);
 const discountsStore     = createLocalStore<DiscountCode[]>('rt_discount_codes', [], LOCAL);
 const commissionStore    = createLocalStore<CommissionConfig>('rt_commission', DEFAULT_COMMISSION, LOCAL);
 const registrationsStore = createLocalStore<RegistrationSubmission[]>('rt_registrations', [], LOCAL);
@@ -70,7 +70,7 @@ const resultsStore       = createLocalStore<Record<string, Result[]>>('rt_result
 /** Stato della classifica per gara (solo backend): live = provvisoria dal semi-live, final = ufficiale. */
 export interface ResultsMeta { status: 'live' | 'final' | null; updatedAt: string | null; source?: string }
 const resultsMetaStore   = createLocalStore<Record<string, ResultsMeta>>('rt_results_meta', {}, false);
-const usersStore         = createLocalStore<AppUser[]>('rt_users', []);
+const usersStore         = createLocalStore<AppUser[]>('rt_users', [], LOCAL);
 
 // ─── Sincronizzazione con il backend (solo USE_API) ──────────────────────────
 
@@ -233,7 +233,8 @@ async function loadCommissionApi() {
     commissionStore.set(await api.get<CommissionConfig>('/settings/commission'));
 }
 
-interface ApiDiscount extends Omit<DiscountCode, 'expiresAt' | 'maxUses' | 'description' | 'type'> {
+interface ApiDiscount extends Omit<DiscountCode, 'expiresAt' | 'maxUses' | 'description' | 'type' | 'eventId'> {
+    eventId?: string | null;
     type: DiscountCode['type'];
     description?: string | null;
     maxUses?: number | null;
@@ -241,6 +242,7 @@ interface ApiDiscount extends Omit<DiscountCode, 'expiresAt' | 'maxUses' | 'desc
 }
 const toDiscount = (d: ApiDiscount): DiscountCode => ({
     ...d,
+    eventId: d.eventId ?? undefined,
     description: d.description ?? undefined,
     maxUses: d.maxUses ?? undefined,
     expiresAt: d.expiresAt ? d.expiresAt.slice(0, 10) : undefined,
@@ -254,9 +256,9 @@ export function loadDiscountsApi(): Promise<void> {
 }
 
 /** Verifica pubblica di un codice sconto (il prezzo finale lo calcola comunque il server). */
-export async function checkDiscountApi(code: string): Promise<DiscountCode | null> {
+export async function checkDiscountApi(code: string, raceId?: string): Promise<DiscountCode | null> {
     const r = await api.get<{ valid: boolean; code?: string; type?: DiscountCode['type']; value?: number; description?: string }>(
-        `/discounts/check/${encodeURIComponent(code)}`,
+        `/discounts/check/${encodeURIComponent(code)}${raceId ? `?gara=${encodeURIComponent(raceId)}` : ''}`,
     );
     if (!r.valid || !r.code || !r.type) return null;
     return { id: r.code, code: r.code, type: r.type, value: r.value ?? 0, description: r.description, usedCount: 0, isActive: true };
@@ -406,6 +408,7 @@ export function useAdminStore() {
                 maxUses: code.maxUses || undefined,
                 expiresAt: code.expiresAt || undefined,
                 isActive: code.isActive,
+                eventId: code.eventId ?? '',
             };
             try {
                 const exists = discountCodes.some(c => c.id === code.id);

@@ -18,6 +18,7 @@ import AdminPage from './pages/admin/AdminPage';
 import LoginPage from './pages/LoginPage';
 import OrganizerPage from './pages/OrganizerPage';
 import AthleteLoginPage from './pages/AthleteLoginPage';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages';
 import AthleteRegisterPage from './pages/AthleteRegisterPage';
 import AthleteDashboardPage from './pages/AthleteDashboardPage';
 import SocietyRegisterPage from './pages/society/SocietyRegisterPage';
@@ -50,6 +51,8 @@ function Shell() {
                     <Route path="/pagamento/:ref" element={<PaymentPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/accedi" element={<AthleteLoginPage />} />
+                    <Route path="/password-dimenticata" element={<ForgotPasswordPage />} />
+                    <Route path="/reimposta-password" element={<ResetPasswordPage />} />
                     <Route path="/registrati" element={<AthleteRegisterPage />} />
                     <Route path="/profilo" element={<AthleteDashboardPage />} />
                     <Route path="/admin" element={

@@ -9,3 +9,8 @@
 
 # Chiavi del semi-live (tools/rr-semilive)
 tools/rr-semilive/config.json
+
+# Python / IDE
+__pycache__/
+*.pyc
+.idea/

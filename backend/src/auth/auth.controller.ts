@@ -4,7 +4,7 @@ import { assertHuman } from '../common/captcha';
 import { Role } from '@prisma/client';
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
-import { AuthGuard, AuthUser, CurrentUser } from '../common/auth';
+import { AuthGuard, AuthUser, CurrentUser, ThrottlePerIp } from '../common/auth';
 
 class RegisterDto {
     @IsEmail() email!: string;
@@ -18,11 +18,21 @@ class RegisterDto {
 
 class LoginDto {
     @IsEmail() email!: string;
-    @IsString() password!: string;
+    @IsString() @MaxLength(128) password!: string;
+}
+
+class ForgotPasswordDto {
+    @IsEmail() email!: string;
+    @IsOptional() @IsString() @MaxLength(2048) captchaToken?: string;
+}
+
+class ResetPasswordDto {
+    @IsString() @MinLength(20) @MaxLength(200) token!: string;
+    @IsString() @MinLength(8) @MaxLength(128) password!: string;
 }
 
 class ChangePasswordDto {
-    @IsString() current!: string;
+    @IsString() @MaxLength(128) current!: string;
     @IsString() @MinLength(8) @MaxLength(128) next!: string;
 }
 
@@ -31,6 +41,7 @@ export class AuthController {
     constructor(private readonly auth: AuthService) {}
 
     @Post('register')
+    @ThrottlePerIp()
     @Throttle({ default: { limit: 5, ttl: 60_000 } })
     async register(@Body() dto: RegisterDto, @Ip() ip: string) {
         await assertHuman(dto.captchaToken, ip);
@@ -38,9 +49,26 @@ export class AuthController {
     }
 
     @Post('login')
+    @ThrottlePerIp()
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
-    login(@Body() dto: LoginDto) {
-        return this.auth.login(dto.email, dto.password);
+    login(@Body() dto: LoginDto, @Ip() ip: string) {
+        return this.auth.login(dto.email, dto.password, ip);
+    }
+
+    /** "Password dimenticata": risponde sempre ok (non rivela se l'email esiste). */
+    @Post('password/forgot')
+    @ThrottlePerIp()
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
+    async forgot(@Body() dto: ForgotPasswordDto, @Ip() ip: string) {
+        await assertHuman(dto.captchaToken, ip);
+        return this.auth.forgotPassword(dto.email);
+    }
+
+    @Post('password/reset')
+    @ThrottlePerIp()
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    reset(@Body() dto: ResetPasswordDto) {
+        return this.auth.resetPassword(dto.token, dto.password);
     }
 
     @Get('me')
@@ -50,6 +78,7 @@ export class AuthController {
     }
 
     @Post('password')
+    @ThrottlePerIp()
     @Throttle({ default: { limit: 5, ttl: 60_000 } })
     @UseGuards(AuthGuard)
     changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {

@@ -49,7 +49,7 @@ export default function CertificateCanvas({
             className="relative w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 select-none"
             style={{
                 aspectRatio: '1.414 / 1',
-                backgroundImage: template.backgroundUrl ? `url(${template.backgroundUrl})` : undefined,
+                backgroundImage: template.backgroundUrl && /^(https:\/\/|\/(?!\/)|data:image\/)/i.test(template.backgroundUrl) ? `url(${JSON.stringify(template.backgroundUrl)})` : undefined,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
             }}

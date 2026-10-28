@@ -45,6 +45,14 @@ export function jwtSecret(): string {
 }
 
 const ROLES_KEY = 'roles';
+export const PER_IP_KEY = 'throttle_per_ip';
+
+/**
+ * Limite di richieste sempre per IP, anche con un login: per le rotte dove un
+ * account (che si crea gratis) non deve dare più tentativi (accesso, password…).
+ */
+export const ThrottlePerIp = (opts: { staffExempt?: boolean } = {}) =>
+    SetMetadata(PER_IP_KEY, opts.staffExempt ? 'staff-exempt' : true);
 
 /** Limita la rotta ai ruoli indicati. Senza @Roles basta essere autenticati. */
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
@@ -80,9 +88,9 @@ export class TokenVerifier {
         }
         const acc = await this.prisma.account.findUnique({
             where: { id: p.sub },
-            select: { id: true, email: true, role: true, tokenVersion: true },
+            select: { id: true, email: true, role: true, tokenVersion: true, disabled: true },
         });
-        if (!acc || (p.tv ?? 0) !== acc.tokenVersion) {
+        if (!acc || acc.disabled || (p.tv ?? 0) !== acc.tokenVersion) {
             throw new UnauthorizedException('Sessione scaduta o non valida');
         }
         return { sub: acc.id, email: acc.email, role: acc.role };
@@ -101,7 +109,8 @@ export class AuthGuard implements CanActivate {
         const req = ctx.switchToHttp().getRequest();
         const token = bearer(req);
         if (!token) throw new UnauthorizedException('Accesso richiesto');
-        req.user = await this.tokens.verify(token);
+        // Già verificato in questa richiesta (limite richieste o body grande): niente seconda lettura del DB
+        req.user = req.__throttleUser ?? await this.tokens.verify(token);
         const roles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, [
             ctx.getHandler(),
             ctx.getClass(),
@@ -121,7 +130,7 @@ export class OptionalAuthGuard implements CanActivate {
     async canActivate(ctx: ExecutionContext): Promise<boolean> {
         const req = ctx.switchToHttp().getRequest();
         const token = bearer(req);
-        if (token) req.user = await this.tokens.verify(token);
+        if (token) req.user = req.__throttleUser ?? await this.tokens.verify(token);
         return true;
     }
 }

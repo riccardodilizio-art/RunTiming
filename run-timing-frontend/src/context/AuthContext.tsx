@@ -10,7 +10,7 @@ import { announceLogin, onExclusiveLogin } from './authBus';
 // Con il backend (VITE_USE_API=true) l'accesso è solo con gli account veri.
 
 const DEMO_ADMIN: AppUser | null =
-    import.meta.env.VITE_DEMO_ADMIN_USER && import.meta.env.VITE_DEMO_ADMIN_PASSWORD
+    !USE_API && import.meta.env.VITE_DEMO_ADMIN_USER && import.meta.env.VITE_DEMO_ADMIN_PASSWORD
         ? {
             id: 'admin',
             username: import.meta.env.VITE_DEMO_ADMIN_USER,

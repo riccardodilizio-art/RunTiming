@@ -24,6 +24,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime
 
@@ -39,6 +40,12 @@ def load_config(path: str) -> dict:
         cfg = json.load(f)
     if not cfg.get("sito") or not cfg.get("gare"):
         raise SystemExit("config.json: servono 'sito' e almeno una voce in 'gare'")
+    # La chiave della gara viaggia con ogni invio: solo connessioni cifrate
+    # (http consentito solo verso questo stesso PC, per le prove)
+    u = urllib.parse.urlsplit(cfg["sito"].strip())
+    locale = u.scheme == "http" and u.hostname in ("localhost", "127.0.0.1")
+    if not (u.scheme == "https" and u.hostname) and not locale:
+        raise SystemExit("config.json: 'sito' deve iniziare con https:// (es. https://timingrun.it)")
     for g in cfg["gare"]:
         for k in ("nome", "lista_race_result", "id_gara", "chiave"):
             if not g.get(k):
@@ -59,6 +66,14 @@ def read_rr(url: str, timeout: int = 15) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect verso {newurl} rifiutato: controlla 'sito' in config.json", headers, fp)
+
+
+_NO_REDIRECT = urllib.request.build_opener(_NoRedirect)
+
+
 def send(site: str, race_id: str, key: str, csv: str, status: str, timeout: int = 60) -> dict:
     """Invia la lista al sito. Il sito riconosce da solo le colonne (Pos., Pett., Cognome, Cat., Team, Time, 10K…)."""
     body = json.dumps({"csv": csv, "status": status}).encode("utf-8")
@@ -68,7 +83,8 @@ def send(site: str, race_id: str, key: str, csv: str, status: str, timeout: int 
         method="POST",
         headers={"Content-Type": "application/json", "X-Sync-Key": key},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    # Niente redirect: un reindirizzamento porterebbe la chiave a un altro indirizzo
+    with _NO_REDIRECT.open(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8") or "{}")
 
 

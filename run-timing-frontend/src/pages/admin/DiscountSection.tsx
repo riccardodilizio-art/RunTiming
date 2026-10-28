@@ -37,7 +37,10 @@ function DiscountModal({
         setDraft(d => ({ ...d, [key]: value }));
     }
 
-    const isValid = draft.code.trim().length >= 3 && draft.value > 0;
+    // Le regole sul codice valgono solo per i codici nuovi (quelli esistenti non si rinominano)
+    const minLen = USE_API && !code ? 6 : 3;
+    const isValid = (!!code || (draft.code.trim().length >= minLen && /^[A-Z0-9-]+$/.test(draft.code.trim()))) && draft.value > 0;
+    const { events } = useAdminStore();
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -61,8 +64,18 @@ function DiscountModal({
                             className={`${inputCls} font-mono tracking-widest`}
                             placeholder="es. ESTATE10"
                         />
-                        <p className="text-xs text-slate-400 mt-1">Minimo 3 caratteri.</p>
+                        <p className="text-xs text-slate-400 mt-1">Minimo {minLen} caratteri, solo lettere, numeri e trattini (un codice corto si indovina).</p>
                     </div>
+                    {USE_API && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Vale per</label>
+                            <select value={draft.eventId ?? ''} onChange={e => set('eventId', e.target.value || undefined)} className={inputCls}>
+                                <option value="">Tutti gli eventi</option>
+                                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+                            </select>
+                            <p className="text-xs text-slate-400 mt-1">Lo sconto riduce l'incasso dell'organizzatore di quell'evento.</p>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Descrizione</label>
                         <input type="text" value={draft.description ?? ''} onChange={e => set('description', e.target.value)} className={inputCls} placeholder="Descrizione interna" />
