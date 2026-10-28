@@ -27,9 +27,11 @@ export default function FidalImportSection() {
     const [socBusy, setSocBusy] = useState(false);
     const [socError, setSocError] = useState('');
 
-    async function handleFile(file: File) {
+    async function handleFile(files: File[]) {
+        const file = files[0];
+        if (!file) return;
         setError('');
-        setFileName(file.name);
+        setFileName(files.map(f => f.name).join(', '));
         setProgress(0);
 
         // Con API attiva l'import va sul backend (Postgres): è lì che serve la
@@ -37,8 +39,9 @@ export default function FidalImportSection() {
         if (USE_API) {
             try {
                 setPhase('writing');
-                const res = await apiUpload<{ count: number }>('/fidal/import', file);
-                setMeta({ fileName: file.name, count: res.count, importedAt: new Date().toISOString() });
+                const res = await apiUpload<{ count: number; certificati?: number }>('/fidal/import', files);
+                setMeta({ fileName: files.map(f => f.name).join(', '), count: res.count, importedAt: new Date().toISOString() });
+                setCertCount(res.certificati ?? null);
                 setPhase('done');
             } catch (e) {
                 setPhase('error');
@@ -83,6 +86,8 @@ export default function FidalImportSection() {
         setPhase('idle');
         setProgress(0);
     }
+
+    const [certCount, setCertCount] = useState<number | null>(null);
 
     async function handleSocietyFile(file: File) {
         setSocError('');
@@ -132,8 +137,18 @@ export default function FidalImportSection() {
                     <Database className="h-5 w-5 text-brand-600" /> Database FIDAL
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                    Importa l'export tesseramenti FIDAL (.xlsx). Le ricerche per tessera, nome e
-                    codice società (iscrizioni, iscrizione rapida, roster) useranno questo dataset.
+                    {USE_API ? (
+                        <>
+                            Dal portale del tesseramento FIDAL, sezione <strong>Download</strong>, scarica
+                            {' '}<strong>"Atleti con data scadenza certificato Medico"</strong> (anche più parti) e
+                            {' '}<strong>"Società"</strong>, e caricali qui così come sono (zip o CSV). Il sito li usa
+                            per compilare società e scadenza del certificato nelle iscrizioni e nei profili atleta.
+                            Aggiornali ogni settimana e prima delle gare grandi.
+                        </>
+                    ) : (
+                        <>Importa l'export tesseramenti FIDAL (.xlsx). Le ricerche per tessera, nome e
+                        codice società (iscrizioni, iscrizione rapida, roster) useranno questo dataset.</>
+                    )}
                 </p>
             </div>
 
@@ -146,7 +161,8 @@ export default function FidalImportSection() {
                                 <Check className="h-4 w-4" /> Dataset attivo
                             </p>
                             <p className="text-xs text-emerald-700 mt-0.5">
-                                {meta.count.toLocaleString('it-IT')} atleti · {meta.fileName} · importato il{' '}
+                                {meta.count.toLocaleString('it-IT')} atleti
+                                {certCount != null && ` (${certCount.toLocaleString('it-IT')} con scadenza certificato)`} · {meta.fileName} · importato il{' '}
                                 {new Date(meta.importedAt).toLocaleString('it-IT')}
                             </p>
                         </div>
@@ -170,9 +186,10 @@ export default function FidalImportSection() {
                 <input
                     ref={fileRef}
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".zip,.csv,.xlsx,.xls"
+                    multiple={USE_API}
                     className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+                    onChange={e => { const fs = [...(e.target.files ?? [])]; if (fs.length) handleFile(fs); e.target.value = ''; }}
                 />
                 {busy ? (
                     <div className="space-y-3">
@@ -196,10 +213,12 @@ export default function FidalImportSection() {
                             onClick={() => fileRef.current?.click()}
                             className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
                         >
-                            {meta ? 'Sostituisci database (.csv/.xlsx)' : 'Carica database FIDAL (.csv/.xlsx)'}
+                            {USE_API
+                                ? (meta ? 'Sostituisci tesserati (zip/CSV, anche più file)' : 'Carica tesserati FIDAL (zip/CSV, anche più file)')
+                                : (meta ? 'Sostituisci database (.csv/.xlsx)' : 'Carica database FIDAL (.csv/.xlsx)')}
                         </button>
                         <p className="text-xs text-slate-400 mt-2">
-                            Un nuovo import sostituisce completamente il dataset precedente.
+                            Un nuovo caricamento sostituisce completamente quello precedente: se l'export è diviso in più zip, selezionali tutti insieme.
                         </p>
                     </>
                 )}
@@ -209,7 +228,7 @@ export default function FidalImportSection() {
             <div className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                        <p className="text-sm font-semibold text-slate-700">Anagrafica società (.csv/.dbf)</p>
+                        <p className="text-sm font-semibold text-slate-700">Anagrafica società (zip/CSV)</p>
                         <p className="text-xs text-slate-500 mt-0.5">
                             {socMeta
                                 ? `${socMeta.count.toLocaleString('it-IT')} società · ${socMeta.fileName}`
@@ -220,7 +239,7 @@ export default function FidalImportSection() {
                         <input
                             ref={socRef}
                             type="file"
-                            accept=".csv,.dbf"
+                            accept=".zip,.csv,.dbf"
                             className="hidden"
                             onChange={e => { const f = e.target.files?.[0]; if (f) handleSocietyFile(f); e.target.value = ''; }}
                         />

@@ -7,23 +7,12 @@
 
 import { api, ApiError, USE_API } from '../lib/api';
 import { lookupByName, lookupBySociety, lookupByTessera, type FidalAthlete } from './mockFidal';
-import { dsLookupByTessera } from './fidalDataset';
-
-/**
- * WISE (real-time) NON restituisce la scadenza del certificato; il dump FIDAL
- * importato sì. Se manca, la recuperiamo dal dump locale per tessera, così la
- * validità rispetto alla data evento è verificabile.
- */
-function enrichCertScadenza(a: FidalAthlete): FidalAthlete {
-    if (a.certScadenza) return a;
-    const local = dsLookupByTessera(a.tessera);
-    return local?.certScadenza ? { ...a, certScadenza: local.certScadenza } : a;
-}
 
 interface VerifyResponse {
     tessera: string;
     tesserato: boolean;
     atleta: (Partial<FidalAthlete> & { tessera: string }) | null;
+    certificato?: FidalAthlete['certificato'];
 }
 
 /** Normalizza un atleta ricevuto dall'API nella forma FidalAthlete. */
@@ -54,13 +43,13 @@ export const FIDAL_SEARCH_ROLES = ['ADMIN', 'ORGANIZER'];
  * di nascita: il server risponde solo se corrispondono tutti e tre, così chi
  * conosce solo la tessera non può leggere i dati di qualcun altro.
  */
-export async function verifyTessera(tessera: string, cognome = '', dataNascita = ''): Promise<FidalAthlete | null> {
+export async function verifyTessera(tessera: string, cognome = '', dataNascita = '', raceId = ''): Promise<FidalAthlete | null> {
     if (USE_API) {
         try {
-            const q = new URLSearchParams({ tessera, cognome, dataNascita });
+            const q = new URLSearchParams({ tessera, cognome, dataNascita, ...(raceId ? { gara: raceId } : {}) });
             const r = await api.get<VerifyResponse>(`/fidal/verifica?${q.toString()}`);
             // La data di nascita il server non la rimanda (la conosce già chi chiede)
-            return r.atleta ? enrichCertScadenza(normalize({ ...r.atleta, dataNascita })) : null; // risposta valida: nessun fallback
+            return r.atleta ? { ...normalize({ ...r.atleta, dataNascita }), certificato: r.certificato } : null; // risposta valida: nessun fallback
         } catch (e) {
             if (e instanceof ApiError && e.status === 404) return null;
             rethrowIfServerAnswered(e);
