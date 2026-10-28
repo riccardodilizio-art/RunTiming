@@ -51,7 +51,7 @@ function setup(reg: Record<string, unknown> = {}, raceDate = new Date('2099-12-1
 }
 
 describe('sicurezza iscrizioni', () => {
-    it('[grave] l\'organizzatore NON può confermare un bonifico (i soldi arrivano a TimingRun)', async () => {
+    it('[grave] l\'organizzatore NON può confermare un bonifico (i soldi arrivano alla segreteria)', async () => {
         const { svc, r } = setup({ paymentMethod: 'bank' });
         await expect(svc.setPayment(organizer, 'reg1', PaymentStatus.CONFIRMED)).rejects.toThrow(/solo la segreteria/);
         expect(r.paymentStatus).toBe(PaymentStatus.PENDING);

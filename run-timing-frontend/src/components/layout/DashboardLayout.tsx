@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Timer, ExternalLink, LogOut, Menu, X } from 'lucide-react';
+import { BrandName } from '../../components/BrandName';
 
 // Layout "back-office" riutilizzabile: sidebar di navigazione a sinistra (desktop)
 // o barra con menu a comparsa (mobile) + area contenuti. Usato da admin, società
@@ -40,7 +41,7 @@ export default function DashboardLayout({
                 <Timer className="w-4 h-4 text-white" />
             </div>
             <span className="font-display font-700 text-lg text-slate-800 tracking-wide">
-                Run<span className="text-brand-600">Timing</span>
+                <BrandName />
             </span>
         </Link>
     );

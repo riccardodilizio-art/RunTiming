@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Timer } from 'lucide-react';
+import { BrandName } from '../../components/BrandName';
+import { SITE_NAME } from '../../lib/brand';
 
 export default function Footer() {
     return (
@@ -16,7 +18,7 @@ export default function Footer() {
                                 <Timer className="w-4 h-4 text-white" />
                             </div>
                             <span className="font-display font-700 text-lg text-white">
-                                Run<span className="text-brand-400">Timing</span>
+                                <BrandName accentClass="text-brand-400" />
                             </span>
                         </Link>
                         <p className="text-orange-100/55 text-sm max-w-xs leading-relaxed">
@@ -60,7 +62,7 @@ export default function Footer() {
                 </div>
 
                 <div className="border-t border-brand-800/50 mt-8 pt-5 flex flex-col sm:flex-row justify-between gap-2">
-                    <p className="text-orange-200/45 text-xs">© 2025 RunTiming. Tutti i diritti riservati.</p>
+                    <p className="text-orange-200/45 text-xs">© {new Date().getFullYear()} {SITE_NAME}. Tutti i diritti riservati.</p>
                     <p className="text-orange-200/45 text-xs font-mono">v1.0.0-alpha</p>
                 </div>
             </div>

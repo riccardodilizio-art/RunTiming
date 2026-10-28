@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Mail, FileText, CheckCircle, Users, Settings } from 'lucide-react';
+import { SITE_NAME } from '../lib/brand';
 
 // ─── Come funziona ────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export default function OrganizerPage() {
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
                         }}>
-                            Affidati a RunTiming.
+                            Affidati a {SITE_NAME}.
                         </span>
                     </h1>
                     <p className="text-orange-200/85 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">

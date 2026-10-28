@@ -296,7 +296,7 @@ async function main() {
 
     await prisma.setting.upsert({
         where: { key: 'payments' },
-        create: { key: 'payments', value: J({ bankFee: 1, paypalPercent: 3.4, paypalFixed: 0.35, bankDays: 5, iban: 'IT00X0000000000000000000000', intestatario: 'TimingRun (DEMO)', banca: 'Banca di prova' }) },
+        create: { key: 'payments', value: J({ bankFee: 1, paypalPercent: 3.4, paypalFixed: 0.35, bankDays: 5, iban: 'IT00X0000000000000000000000', intestatario: 'Segreteria (DEMO)', banca: 'Banca di prova' }) },
         update: {},
     });
 

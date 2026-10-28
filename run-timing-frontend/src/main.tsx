@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { initFidalDataset } from './data/fidalDataset'
 import { reconcileSessions } from './context/authBus'
+import { SITE_NAME } from './lib/brand'
+
+document.title = `${SITE_NAME} — Cronometraggio sportivo`
 
 // Una sola identità attiva: evita sessioni admin/atleta/società sovrapposte.
 reconcileSessions()

@@ -28,6 +28,7 @@ interface AthleteAgg { name: string; entries: AthleteEntry[] }
 import CertificateModal from '../components/results/CertificateModal';
 import LapDetail from '../components/results/LapDetail';
 import ImportLapsModal from '../components/results/ImportLapsModal';
+import { SITE_NAME } from '../lib/brand';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ function AthleteHistory({ agg, onBack }: { agg: AthleteAgg; onBack: () => void }
                 </div>
                 <div className="min-w-0">
                     <h2 className="font-display font-800 text-xl sm:text-2xl text-slate-800 leading-tight">{agg.name}</h2>
-                    <p className="text-slate-400 text-sm">Storico risultati su RunTiming</p>
+                    <p className="text-slate-400 text-sm">Storico risultati su {SITE_NAME}</p>
                 </div>
             </div>
 

@@ -12,6 +12,7 @@ import { useAdminStore } from '../hooks/useAdminStore';
 import { useAuth } from '../context/useAuth';
 import { useSocietyAuth } from '../context/useSocietyAuth';
 import QuickEnrollModal from '../components/admin/QuickEnrollModal';
+import { SITE_NAME } from '../lib/brand';
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('it-IT', {
@@ -134,7 +135,7 @@ function openRegulation(regulationUrl: string | undefined, title: string, slug: 
         `Possono partecipare tutti gli atleti regolarmente tesserati.`,
         ``,
         `ART. 3 – ISCRIZIONI`,
-        `Le iscrizioni si effettuano tramite il portale RunTiming entro i termini indicati.`,
+        `Le iscrizioni si effettuano tramite il portale ${SITE_NAME} entro i termini indicati.`,
         ``,
         `ART. 4 – PREMIAZIONI`,
         `Saranno premiati i primi tre classificati assoluti e per categoria.`,
@@ -142,7 +143,7 @@ function openRegulation(regulationUrl: string | undefined, title: string, slug: 
         `ART. 5 – RITIRO PACCO GARA`,
         `Il pacco gara può essere ritirato il giorno prima e la mattina dell'evento.`,
         ``,
-        `Documento generato da RunTiming — ${new Date().toLocaleDateString('it-IT')}`,
+        `Documento generato da ${SITE_NAME} — ${new Date().toLocaleDateString('it-IT')}`,
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);

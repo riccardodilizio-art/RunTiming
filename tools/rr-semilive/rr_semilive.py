@@ -45,7 +45,7 @@ def load_config(path: str) -> dict:
     u = urllib.parse.urlsplit(cfg["sito"].strip())
     locale = u.scheme == "http" and u.hostname in ("localhost", "127.0.0.1")
     if not (u.scheme == "https" and u.hostname) and not locale:
-        raise SystemExit("config.json: 'sito' deve iniziare con https:// (es. https://timingrun.it)")
+        raise SystemExit("config.json: 'sito' deve iniziare con https:// (es. https://www.iltuosito.it)")
     for g in cfg["gare"]:
         for k in ("nome", "lista_race_result", "id_gara", "chiave"):
             if not g.get(k):

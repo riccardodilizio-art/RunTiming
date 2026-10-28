@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MailContent } from './templates';
+import { signature } from '../common/brand';
 
 /**
  * Email transazionali con Amazon SES.
@@ -46,7 +47,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     onModuleInit() {
         if (process.env.NODE_ENV === 'production' && this.configured && !/^https:\/\//.test(process.env.SITE_URL ?? '')) {
             // Link nelle email (pagamento, password) verso localhost o in chiaro: meglio non partire
-            throw new Error('SITE_URL mancante o non https: impostalo (es. https://timingrun.it) prima di attivare le email');
+            throw new Error('SITE_URL mancante o non https: impostalo (es. https://iltuosito.it) prima di attivare le email');
         }
         if (process.env.NODE_ENV === 'test' || process.env.MAIL_WORKER === 'off') return;
         if (!this.configured) this.log.warn('Email non configurate (MAIL_FROM / AWS_*): restano in coda come "disabled"');
@@ -162,7 +163,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
 
     private async send(to: string, m: { subject: string; html: string; text: string }) {
         this.ses ??= new SESv2Client({ region: process.env.AWS_REGION || 'eu-south-1' });
-        const name = process.env.MAIL_FROM_NAME || 'Segreteria – TimingRun';
+        const name = signature();
         await this.ses.send(new SendEmailCommand({
             FromEmailAddress: `${encodeName(name)} <${process.env.MAIL_FROM}>`,
             Destination: { ToAddresses: [to] },

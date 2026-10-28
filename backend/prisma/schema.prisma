@@ -226,7 +226,7 @@ model Registration {
   basePrice        Float           @default(0)
   discountAmount   Float           @default(0)
   commissionAmount Float           @default(0)
-  /// Maggiorazione del metodo di pagamento (bonifico +1 €, PayPal/carta %): incasso TimingRun
+  /// Maggiorazione del metodo di pagamento (bonifico +1 €, PayPal/carta %): incasso della segreteria
   paymentFee       Float           @default(0)
   pricePaid        Float
   /// Codice pagamento univoco: causale del bonifico e chiave per pagare in seguito

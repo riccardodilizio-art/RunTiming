@@ -6,6 +6,7 @@ import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { passwordResetMail } from '../mail/templates';
+import { siteName } from '../common/brand';
 
 const normEmail = (e: string) => e.trim().toLowerCase();
 const tokenHash = (t: string) => createHash('sha256').update(t).digest('hex');
@@ -101,7 +102,7 @@ export class AuthService implements OnApplicationBootstrap {
             recordFailure(k);
             throw new UnauthorizedException('Credenziali non valide');
         }
-        if (account.disabled) throw new UnauthorizedException('Account disattivato: contatta la segreteria TimingRun');
+        if (account.disabled) throw new UnauthorizedException(`Account disattivato: contatta la segreteria ${siteName()}`);
         failures.delete(k);
         return this.sign(account.id, account.email, account.role, account.tokenVersion);
     }

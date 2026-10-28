@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
+import { CONTACT_EMAIL } from '../lib/brand';
 
 type FormState = { name: string; email: string; subject: string; message: string };
 const EMPTY: FormState = { name: '', email: '', subject: '', message: '' };
@@ -69,7 +70,7 @@ export default function ContactsPage() {
 
                         <div className="space-y-3">
                             {[
-                                { icon: Mail,    label: 'Email',     value: 'info@runtiming.it' },
+                                ...(CONTACT_EMAIL ? [{ icon: Mail, label: 'Email', value: CONTACT_EMAIL }] : []),
                                 { icon: Phone,   label: 'Telefono',  value: '+39 02 1234 5678' },
                                 { icon: MapPin,  label: 'Indirizzo', value: 'Via dello Sport 12\n20121 Milano (MI)' },
                             ].map(({ icon: Icon, label, value }) => (

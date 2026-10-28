@@ -1,3 +1,5 @@
+import { signature, siteName } from '../common/brand';
+
 // Testi delle email. Ogni dato inserito da altri (nomi, titoli gara…) passa da
 // esc(): niente HTML o link infilati nelle email da chi si iscrive.
 
@@ -19,7 +21,7 @@ const title = (s: string) => s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (
 /** Solo testo semplice nell'oggetto (niente a capo). */
 const oneLine = (s: string) => s.replace(/[\r\n]+/g, ' ').slice(0, 150);
 
-const FIRMA = 'Segreteria – TimingRun';
+
 const BRAND = '#0f6fde';
 
 /** Cornice comune: semplice, leggibile anche dal telefono e senza immagini esterne. */
@@ -29,10 +31,10 @@ function layout(title: string, bodyHtml: string): string {
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden">
-<tr><td style="background:${BRAND};padding:18px 24px;color:#ffffff;font-size:20px;font-weight:bold">TimingRun</td></tr>
+<tr><td style="background:${BRAND};padding:18px 24px;color:#ffffff;font-size:20px;font-weight:bold">${esc(siteName())}</td></tr>
 <tr><td style="padding:24px;font-size:15px;line-height:1.55">${bodyHtml}
-<p style="margin:28px 0 0">${FIRMA}</p></td></tr>
-<tr><td style="padding:14px 24px;background:#f8fafc;color:#64748b;font-size:12px">Hai ricevuto questa email perché hai usato il sito TimingRun.
+<p style="margin:28px 0 0">${esc(signature())}</p></td></tr>
+<tr><td style="padding:14px 24px;background:#f8fafc;color:#64748b;font-size:12px">Hai ricevuto questa email perché hai usato il sito ${esc(siteName())}.
 Per qualsiasi domanda rispondi pure a questo messaggio.</td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -95,7 +97,7 @@ export function registrationMail(d: RegMailData): MailContent {
         const causale = `${d.paymentRef} ${d.cognome}`;
         const b: [string, string][] = [
             ['Importo', euro(d.importo)],
-            ['Intestatario', d.bank.intestatario],
+            ...(d.bank.intestatario ? [['Intestatario', d.bank.intestatario] as [string, string]] : []),
             ['IBAN', d.bank.iban],
             ...(d.bank.banca ? [['Banca', d.bank.banca] as [string, string]] : []),
             ['Causale', causale],
@@ -130,7 +132,7 @@ ${button(payUrl(d), 'Paga ora')}`;
     return {
         subject,
         html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>abbiamo ricevuto la tua iscrizione.</p>${rows(summary)}${payHtml}${cert}`),
-        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto la tua iscrizione.\n\n${textRows(summary)}\n\n${payText}${certText}\n\n${FIRMA}`,
+        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto la tua iscrizione.\n\n${textRows(summary)}\n\n${payText}${certText}\n\n${signature()}`,
     };
 }
 
@@ -141,7 +143,7 @@ export function paymentReceivedMail(d: RegMailData): MailContent {
     return {
         subject,
         html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>abbiamo ricevuto il pagamento: la tua iscrizione è <strong>confermata</strong>.</p>${rows(summary)}<p>Ci vediamo alla partenza!</p>`),
-        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto il pagamento: la tua iscrizione è confermata.\n\n${textRows(summary)}\n\nCi vediamo alla partenza!\n\n${FIRMA}`,
+        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto il pagamento: la tua iscrizione è confermata.\n\n${textRows(summary)}\n\nCi vediamo alla partenza!\n\n${signature()}`,
     };
 }
 
@@ -153,7 +155,7 @@ export function paymentReminderMail(d: RegMailData): MailContent {
         html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>non abbiamo ancora ricevuto il pagamento della tua iscrizione.
 Questa gara prevede il <strong>pagamento anticipato</strong>: senza pagamento l'iscrizione verrà annullata.</p>${rows(regSummary(d))}
 <p>Se hai già fatto il bonifico negli ultimi giorni non serve fare nulla: lo stiamo abbinando.</p>${button(payUrl(d), 'Completa il pagamento')}`),
-        text: `Ciao ${title(d.nome)},\nnon abbiamo ancora ricevuto il pagamento della tua iscrizione. Questa gara prevede il pagamento anticipato: senza pagamento l'iscrizione verrà annullata.\n\n${textRows(regSummary(d))}\n\nSe hai già fatto il bonifico negli ultimi giorni non serve fare nulla.\nCompleta il pagamento: ${payUrl(d)}\n\n${FIRMA}`,
+        text: `Ciao ${title(d.nome)},\nnon abbiamo ancora ricevuto il pagamento della tua iscrizione. Questa gara prevede il pagamento anticipato: senza pagamento l'iscrizione verrà annullata.\n\n${textRows(regSummary(d))}\n\nSe hai già fatto il bonifico negli ultimi giorni non serve fare nulla.\nCompleta il pagamento: ${payUrl(d)}\n\n${signature()}`,
     };
 }
 
@@ -167,20 +169,20 @@ export function cancelledMail(d: RegMailData, motivo: 'mancato_pagamento' | 'org
         subject,
         html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>ti informiamo che la tua iscrizione è stata <strong>annullata</strong> perché ${esc(why)}.</p>${rows(regSummary(d))}
 <p>Se pensi che sia un errore, o hai già pagato, rispondi a questa email indicando il codice <strong>${esc(d.paymentRef ?? '')}</strong>.</p>`),
-        text: `Ciao ${title(d.nome)},\nti informiamo che la tua iscrizione è stata annullata perché ${why}.\n\n${textRows(regSummary(d))}\n\nSe pensi che sia un errore, o hai già pagato, rispondi a questa email indicando il codice ${d.paymentRef ?? ''}.\n\n${FIRMA}`,
+        text: `Ciao ${title(d.nome)},\nti informiamo che la tua iscrizione è stata annullata perché ${why}.\n\n${textRows(regSummary(d))}\n\nSe pensi che sia un errore, o hai già pagato, rispondi a questa email indicando il codice ${d.paymentRef ?? ''}.\n\n${signature()}`,
     };
 }
 
 // ─── Account ─────────────────────────────────────────────────────────────────
 
 export function passwordResetMail(link: string, minuti: number): MailContent {
-    const subject = 'Reimposta la password del tuo account TimingRun';
+    const subject = `Reimposta la password del tuo account ${siteName()}`;
     return {
         subject,
-        html: layout(subject, `<p>Ciao,</p><p>abbiamo ricevuto una richiesta per reimpostare la password del tuo account TimingRun.</p>
+        html: layout(subject, `<p>Ciao,</p><p>abbiamo ricevuto una richiesta per reimpostare la password del tuo account ${esc(siteName())}.</p>
 ${button(link, 'Scegli una nuova password')}
 <p style="color:#64748b;font-size:13px">Il link vale ${minuti} minuti e si può usare una sola volta.
 Se non hai chiesto tu di cambiare la password ignora questa email: il tuo account resta com'è.</p>`),
-        text: `Ciao,\nabbiamo ricevuto una richiesta per reimpostare la password del tuo account TimingRun.\n\nScegli una nuova password: ${link}\n\nIl link vale ${minuti} minuti e si può usare una sola volta. Se non hai chiesto tu di cambiare la password ignora questa email.\n\n${FIRMA}`,
+        text: `Ciao,\nabbiamo ricevuto una richiesta per reimpostare la password del tuo account ${siteName()}.\n\nScegli una nuova password: ${link}\n\nIl link vale ${minuti} minuti e si può usare una sola volta. Se non hai chiesto tu di cambiare la password ignora questa email.\n\n${signature()}`,
     };
 }
