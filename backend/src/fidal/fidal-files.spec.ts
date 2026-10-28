@@ -69,11 +69,11 @@ describe('file atleti del portale tesseramento', () => {
 
     it('zip scaricato dal portale aperto direttamente (anche con più parti)', () => {
         const zip = makeZip([
-            { name: 'MRCHEE3_ATLETI_DBASE.CSV', data: Buffer.from(row() + '\r\n' + row({ 8: 'ZZ000002', 9: 'ESEMPIO' }), 'latin1') },
+            { name: 'ATLETI_DBASE.CSV', data: Buffer.from(row() + '\r\n' + row({ 8: 'ZZ000002', 9: 'ESEMPIO' }), 'latin1') },
             { name: 'leggimi.txt', data: Buffer.from('x') },
         ]);
-        expect(unzip(zip).map(e => e.name)).toEqual(['MRCHEE3_ATLETI_DBASE.CSV', 'leggimi.txt']);
-        const files = csvFiles(zip, 'MRCHEE3_ATLETI_DBASE.CSV_12.zip');
+        expect(unzip(zip).map(e => e.name)).toEqual(['ATLETI_DBASE.CSV', 'leggimi.txt']);
+        const files = csvFiles(zip, 'ATLETI_DBASE.CSV_12.zip');
         expect(files).toHaveLength(1);
         expect(parseAthletesCsv(files[0].data).rows).toHaveLength(2);
     });
