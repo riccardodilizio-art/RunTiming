@@ -7,7 +7,7 @@ import {
 import ImportClassificaModal from './ImportClassificaModal';
 import CertificateEditor from './CertificateEditor';
 import { useAdminStore, loadRaceRegistrationsApi, reportApiError, createSyncKeyApi } from '../../hooks/useAdminStore';
-import { USE_API, ApiError, download } from '../../lib/api';
+import { USE_API, ApiError, api, download } from '../../lib/api';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
 import { formatPrice, inputCls, downloadCSV } from './adminShared';
@@ -562,6 +562,24 @@ export default function RaceEditor({
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-medium hover:bg-emerald-50 transition-colors"
                                     >
                                         <Download className="h-3.5 w-3.5" /> Excel cronometraggio
+                                    </button>
+                                )}
+                                {USE_API && race.paymentMode === 'online' && registrations.some(r => r.paymentStatus === 'pending') && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const n = registrations.filter(r => r.paymentStatus === 'pending').length;
+                                            if (!window.confirm(`Pagamento anticipato obbligatorio: annullare le ${n} iscrizioni non pagate?`)) return;
+                                            try {
+                                                const r = await api.post<{ cancelled: number }>(`/races/${race.id}/cancel-unpaid`);
+                                                window.alert(`${r.cancelled} iscrizioni annullate.`);
+                                                await loadRaceRegistrationsApi(race.id, true);
+                                            } catch (e) { reportApiError(e); }
+                                        }}
+                                        title="Annulla le iscrizioni con PayPal/bonifico non ancora pagate"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
+                                    >
+                                        <X className="h-3.5 w-3.5" /> Annulla non pagati
                                     </button>
                                 )}
                                 <button

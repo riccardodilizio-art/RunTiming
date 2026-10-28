@@ -77,6 +77,36 @@ export function commissionAmount(c: CommissionConfig, priceAfterDiscount: number
     return round2(c.fixedFee + (priceAfterDiscount * c.percentFee) / 100);
 }
 
+/** Metodi di pagamento. paypal comprende anche le carte (gestite da PayPal). */
+export type PayMethod = 'paypal' | 'bank' | 'onsite' | 'manual' | 'free';
+
+export interface FeeSettings {
+    bankFee: number;
+    paypalPercent: number;
+    paypalFixed: number;
+}
+
+/**
+ * Maggiorazione del metodo di pagamento, a carico dell'atleta e incassata da
+ * TimingRun: bonifico = fisso (controllo e regolarizzazione), PayPal/carta =
+ * percentuale + fisso (costo del circuito). Sul posto e gratuito: nessuna.
+ */
+export function paymentFee(method: PayMethod, amount: number, s: FeeSettings): number {
+    if (amount <= 0) return 0;
+    if (method === 'bank') return round2(s.bankFee);
+    if (method === 'paypal') return round2((amount * s.paypalPercent) / 100 + s.paypalFixed);
+    return 0;
+}
+
+/** Metodi ammessi dalla modalità di pagamento della gara. */
+export function allowedMethods(paymentMode: string | null | undefined): PayMethod[] {
+    switch (paymentMode) {
+        case 'online': return ['paypal', 'bank'];            // pagamento anticipato obbligatorio
+        case 'both': return ['paypal', 'bank', 'onsite'];    // online facoltativo, si può pagare sul posto
+        default: return ['onsite'];                          // 'onsite' / 'none'
+    }
+}
+
 /** Riepilogo economico dell'iscrizione. `total` è quanto paga l'atleta. */
 export function quote(input: {
     basePrice: number;
@@ -88,6 +118,9 @@ export function quote(input: {
         race?: CommissionConfig | null;
     };
     today: string;
+    /** Metodo scelto e maggiorazioni: se assenti, nessuna maggiorazione. */
+    method?: PayMethod;
+    fees?: FeeSettings;
 }) {
     const { price, label, step } = activePrice(input.basePrice, input.steps, input.today);
     const discount = discountAmount(price, input.discount);
@@ -99,8 +132,10 @@ export function quote(input: {
         step?.commission,
     );
     const commission = commissionAmount(c, afterDiscount);
-    const total = c.appliedTo === 'buyer' ? round2(afterDiscount + commission) : afterDiscount;
-    return { price, label, discount, afterDiscount, commission, commissionTo: c.appliedTo, total };
+    const subtotal = c.appliedTo === 'buyer' ? round2(afterDiscount + commission) : afterDiscount;
+    const fee = input.method && input.fees ? paymentFee(input.method, subtotal, input.fees) : 0;
+    const total = round2(subtotal + fee);
+    return { price, label, discount, afterDiscount, commission, commissionTo: c.appliedTo, subtotal, paymentFee: fee, total };
 }
 
 /**

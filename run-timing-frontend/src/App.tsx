@@ -11,6 +11,7 @@ import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import ResultsPage from './pages/ResultsPage';
 import ContactsPage from './pages/ContactsPage';
+import PaymentPage from './pages/PaymentPage';
 import RegisterPage from './pages/RegisterPage';
 import ParticipantsPage from './pages/ParticipantsPage';
 import AdminPage from './pages/admin/AdminPage';
@@ -46,6 +47,7 @@ function Shell() {
                     <Route path="/contacts" element={<ContactsPage />} />
                     <Route path="/events/:slug/register" element={<RegisterPage />} />
                     <Route path="/events/:slug/partecipanti" element={<ParticipantsPage />} />
+                    <Route path="/pagamento/:ref" element={<PaymentPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/accedi" element={<AthleteLoginPage />} />
                     <Route path="/registrati" element={<AthleteRegisterPage />} />

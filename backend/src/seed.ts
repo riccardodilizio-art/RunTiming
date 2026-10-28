@@ -16,6 +16,7 @@
 import { CertStatus, PaymentStatus, Prisma, PrismaClient, Role } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
+import { newPaymentRef } from './payments/payment-ref';
 
 const prisma = new PrismaClient();
 const J = (v: unknown) => v as Prisma.InputJsonValue;
@@ -256,9 +257,14 @@ async function main() {
             tessera: race === half ? `DEMO${2000 + i}` : null,
             email: `${nome.toLowerCase()}.${cognome.toLowerCase()}${DOMAIN}`,
             formData: J({ f_nome: nome, f_cognome: cognome, f_nascita: nascita, f_sesso: sesso, f_societa: societa, f_taglia: 'M', f_privacy: true }),
-            basePrice: race.price, pricePaid: race.price,
-            paymentMethod: race === half ? 'online' : 'onsite',
-            paymentStatus: i % 3 === 2 ? PaymentStatus.PENDING : PaymentStatus.CONFIRMED,
+            // Mezza: PayPal pagati e alcuni bonifici da controllare (+1 €); 5 km: in loco
+            ...(race === half
+                ? (i % 3 === 2
+                    ? { paymentMethod: 'bank', paymentFee: 1, pricePaid: race.price + 1, paymentRef: newPaymentRef(), paymentStatus: PaymentStatus.PENDING }
+                    : { paymentMethod: 'paypal', paymentFee: Math.round((race.price * 0.034 + 0.35) * 100) / 100,
+                        pricePaid: Math.round((race.price * 1.034 + 0.35) * 100) / 100, paymentStatus: PaymentStatus.CONFIRMED, paidAt: days(-2) })
+                : { paymentMethod: 'onsite', pricePaid: race.price, paymentRef: newPaymentRef(), paymentStatus: PaymentStatus.PENDING }),
+            basePrice: race.price,
             assignedCategory: race === half ? category(sesso, nascita, d1) : null,
             fidalVerified: race === half,
             certStatus: race === half ? CertStatus.VERIFICATO : CertStatus.NON_RICHIESTO,
@@ -286,6 +292,12 @@ async function main() {
     });
     await prisma.resultRow.createMany({
         data: results.map((r, i) => ({ uploadId: up.id, raceId: tenK.id, section: r.category || null, position: i + 1, data: J(r) })),
+    });
+
+    await prisma.setting.upsert({
+        where: { key: 'payments' },
+        create: { key: 'payments', value: J({ bankFee: 1, paypalPercent: 3.4, paypalFixed: 0.35, bankDays: 5, iban: 'IT00X0000000000000000000000', intestatario: 'TimingRun (DEMO)', banca: 'Banca di prova' }) },
+        update: {},
     });
 
     await prisma.discountCode.create({

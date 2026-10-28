@@ -34,7 +34,8 @@ export class CreateRegistrationDto {
     /** Campi extra del modulo gara (chiave = id campo del formSchema). */
     @IsOptional() @IsObject() formData?: Record<string, string | boolean>;
     @IsOptional() @IsString() @MaxLength(40) discountCode?: string;
-    @IsOptional() @IsIn(['online', 'onsite', 'manual']) paymentMethod?: string;
+    /** paypal (anche carte) · bank (bonifico, +maggiorazione) · onsite · online = alias di paypal */
+    @IsOptional() @IsIn(['paypal', 'bank', 'onsite', 'online', 'manual']) paymentMethod?: string;
     /** Solo atleta: quale tesseramento usare (default: quello dell'ente gara). */
     @IsOptional() @IsString() affiliationId?: string;
     /** Società / organizzatore / admin: dati dell'atleta da iscrivere. */

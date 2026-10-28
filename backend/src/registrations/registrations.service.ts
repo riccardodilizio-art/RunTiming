@@ -12,7 +12,9 @@ import { EventAccess } from '../common/access';
 import { discountProblem, normCode } from '../discounts/discounts.module';
 import {
     CommissionConfig,
+    PayMethod,
     PriceStep,
+    allowedMethods,
     RaceCategory,
     assignCategory,
     checkAge,
@@ -22,6 +24,7 @@ import {
     todayRome,
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
+import { newPaymentRef } from '../payments/payment-ref';
 
 /** Chiavi di catalogo che vengono dal profilo atleta, non dal modulo extra. */
 const PROFILE_KEYS = new Set([
@@ -82,7 +85,7 @@ export class RegistrationsService {
 
     // ─── Preventivo ─────────────────────────────────────────────────────────
 
-    async quote(raceId: string, code?: string) {
+    async quote(raceId: string, code?: string, method?: PayMethod) {
         const race = await this.race(raceId);
         let discount = null;
         let discountMessage: string | undefined;
@@ -101,6 +104,8 @@ export class RegistrationsService {
                 race: json<CommissionConfig>(race.commission),
             },
             today: todayRome(),
+            method,
+            fees: await this.settings.payments(),
         });
         return { ...q, discountCode: discount?.code, discountMessage };
     }
@@ -139,25 +144,33 @@ export class RegistrationsService {
             certStatus = athlete.fidalVerified || athlete.certValid ? CertStatus.VERIFICATO : CertStatus.IN_ATTESA;
         }
 
-        // Prezzo calcolato dal server
-        const q = await this.quote(race.id, dto.discountCode);
+        // Metodo di pagamento: lo staff registra a mano (contanti, già pagato…);
+        // l'atleta sceglie tra quelli ammessi dalla gara ("online" = PayPal/carta).
+        const allowed = allowedMethods(race.paymentMode);
+        let method: PayMethod;
+        if (isStaff) {
+            method = 'manual';
+        } else {
+            // "manual" ha senso solo per lo staff: per gli altri vale il metodo predefinito della gara
+            const raw = dto.paymentMethod === 'manual' ? undefined : dto.paymentMethod;
+            const wanted = (raw === 'online' ? 'paypal' : raw) as PayMethod | undefined;
+            method = wanted ?? allowed[0];
+            if (!allowed.includes(method)) throw new BadRequestException('Metodo di pagamento non ammesso per questa gara');
+        }
+
+        // Prezzo calcolato dal server (con l'eventuale maggiorazione del metodo)
+        const q = await this.quote(race.id, dto.discountCode, method);
         if (dto.discountCode?.trim() && q.discountMessage) throw new BadRequestException(q.discountMessage);
 
         let paymentStatus: PaymentStatus = PaymentStatus.PENDING;
-        let paymentMethod: string;
+        let paymentMethod: string = method;
         if (q.total === 0) {
             paymentStatus = PaymentStatus.CONFIRMED;
             paymentMethod = 'free';
-        } else if (isStaff) {
-            paymentMethod = dto.paymentMethod ?? 'manual';
-            if (dto.markPaid) paymentStatus = PaymentStatus.CONFIRMED;
-        } else {
-            const mode = race.paymentMode ?? 'online';
-            const wanted = dto.paymentMethod ?? (mode === 'onsite' ? 'onsite' : 'online');
-            const allowed = mode === 'both' ? ['online', 'onsite'] : mode === 'none' ? ['onsite'] : [mode];
-            if (!allowed.includes(wanted)) throw new BadRequestException('Metodo di pagamento non ammesso per questa gara');
-            paymentMethod = wanted;
+        } else if (isStaff && dto.markPaid) {
+            paymentStatus = PaymentStatus.CONFIRMED;
         }
+        const needsRef = paymentStatus === PaymentStatus.PENDING && paymentMethod !== 'manual';
 
         return this.prisma.$transaction(async tx => {
             // Serializza le iscrizioni sulla stessa gara (posti limitati, doppioni)
@@ -210,7 +223,10 @@ export class RegistrationsService {
                     basePrice: q.price,
                     discountAmount: q.discount,
                     commissionAmount: q.commission,
+                    paymentFee: q.paymentFee,
                     pricePaid: q.total,
+                    paymentRef: needsRef ? newPaymentRef() : null,
+                    paidAt: paymentStatus === PaymentStatus.CONFIRMED ? new Date() : null,
                     discountCode: q.discountCode,
                     paymentMethod,
                     paymentStatus,
@@ -417,6 +433,8 @@ export class RegistrationsService {
             pagamento: r.paymentStatus,
             certificato: r.certStatus,
             iscrittoIl: r.submittedAt,
+            // Per completare il pagamento (link /pagamento/CODICE) se ancora in attesa
+            codicePagamento: r.paymentStatus === PaymentStatus.PENDING && r.paymentMethod !== 'onsite' ? r.paymentRef : undefined,
         }));
     }
 
@@ -433,8 +451,9 @@ export class RegistrationsService {
     }
 
     async setPayment(user: AuthUser, id: string, paymentStatus: PaymentStatus) {
-        await this.regForStaff(user, id);
-        return this.prisma.registration.update({ where: { id }, data: { paymentStatus } });
+        const reg = await this.regForStaff(user, id);
+        const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
+        return this.prisma.registration.update({ where: { id }, data: { paymentStatus, paidAt } });
     }
 
     async setCert(user: AuthUser, id: string, certStatus: CertStatus) {

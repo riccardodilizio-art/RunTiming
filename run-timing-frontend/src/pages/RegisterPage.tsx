@@ -467,7 +467,43 @@ function Summary({
 
 // ─── Step 4 — Payment ─────────────────────────────────────────────────────────
 
-type PaymentMethod = 'paypal' | 'card' | 'free' | 'onsite';
+/** paypal comprende anche le carte (gestite da PayPal: i dati carta non passano dal sito). */
+type PaymentMethod = 'paypal' | 'bank' | 'free' | 'onsite';
+
+interface FeeSettings { bankFee: number; paypalPercent: number; paypalFixed: number; bankDays: number }
+const DEFAULT_FEES: FeeSettings = { bankFee: 1, paypalPercent: 3.4, paypalFixed: 0.35, bankDays: 5 };
+
+/** Stessa formula del server (registrations/rules.ts → paymentFee). */
+function methodFee(m: PaymentMethod, amount: number, f: FeeSettings): number {
+    if (amount <= 0) return 0;
+    if (m === 'bank') return f.bankFee;
+    if (m === 'paypal') return Math.round((amount * f.paypalPercent / 100 + f.paypalFixed) * 100) / 100;
+    return 0;
+}
+
+function MethodButton({ active, onClick, icon, title, subtitle, extra }: {
+    active: boolean; onClick: () => void; icon: React.ReactNode; title: string; subtitle: string; extra?: string;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
+                active ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+            }`}
+        >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">{icon}</div>
+            <div className="min-w-0">
+                <p className="font-semibold text-slate-800">{title}</p>
+                <p className="text-xs text-slate-400">{subtitle}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                {extra && <span className="text-xs font-medium text-slate-500">{extra}</span>}
+                {active && <Check className="h-5 w-5 text-brand-600" />}
+            </div>
+        </button>
+    );
+}
 
 function PaymentStep({
     totalPrice,
@@ -475,23 +511,37 @@ function PaymentStep({
     onMethodChange,
     allowOnline = true,
     allowOnsite = false,
+    fees,
 }: {
     totalPrice: number;
     method: PaymentMethod;
     onMethodChange: (m: PaymentMethod) => void;
     allowOnline?: boolean;
     allowOnsite?: boolean;
+    fees: FeeSettings;
 }) {
     const isFree = totalPrice <= 0;
+    const fee = methodFee(method, totalPrice, fees);
+    const plus = (m: PaymentMethod) => {
+        const f = methodFee(m, totalPrice, fees);
+        return f > 0 ? `+ ${formatPrice(f)}` : undefined;
+    };
 
     return (
         <div className="space-y-5">
             {/* Amount due */}
-            <div className="bg-brand-50 rounded-xl p-4 border border-brand-200 flex items-center justify-between">
-                <span className="font-semibold text-slate-700">Importo da pagare</span>
-                <span className="text-2xl font-bold text-brand-700">
-                    {isFree ? 'Gratuito' : formatPrice(totalPrice)}
-                </span>
+            <div className="bg-brand-50 rounded-xl p-4 border border-brand-200">
+                <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-700">Importo da pagare</span>
+                    <span className="text-2xl font-bold text-brand-700">
+                        {isFree ? 'Gratuito' : formatPrice(totalPrice + fee)}
+                    </span>
+                </div>
+                {!isFree && fee > 0 && (
+                    <p className="text-xs text-slate-500 mt-1 text-right">
+                        quota {formatPrice(totalPrice)} + {method === 'bank' ? 'gestione bonifico' : 'commissione PayPal/carta'} {formatPrice(fee)}
+                    </p>
+                )}
             </div>
 
             {isFree ? (
@@ -504,122 +554,42 @@ function PaymentStep({
                     <p className="text-sm font-medium text-slate-700">Seleziona metodo di pagamento</p>
 
                     {allowOnline && (<>
-                    {/* PayPal */}
-                    <button
-                        type="button"
-                        onClick={() => onMethodChange('paypal')}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                            method === 'paypal' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                    >
-                        <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-bold text-sm">PP</span>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-slate-800">PayPal</p>
-                            <p className="text-xs text-slate-400">Paga con il tuo account PayPal</p>
-                        </div>
-                        {method === 'paypal' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
-                    </button>
-
-                    {/* Card */}
-                    <button
-                        type="button"
-                        onClick={() => onMethodChange('card')}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                            method === 'card' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                    >
-                        <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <CreditCard className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="font-semibold text-slate-800">Carta di credito / debito</p>
-                            <p className="text-xs text-slate-400">Visa, Mastercard, American Express</p>
-                        </div>
-                        {method === 'card' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
-                    </button>
-
-                    {/* Card form (shown when card selected) */}
-                    {method === 'card' && (
-                        <div className="mt-2 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Numero carta</label>
-                                <input
-                                    type="text"
-                                    maxLength={19}
-                                    placeholder="1234 5678 9012 3456"
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Scadenza</label>
-                                    <input
-                                        type="text"
-                                        maxLength={5}
-                                        placeholder="MM/AA"
-                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">CVV</label>
-                                    <input
-                                        type="text"
-                                        maxLength={4}
-                                        placeholder="123"
-                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Intestatario carta</label>
-                                <input
-                                    type="text"
-                                    placeholder="MARIO ROSSI"
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                />
-                            </div>
-                            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                ⚠️ Integrazione pagamento in fase di configurazione. La conferma avverrà senza addebito reale.
-                            </p>
-                        </div>
-                    )}
-
-                    {method === 'paypal' && (
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                ⚠️ Integrazione PayPal in fase di configurazione. La conferma avverrà senza addebito reale.
-                            </p>
-                        </div>
-                    )}
+                        <MethodButton
+                            active={method === 'paypal'}
+                            onClick={() => onMethodChange('paypal')}
+                            icon={<div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center"><CreditCard className="h-5 w-5 text-white" /></div>}
+                            title="PayPal o carta di credito"
+                            subtitle="Visa, Mastercard, Amex anche senza conto PayPal · conferma immediata"
+                            extra={plus('paypal')}
+                        />
+                        <MethodButton
+                            active={method === 'bank'}
+                            onClick={() => onMethodChange('bank')}
+                            icon={<div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center"><Euro className="h-5 w-5 text-white" /></div>}
+                            title="Bonifico bancario"
+                            subtitle={`Ricevi IBAN e causale · da effettuare entro ${fees.bankDays} giorni`}
+                            extra={plus('bank')}
+                        />
                     </>)}
 
-                    {/* Pagamento in loco */}
                     {allowOnsite && (
-                        <button
-                            type="button"
+                        <MethodButton
+                            active={method === 'onsite'}
                             onClick={() => onMethodChange('onsite')}
-                            className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                                method === 'onsite' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300 bg-white'
-                            }`}
-                        >
-                            <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Euro className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-slate-800">Paga in loco il giorno della gara</p>
-                                <p className="text-xs text-slate-400">L'iscrizione resta valida; la quota si salda al ritiro pettorale.</p>
-                            </div>
-                            {method === 'onsite' && <Check className="h-5 w-5 text-brand-600 ml-auto" />}
-                        </button>
+                            icon={<div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center"><Euro className="h-5 w-5 text-white" /></div>}
+                            title="Paga in loco il giorno della gara"
+                            subtitle="L'iscrizione resta valida; la quota si salda al ritiro pettorale."
+                        />
                     )}
 
-                    {/* Commission info */}
+                    {allowOnline && !allowOnsite && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Per questa gara il pagamento anticipato è obbligatorio: le iscrizioni non pagate entro la scadenza vengono annullate.
+                        </p>
+                    )}
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
                         <Percent className="h-3.5 w-3.5" />
-                        <Euro className="h-3.5 w-3.5" />
-                        <span>Le commissioni di servizio sono già incluse nel totale mostrato.</span>
+                        <span>Il pagamento con carta avviene sui server di PayPal: i dati della carta non passano da questo sito.</span>
                     </div>
                 </div>
             )}
@@ -645,7 +615,7 @@ function Confirmation({ submissionId, raceName, eventTitle, pricePaid, paymentMe
             `Evento: ${eventTitle}`,
             `Distanza: ${raceName}`,
             `Importo: ${formatPrice(pricePaid)}`,
-            `Metodo: ${paymentMethod === 'paypal' ? 'PayPal' : paymentMethod === 'card' ? 'Carta' : 'Gratuito'}`,
+            `Metodo: ${paymentMethod === 'paypal' ? 'PayPal / carta' : paymentMethod === 'bank' ? 'Bonifico' : paymentMethod === 'onsite' ? 'In loco' : 'Gratuito'}`,
             `Data: ${new Date().toLocaleString('it-IT')}`,
             '',
             'Conserva questo documento come conferma di iscrizione.',
@@ -725,7 +695,13 @@ export default function RegisterPage() {
     const [formData, setFormData] = useState<Record<string, string | boolean>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [appliedDiscount, setAppliedDiscount] = useState<DiscountCode | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('paypal');
+    // Maggiorazioni dei metodi (bonifico +1 €, PayPal %): dal server, se disponibile
+    const [fees, setFees] = useState<FeeSettings>(DEFAULT_FEES);
+    useEffect(() => {
+        if (!USE_API) return;
+        api.get<FeeSettings>('/settings/payments').then(f => setFees({ ...DEFAULT_FEES, ...f })).catch(() => undefined);
+    }, []);
     const [submissionId, setSubmissionId] = useState('');
     const [fidalVerified, setFidalVerified] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -888,7 +864,7 @@ export default function RegisterPage() {
     useEffect(() => {
         if (paymentMode === 'onsite') setPaymentMethod('onsite');
         else if (paymentMode === 'online' || paymentMode === 'both') {
-            setPaymentMethod(m => m === 'onsite' ? 'card' : m);
+            setPaymentMethod(m => m === 'onsite' ? 'paypal' : m);
         }
     }, [paymentMode]);
 
@@ -992,11 +968,11 @@ export default function RegisterPage() {
         setSubmitting(true);
         try {
             const asAthlete = tokenRole() === 'ATHLETE' && !!currentAthlete;
-            const r = await api.post<{ registration: { id: string } }>('/registrations', {
+            const r = await api.post<{ registration: { id: string; paymentRef?: string | null; paymentMethod?: string } }>('/registrations', {
                 raceId: selectedRace.id,
                 formData,
                 discountCode: appliedDiscount?.code,
-                paymentMethod: isFree ? undefined : paymentMethod === 'onsite' ? 'onsite' : 'online',
+                paymentMethod: isFree ? undefined : paymentMethod,
                 // Atleta con account: anagrafica e tesseramento li prende il server dal profilo
                 affiliationId: asAthlete ? selectedAffId || undefined : undefined,
                 athlete: asAthlete ? undefined : {
@@ -1010,6 +986,12 @@ export default function RegisterPage() {
                     email: byCatalog('email') || currentAthlete?.email || undefined,
                 },
             });
+            // PayPal/carta o bonifico: si va alla pagina di pagamento (link valido anche dopo)
+            const ref = r.registration.paymentRef;
+            if (ref && (r.registration.paymentMethod === 'paypal' || r.registration.paymentMethod === 'bank')) {
+                navigate(`/pagamento/${ref}`);
+                return;
+            }
             setSubmissionId(r.registration.id);
             setStep(s => s + 1);
             if (isFidal && !currentAthlete) setTimeout(() => setShowAccountModal(true), 600);
@@ -1050,7 +1032,7 @@ export default function RegisterPage() {
                 pricePaid: totalPrice,
                 discountCode: appliedDiscount?.code,
                 discountAmount: discountAmount > 0 ? discountAmount : undefined,
-                paymentMethod: isFree ? 'free' : paymentMethod === 'onsite' ? 'manual' : paymentMethod,
+                paymentMethod: isFree ? 'free' : paymentMethod === 'paypal' ? 'paypal' : 'manual',
                 assignedCategory: assignedCat?.name,
                 fidalVerified: fidalVerified || chosenAff?.ente === 'fidal',
                 paymentStatus: 'pending',
@@ -1077,7 +1059,7 @@ export default function RegisterPage() {
 
     const isLastStep = step === STEPS.length - 2; // step 3 = pagamento
     const nextLabel = isLastStep
-        ? ((isFree || paymentMethod === 'onsite') ? 'Conferma iscrizione' : 'Paga e conferma')
+        ? ((isFree || paymentMethod === 'onsite') ? 'Conferma iscrizione' : paymentMethod === 'bank' ? 'Conferma e vedi dati bonifico' : 'Conferma e paga')
         : 'Continua';
     // Blocca "Continua" in step 1:
     // - guest su gara competitiva che non ha ancora scelto FIDAL/non-FIDAL;
@@ -1330,6 +1312,7 @@ export default function RegisterPage() {
                             onMethodChange={setPaymentMethod}
                             allowOnline={allowOnline}
                             allowOnsite={allowOnsite}
+                            fees={fees}
                         />
                     )}
 

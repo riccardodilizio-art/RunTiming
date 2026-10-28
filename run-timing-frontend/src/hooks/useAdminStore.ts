@@ -141,7 +141,8 @@ function replaceRaceRegistrations(raceId: string, regs: RegistrationSubmission[]
 }
 
 /** Staff: tutte le iscrizioni di una gara (anche rifiutate). */
-export function loadRaceRegistrationsApi(raceId: string): Promise<void> {
+export function loadRaceRegistrationsApi(raceId: string, _refresh = false): Promise<void> {
+    void _refresh; // ogni chiamata rilegge dal server (le richieste contemporanee sono unite)
     return once(`regs:${raceId}`, async () => {
         const all: RegistrationSubmission[] = [];
         for (let page = 1; ; page++) {
