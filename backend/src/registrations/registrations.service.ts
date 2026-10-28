@@ -280,14 +280,18 @@ export class RegistrationsService {
     }
 
     /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */
-    private async fidalCheck(tessera: string, cognome: string, dataNascita: string, raceDay: Date): Promise<boolean> {
+    private async fidalCheck(
+        tessera: string, cognome: string, dataNascita: string, raceDay: Date,
+    ): Promise<{ ok: boolean; societa?: string; codiceSocieta?: string }> {
         try {
             const r = await this.fidal.verifyByTessera(tessera.trim());
             const at = r.atleta;
-            if (!at || normName(at.cognome) !== normName(cognome) || at.dataNascita !== dataNascita.slice(0, 10)) return false;
-            return !at.certScadenza || at.certScadenza >= raceDay.toISOString().slice(0, 10);
+            if (!at || normName(at.cognome) !== normName(cognome) || at.dataNascita !== dataNascita.slice(0, 10)) return { ok: false };
+            const certOk = !at.certScadenza || at.certScadenza >= raceDay.toISOString().slice(0, 10);
+            // La società risulta comunque da FIDAL anche se il certificato è scaduto
+            return { ok: certOk, societa: at.societa || undefined, codiceSocieta: at.codiceSocieta || undefined };
         } catch {
-            return false; // WISE non raggiungibile: non verificato (certificato da controllare)
+            return { ok: false }; // FIDAL non raggiungibile: non verificato (certificato da controllare)
         }
     }
 
@@ -343,7 +347,13 @@ export class RegistrationsService {
         const isStaffUser = user?.role === Role.ADMIN || user?.role === Role.ORGANIZER;
         // Tessera verificata DAL SERVER (WISE/dump): stesso cognome e data di nascita,
         // certificato (se noto) valido alla data gara. Il browser non può dichiararlo.
-        const verified = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : false;
+        const check = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : { ok: false };
+        const verified = check.ok;
+        // Tessera confermata: società come risulta a FIDAL (non come scritta nel modulo)
+        if (check.codiceSocieta && user?.role !== Role.SOCIETY) {
+            societa = check.societa ?? societa;
+            codiceSocieta = check.codiceSocieta;
+        }
         const athlete: AthleteSnapshot = {
             nome: normName(a.nome),
             cognome: normName(a.cognome),

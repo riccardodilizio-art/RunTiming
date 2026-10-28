@@ -17,6 +17,8 @@ export interface FidalAthlete {
     societa: string;
     codiceSocieta: string;
     certScadenza?: string;  // scadenza certificato medico YYYY-MM-DD (se disponibile nel DB)
+    /** Solo con il backend: certificato valido alla data della gara (senza rivelare la scadenza). */
+    certificato?: 'valido' | 'scaduto' | 'non_disponibile';
 }
 
 export const MOCK_FIDAL_DB: FidalAthlete[] = [

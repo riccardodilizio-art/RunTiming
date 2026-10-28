@@ -220,6 +220,14 @@ export async function listAthletesApi(): Promise<AthleteAccount[]> {
     return out;
 }
 
+/** Atleta con login: società e scadenza certificato della sua tessera FIDAL (null = non trovata). */
+export async function fidalFillApi(tessera: string) {
+    const r = await api.get<{ trovato: boolean; societaNome?: string | null; codiceSocieta?: string | null; certScadenza?: string | null }>(
+        `/athletes/me/fidal?tessera=${encodeURIComponent(tessera)}`,
+    );
+    return r.trovato ? r : null;
+}
+
 // ─── Admin: approvazione codici FIDAL delle società ──────────────────────────
 
 export interface AdminSocietyRow {

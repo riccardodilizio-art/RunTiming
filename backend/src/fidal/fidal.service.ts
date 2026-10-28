@@ -1,16 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { WiseClient } from './wise.client';
 import { extractAtleti, mapAtleta, type FidalAthleteDto } from './fidal.mapper';
-import { parseFidalDump } from './fidal.dump';
+import { FidalDumpRow, parseFidalDump } from './fidal.dump';
 import { parseAthletesCsv, parseSocietiesCsv } from './fidal.csv';
+import { csvFiles } from './zip';
 import type { FidalAthlete } from '@prisma/client';
 
 // Servizio FIDAL: interroga WISE (proxy), normalizza i dati e li mette in cache
-// su Postgres (tabella FidalAthlete). La SCADENZA CERTIFICATO — che WISE non
-// restituisce — arriva dal dump .xlsx importato (importDump) e viene unita alla
-// risposta, così la validità rispetto alla data evento è verificabile ovunque.
+// su Postgres (tabella FidalAthlete). SCADENZA CERTIFICATO e NOME DELLA SOCIETÀ —
+// che WISE non restituisce — arrivano dai file del portale tesseramento caricati
+// dall'admin (importDump / importSocieties) e vengono uniti alla risposta.
 
 @Injectable()
 export class FidalService {
@@ -31,19 +32,32 @@ export class FidalService {
         this.societyPath = config.get('WISE_SOCIETY_PATH') ?? '/Iscrizioni/Iscritti/OngGetAtletiSocieta';
     }
 
-    /** Verifica tesseramento per numero tessera. */
-    /** Risposte WISE recenti (10 minuti): meno chiamate al gestionale FIDAL a parità di tessera. */
+    /** Risposte recenti (10 minuti): meno chiamate al gestionale FIDAL a parità di tessera. */
     private readonly recent = new Map<string, { at: number; atleta: FidalAthleteDto | null }>();
 
+    /**
+     * Verifica tesseramento per numero tessera: prima WISE (dato in tempo reale),
+     * se WISE non risponde o non è configurato il database dei tesserati
+     * caricato dall'admin (file del portale tesseramento). In entrambi i casi
+     * nome della società e scadenza del certificato vengono dai file caricati.
+     */
     async verifyByTessera(tessera: string): Promise<{ tessera: string; tesserato: boolean; atleta: FidalAthleteDto | null }> {
         const key = tessera.trim().toUpperCase();
         const hit = this.recent.get(key);
         if (hit && Date.now() - hit.at < 10 * 60_000) return { tessera: key, tesserato: !!hit.atleta, atleta: hit.atleta && { ...hit.atleta } };
-        const raw = await this.wise.getJson<unknown>(this.atletaPath, { [this.atletaParam]: tessera });
-        const dto = extractAtleti(raw).map(mapAtleta).find(a => a.tessera) ?? null;
-        if (dto) {
+        let dto: FidalAthleteDto | null;
+        try {
+            const raw = await this.wise.getJson<unknown>(this.atletaPath, { [this.atletaParam]: tessera });
+            dto = extractAtleti(raw).map(mapAtleta).find(a => a.tessera) ?? null;
+            if (dto) {
+                await this.enrich([dto]);
+                await this.cache(dto);
+            }
+        } catch (e) {
+            const row = await this.prisma.fidalAthlete.findUnique({ where: { tessera: key } });
+            if (!row) throw e; // né WISE né il database: verifica non disponibile
+            dto = this.rowToDto(row);
             await this.enrich([dto]);
-            await this.cache(dto);
         }
         if (this.recent.size > 5000) this.recent.clear();
         this.recent.set(key, { at: Date.now(), atleta: dto && { ...dto } });
@@ -103,33 +117,59 @@ export class FidalService {
     }
 
     /**
-     * Importa il dump tesseramenti FIDAL (.csv o .xlsx) sostituendo
-     * COMPLETAMENTE la tabella FidalAthlete. È l'unica fonte della scadenza
-     * certificato (e, nel CSV, della data di nascita completa).
+     * Importa i file atleti scaricati dal portale FIDAL (CSV, anche dentro gli zip,
+     * più file insieme: l'export arriva diviso in parti) oppure il vecchio .xlsx.
+     * Sostituisce COMPLETAMENTE la tabella FidalAthlete, in un'unica transazione:
+     * se qualcosa va storto resta il database di prima.
      */
-    async importDump(buffer: Buffer, filename = ''): Promise<{ count: number }> {
-        const rows = filename.toLowerCase().endsWith('.csv')
-            ? parseAthletesCsv(buffer)
-            : parseFidalDump(buffer);
-        if (rows.length === 0) return { count: 0 };
-        await this.prisma.fidalAthlete.deleteMany({});
-        const BATCH = 5000;
-        for (let i = 0; i < rows.length; i += BATCH) {
-            await this.prisma.fidalAthlete.createMany({ data: rows.slice(i, i + BATCH), skipDuplicates: true });
+    async importDump(files: { buffer: Buffer; name: string }[]): Promise<{ count: number; certificati: number; files: number }> {
+        const byTessera = new Map<string, FidalDumpRow>();
+        let parts = 0;
+        for (const f of files) {
+            if (/\.xlsx?$/i.test(f.name)) {
+                for (const r of parseFidalDump(f.buffer)) byTessera.set(r.tessera, r);
+                parts++;
+                continue;
+            }
+            for (const csv of csvFiles(f.buffer, f.name)) {
+                const parsed = parseAthletesCsv(csv.data);
+                if (!parsed.withCert) {
+                    throw new BadRequestException(
+                        `${csv.name}: questo file non contiene la scadenza del certificato. ` +
+                        'Dal portale tesseramento, sezione Download, scarica "Atleti con data scadenza certificato Medico".',
+                    );
+                }
+                for (const r of parsed.rows) byTessera.set(r.tessera, r);
+                parts++;
+            }
         }
-        this.logger.log(`Import dump FIDAL atleti: ${rows.length}`);
-        return { count: rows.length };
+        const rows = [...byTessera.values()];
+        if (rows.length === 0) throw new BadRequestException('Nessun atleta trovato nei file');
+        await this.prisma.$transaction(async tx => {
+            await tx.fidalAthlete.deleteMany({});
+            for (let i = 0; i < rows.length; i += 5000) {
+                await tx.fidalAthlete.createMany({ data: rows.slice(i, i + 5000), skipDuplicates: true });
+            }
+        }, { timeout: 300_000, maxWait: 10_000 });
+        this.recent.clear();
+        const certificati = rows.filter(r => r.certScadenza).length;
+        this.logger.log(`Import tesserati FIDAL: ${rows.length} (con certificato: ${certificati}) da ${parts} file`);
+        return { count: rows.length, certificati, files: parts };
     }
 
-    /** Importa l'anagrafica società (.csv) sostituendo la tabella FidalSociety. */
-    async importSocieties(buffer: Buffer): Promise<{ count: number }> {
-        const rows = parseSocietiesCsv(buffer);
-        if (rows.length === 0) return { count: 0 };
-        await this.prisma.fidalSociety.deleteMany({});
-        const BATCH = 2000;
-        for (let i = 0; i < rows.length; i += BATCH) {
-            await this.prisma.fidalSociety.createMany({ data: rows.slice(i, i + BATCH), skipDuplicates: true });
-        }
+    /** Importa l'anagrafica società (.csv o zip) sostituendo la tabella FidalSociety. */
+    async importSocieties(buffer: Buffer, filename = ''): Promise<{ count: number }> {
+        const byCode = new Map<string, ReturnType<typeof parseSocietiesCsv>[number]>();
+        for (const csv of csvFiles(buffer, filename)) for (const r of parseSocietiesCsv(csv.data)) byCode.set(r.codice, r);
+        const rows = [...byCode.values()];
+        if (rows.length === 0) throw new BadRequestException('Nessuna società trovata nel file');
+        await this.prisma.$transaction(async tx => {
+            await tx.fidalSociety.deleteMany({});
+            for (let i = 0; i < rows.length; i += 2000) {
+                await tx.fidalSociety.createMany({ data: rows.slice(i, i + 2000), skipDuplicates: true });
+            }
+        }, { timeout: 120_000 });
+        this.recent.clear();
         this.logger.log(`Import società FIDAL: ${rows.length}`);
         return { count: rows.length };
     }
@@ -159,6 +199,7 @@ export class FidalService {
             if (scad) dto.certScadenza = scad.toISOString().slice(0, 10);
             const name = nameByCode.get(dto.codiceSocieta.toUpperCase());
             if (name) dto.societa = name;
+            else if (!dto.societa) dto.societa = dto.codiceSocieta;
         }
     }
 

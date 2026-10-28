@@ -1,5 +1,5 @@
 import {
-    BadRequestException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, ServiceUnavailableException, UploadedFile,
+    BadRequestException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, ServiceUnavailableException, UploadedFile, UploadedFiles,
     UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,7 +7,7 @@ import { normName } from '../registrations/rules';
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard, AuthUser, CurrentUser, Roles, ThrottlePerIp } from '../common/auth';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
 import { siteName } from '../common/brand';
 
@@ -34,7 +34,12 @@ export class FidalController {
     @Get('verifica')
     @ThrottlePerIp({ staffExempt: true })
     @Throttle({ default: { limit: 20, ttl: 60_000 } })
-    async verifica(@Query('tessera') tessera?: string, @Query('cognome') cognome?: string, @Query('dataNascita') dataNascita?: string) {
+    async verifica(
+        @Query('tessera') tessera?: string,
+        @Query('cognome') cognome?: string,
+        @Query('dataNascita') dataNascita?: string,
+        @Query('gara') raceId?: string,
+    ) {
         if (!tessera?.trim() || tessera.length > 30) throw new BadRequestException('Parametro "tessera" mancante');
         if (!cognome?.trim()) throw new BadRequestException('Indica anche il cognome');
         if (!dataNascita || !/^\d{4}-\d{2}-\d{2}$/.test(dataNascita)) throw new BadRequestException('Indica anche la data di nascita (AAAA-MM-GG)');
@@ -49,10 +54,18 @@ export class FidalController {
         if (!a || normName(a.cognome) !== normName(cognome) || a.dataNascita?.slice(0, 10) !== dataNascita) {
             return { tessera: r.tessera, tesserato: false, atleta: null };
         }
-        // Niente data di nascita (la conosce già chi chiede) né scadenza certificato (dato sanitario)
-        const { certScadenza: _cert, dataNascita: _dob, ...atleta } = a;
-        void _cert; void _dob;
-        return { tessera: r.tessera, tesserato: true, atleta };
+        // Niente data di nascita (la conosce già chi chiede) né data di scadenza del
+        // certificato (dato sanitario): per una gara si dice solo se è valido quel giorno
+        const { certScadenza: cert, dataNascita: _dob, ...atleta } = a;
+        void _dob;
+        let certificato: 'valido' | 'scaduto' | 'non_disponibile' | undefined;
+        if (raceId && raceId.length <= 40) {
+            const race = await this.prisma.race.findUnique({ where: { id: raceId }, select: { day: { select: { date: true } } } });
+            if (race) {
+                certificato = !cert ? 'non_disponibile' : cert >= race.day.date.toISOString().slice(0, 10) ? 'valido' : 'scaduto';
+            }
+        }
+        return { tessera: r.tessera, tesserato: true, atleta, certificato };
     }
 
     /**
@@ -104,16 +117,22 @@ export class FidalController {
     }
 
     /**
-     * POST /api/fidal/import — dump tesseramenti FIDAL atleti (.csv o .xlsx)
-     * come campo "file" (multipart). Fonte di scadenza cert e data di nascita.
+     * POST /api/fidal/import — file atleti del portale tesseramento FIDAL
+     * ("Atleti con data scadenza certificato Medico"): zip o CSV, anche più file
+     * insieme (campo "file", multipart). Fonte di scadenza certificato e data di nascita.
      */
     @Post('import')
     @UseGuards(AuthGuard)
     @Roles(Role.ADMIN)
-    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
-    importDump(@UploadedFile() file?: Express.Multer.File) {
-        if (!file?.buffer?.length) throw new BadRequestException('File dump mancante');
-        return this.fidal.importDump(file.buffer, file.originalname);
+    @UseInterceptors(FilesInterceptor('file', 10, { limits: { fileSize: 100 * 1024 * 1024 } }))
+    async importDump(@UploadedFiles() files?: Express.Multer.File[]) {
+        if (!files?.length) throw new BadRequestException('File mancante');
+        try {
+            return await this.fidal.importDump(files.map(f => ({ buffer: f.buffer, name: f.originalname })));
+        } catch (e) {
+            if (e instanceof Error && !(e instanceof BadRequestException) && /zip|CSV/.test(e.message)) throw new BadRequestException(e.message);
+            throw e;
+        }
     }
 
     /**
@@ -126,6 +145,6 @@ export class FidalController {
     @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
     importSocieties(@UploadedFile() file?: Express.Multer.File) {
         if (!file?.buffer?.length) throw new BadRequestException('File società mancante');
-        return this.fidal.importSocieties(file.buffer);
+        return this.fidal.importSocieties(file.buffer, file.originalname);
     }
 }

@@ -1,4 +1,5 @@
-import { Plus, Trash2, IdCard } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, IdCard, Search } from 'lucide-react';
 import { newAffiliationId } from './affiliations';
 import type { Affiliation, RaceEnte } from '../../types';
 
@@ -19,13 +20,46 @@ const inputCls =
  * Editor dei tesseramenti multipli di un atleta (ente + società + tessera + scadenza cert).
  * Riutilizzabile in profilo atleta, registrazione e roster società.
  */
+/** Dati FIDAL della tessera dell'atleta (società, scadenza certificato), oppure null se non trovata. */
+export type FidalFill = (tessera: string) => Promise<{ societaNome?: string | null; codiceSocieta?: string | null; certScadenza?: string | null } | null>;
+
 export default function AffiliationsEditor({
     value,
     onChange,
+    onFidalFill,
 }: {
     value: Affiliation[];
     onChange: (next: Affiliation[]) => void;
+    /** Se presente (atleta con login), mostra "Compila da FIDAL" per i tesseramenti FIDAL. */
+    onFidalFill?: FidalFill;
 }) {
+    const [busy, setBusy] = useState<string | null>(null);
+    const [msg, setMsg] = useState<Record<string, string>>({});
+
+    async function fillFromFidal(aff: Affiliation) {
+        if (!onFidalFill || !aff.numeroTessera?.trim()) return;
+        setBusy(aff.id);
+        try {
+            const r = await onFidalFill(aff.numeroTessera.trim().toUpperCase());
+            if (!r) {
+                setMsg(m => ({ ...m, [aff.id]: 'Tessera non trovata con il tuo cognome e la tua data di nascita: controlla il numero o compila a mano.' }));
+                return;
+            }
+            update(aff.id, {
+                numeroTessera: aff.numeroTessera.trim().toUpperCase(),
+                societaNome: r.societaNome || aff.societaNome,
+                codiceSocieta: r.codiceSocieta || aff.codiceSocieta,
+                certScadenza: r.certScadenza || aff.certScadenza,
+            });
+            setMsg(m => ({ ...m, [aff.id]: r.certScadenza
+                ? 'Dati compilati da FIDAL. Salva il profilo per confermarli.'
+                : 'Società compilata da FIDAL; la scadenza del certificato non è disponibile: inseriscila tu. Salva il profilo per confermare.' }));
+        } catch (e) {
+            setMsg(m => ({ ...m, [aff.id]: e instanceof Error ? e.message : 'Verifica non riuscita, riprova più tardi.' }));
+        } finally {
+            setBusy(null);
+        }
+    }
     function add() {
         onChange([...value, { id: newAffiliationId(), ente: 'fidal', societaNome: '', numeroTessera: '', source: 'manual' }]);
     }
@@ -82,8 +116,15 @@ export default function AffiliationsEditor({
                                     </button>
                                 </div>
                             </div>
+                            {onFidalFill && aff.ente === 'fidal' && (
+                                <button type="button" onClick={() => fillFromFidal(aff)} disabled={!aff.numeroTessera?.trim() || busy === aff.id}
+                                    className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 disabled:opacity-40">
+                                    <Search className="h-3.5 w-3.5" /> {busy === aff.id ? 'Cerco…' : 'Compila società e certificato da FIDAL'}
+                                </button>
+                            )}
+                            {msg[aff.id] && <p className="text-[11px] text-slate-600 mt-1.5">{msg[aff.id]}</p>}
                             {aff.source === 'fidal_db' && (
-                                <p className="text-[11px] text-brand-500 mt-1.5">✓ Importato dal database FIDAL</p>
+                                <p className="text-[11px] text-brand-500 mt-1.5">✓ Verificato su FIDAL</p>
                             )}
                         </div>
                     ))}

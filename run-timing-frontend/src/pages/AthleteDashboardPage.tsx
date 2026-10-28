@@ -10,6 +10,7 @@ import { useAthleteAuth } from '../context/useAthleteAuth';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { loadResults, useAdminStore, loadMyRegistrationsApi, reportApiError } from '../hooks/useAdminStore';
 import { USE_API } from '../lib/api';
+import { fidalFillApi } from '../lib/accounts';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
 import AffiliationsEditor from '../components/athlete/AffiliationsEditor';
@@ -612,6 +613,7 @@ export default function AthleteDashboardPage() {
                                 <AffiliationsEditor
                                     value={editForm.affiliations}
                                     onChange={affs => setEditForm(f => ({ ...f, affiliations: affs }))}
+                                    onFidalFill={USE_API ? fidalFillApi : undefined}
                                 />
                                 <div className="flex gap-3 pt-2">
                                     <button type="submit"

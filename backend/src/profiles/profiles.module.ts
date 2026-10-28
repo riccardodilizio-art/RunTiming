@@ -16,6 +16,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { CertStatus, Prisma, Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateOnly } from '../common/validators';
 import { AuthService } from '../auth/auth.service';
@@ -35,6 +36,13 @@ import {
 
 const PAGE = 50;
 
+interface FidalCheck {
+    ok: boolean;
+    cert?: string | null;
+    societa?: string | null;
+    codiceSocieta?: string | null;
+}
+
 @Injectable()
 export class ProfilesService {
     constructor(
@@ -47,17 +55,30 @@ export class ProfilesService {
      * Tessera FIDAL confermata su WISE (stesso cognome e data di nascita)?
      * Se WISE non risponde, il tesseramento resta "manual" (non verificato).
      */
-    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<{ ok: boolean; cert?: string | null }> {
+    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<FidalCheck> {
         try {
             const r = await this.fidal.verifyByTessera(tessera.trim());
-            const ok = !!r.atleta
-                && normName(r.atleta.cognome) === normName(cognome)
-                && r.atleta.dataNascita === dataNascita.slice(0, 10);
-            // Scadenza certificato dal dato FIDAL, non da quanto scrive l'atleta
-            return { ok, cert: ok ? r.atleta?.certScadenza ?? null : undefined };
+            const a = r.atleta;
+            const ok = !!a && normName(a.cognome) === normName(cognome) && a.dataNascita === dataNascita.slice(0, 10);
+            if (!ok || !a) return { ok: false };
+            // Società e scadenza certificato dal dato FIDAL, non da quanto scrive l'atleta
+            return { ok: true, cert: a.certScadenza ?? null, societa: a.societa || null, codiceSocieta: a.codiceSocieta || null };
         } catch {
             return { ok: false };
         }
+    }
+
+    /**
+     * Atleta con login: dati FIDAL della SUA tessera (società, scadenza certificato),
+     * solo se la tessera corrisponde a cognome e data di nascita del suo profilo.
+     * Serve a compilare il tesseramento nel profilo senza scriverlo a mano.
+     */
+    async myFidal(accountId: string, tessera: string) {
+        const p = await this.prisma.athleteProfile.findUnique({ where: { accountId } });
+        if (!p) throw new BadRequestException('Salva prima il profilo (nome, cognome, data di nascita)');
+        const c = await this.fidalConfirmed(tessera, p.cognome, p.dataNascita.toISOString().slice(0, 10));
+        if (!c.ok) return { trovato: false };
+        return { trovato: true, societaNome: c.societa, codiceSocieta: c.codiceSocieta, certScadenza: c.cert };
     }
 
     // ─── Atleta ──────────────────────────────────────────────────────────
@@ -95,7 +116,7 @@ export class ProfilesService {
             (dto.affiliations ?? []).map(async a =>
                 a.ente === 'fidal' && a.numeroTessera
                     ? this.fidalConfirmed(a.numeroTessera, dto.cognome, dto.dataNascita)
-                    : ({ ok: false } as { ok: boolean; cert?: string | null }),
+                    : ({ ok: false } as FidalCheck),
             ),
         );
         try {
@@ -122,8 +143,9 @@ export class ProfilesService {
                             data: dto.affiliations.map((a, i) => ({
                                 athleteId: p.id,
                                 ente: a.ente,
-                                societaNome: a.societaNome,
-                                codiceSocieta: a.codiceSocieta ?? null,
+                                // Tessera confermata: società come risulta a FIDAL
+                                societaNome: (checks[i].ok && checks[i].societa) || a.societaNome,
+                                codiceSocieta: (checks[i].ok && checks[i].codiceSocieta) || a.codiceSocieta || null,
                                 numeroTessera: a.numeroTessera ?? null,
                                 certScadenza: checks[i].ok
                                     ? (checks[i].cert ? new Date(checks[i].cert as string) : null)
@@ -311,6 +333,15 @@ export class ProfilesController {
     }
 
     /** Admin: GET /api/athletes?q=&pending=1 (certificati da verificare). */
+    /** GET /api/athletes/me/fidal?tessera=… — compila il tesseramento FIDAL del profilo. */
+    @Get('athletes/me/fidal')
+    @Roles(Role.ATHLETE)
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
+    myFidal(@CurrentUser() u: AuthUser, @Query('tessera') tessera?: string) {
+        if (!tessera?.trim() || tessera.length > 30) throw new BadRequestException('Indica il numero di tessera');
+        return this.profiles.myFidal(u.sub, tessera);
+    }
+
     @Get('athletes')
     @Roles(Role.ADMIN)
     athletes(@Query() q: SearchDto, @Query('pending') pending?: string) {

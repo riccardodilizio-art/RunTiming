@@ -164,8 +164,10 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
 
 function FidalLookup({
     onPrefill,
+    raceId,
 }: {
     onPrefill: (athlete: FidalAthlete) => void;
+    raceId?: string;
 }) {
     const [mode, setMode] = useState<'tessera' | 'nome'>('tessera');
     const [tessera, setTessera] = useState('');
@@ -187,7 +189,7 @@ function FidalLookup({
         setError('');
         try {
             if (mode === 'tessera') {
-                const a = await verifyTessera(tessera, cognome, nascita);
+                const a = await verifyTessera(tessera, cognome, nascita, raceId);
                 setResults(null);
                 setFound(a);
                 if (!a) setResults([]);
@@ -740,6 +742,7 @@ export default function RegisterPage() {
     // Scadenza certificato dell'atleta selezionato via FIDAL (per il controllo
     // sulla data evento). WISE non la fornisce: arriva dal dump quando presente.
     const [fidalCertScadenza, setFidalCertScadenza] = useState<string | undefined>(undefined);
+    const [fidalCertStatus, setFidalCertStatus] = useState<FidalAthlete['certificato']>(undefined);
 
     // Con il backend l'evento arriva dopo il primo render: quando c'è, seleziona
     // la gara (e salta "Scelta gara" se arrivata dal link) come fa il primo render.
@@ -858,6 +861,7 @@ export default function RegisterPage() {
         setFormData(prev => ({ ...prev, ...updates }));
         setFidalVerified(true);
         setFidalCertScadenza(athlete.certScadenza);
+        setFidalCertStatus(athlete.certificato);
     }
 
     // Scadenza certificato nota (da FIDAL o dall'account) e verifica rispetto
@@ -866,7 +870,7 @@ export default function RegisterPage() {
     const eventDateStr = event ? eventStartDate(event) : undefined;
     const certExpiredForEvent =
         !!selectedRace?.requiresMedicalCert &&
-        certExpiresBeforeEvent(certScadenza, eventDateStr);
+        (fidalCertStatus === 'scaduto' || certExpiresBeforeEvent(certScadenza, eventDateStr));
 
     // Price calculation
     const activeStep = useMemo(() => selectedRace ? getActivePrice(selectedRace).step : undefined, [selectedRace]);
@@ -1222,7 +1226,7 @@ export default function RegisterPage() {
 
                                     {/* FIDAL lookup */}
                                     {isFidal === true && !currentAthlete && (
-                                        <FidalLookup onPrefill={handleFidalPrefill} />
+                                        <FidalLookup onPrefill={handleFidalPrefill} raceId={selectedRace?.id} />
                                     )}
 
                                     {/* Cert già verificato nell'account */}
@@ -1233,13 +1237,21 @@ export default function RegisterPage() {
                                         </div>
                                     )}
 
+                                    {/* Certificato valido per la gara secondo i dati FIDAL (senza mostrare la data) */}
+                                    {fidalCertStatus === 'valido' && !!selectedRace?.requiresMedicalCert && (
+                                        <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-800">
+                                            <ShieldCheck className="h-4 w-4 shrink-0" />
+                                            Tessera e certificato medico risultano validi per la data della gara.
+                                        </div>
+                                    )}
+
                                     {/* Certificato in scadenza prima dell'evento */}
                                     {certExpiredForEvent && (
                                         <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-800">
                                             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                                             <span>
-                                                Il certificato medico risulta in scadenza il{' '}
-                                                <strong>{certScadenza ? new Date(certScadenza).toLocaleDateString('it-IT') : '—'}</strong>,
+                                                Il certificato medico risulta in scadenza{certScadenza ? ' il ' : ''}
+                                                {certScadenza && <strong>{new Date(certScadenza).toLocaleDateString('it-IT')}</strong>},
                                                 <strong> prima della data della gara</strong>
                                                 {eventDateStr ? ` (${new Date(eventDateStr).toLocaleDateString('it-IT')})` : ''}.
                                                 Puoi completare l'iscrizione, ma non sarà valida finché non presenti un

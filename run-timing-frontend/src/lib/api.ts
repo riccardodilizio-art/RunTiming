@@ -88,9 +88,9 @@ export async function download(path: string, fileName: string): Promise<void> {
 }
 
 /** Upload multipart (file) verso il backend. */
-export async function apiUpload<T>(path: string, file: File, field = 'file'): Promise<T> {
+export async function apiUpload<T>(path: string, file: File | File[], field = 'file'): Promise<T> {
     const fd = new FormData();
-    fd.append(field, file);
+    for (const f of Array.isArray(file) ? file : [file]) fd.append(field, f);
     const headers: Record<string, string> = {};
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const res = await fetch(`${BASE}/api${path}`, { method: 'POST', body: fd, headers });
