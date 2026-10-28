@@ -23,7 +23,7 @@ export class RegistrationsController {
 
     /** Prezzo attuale (quota + sconto + commissione + maggiorazione del metodo). ?code=XYZ&method=bank */
     @Get('races/:id/quote')
-    @ThrottlePerIp()
+    @ThrottlePerIp({ staffExempt: true })
     @Throttle({ default: { limit: 60, ttl: 60_000 } })
     quote(@Param('id') id: string, @Query('code') code?: string, @Query('method') method?: string) {
         const m = ['paypal', 'bank', 'onsite'].includes(method ?? '') ? (method as PayMethod) : undefined;
@@ -39,7 +39,7 @@ export class RegistrationsController {
 
     /** "Verifica iscrizione": cognome + data di nascita. */
     @Post('events/:slug/verify')
-    @ThrottlePerIp()
+    @ThrottlePerIp({ staffExempt: true })
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
     verify(@Param('slug') slug: string, @Body() dto: VerifyDto) {
         return this.regs.verify(slug, dto);

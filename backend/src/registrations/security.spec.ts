@@ -45,7 +45,8 @@ function setup(reg: Record<string, unknown> = {}, raceDate = new Date('2099-12-1
     };
     const access: any = { assert: async () => undefined };
     const mailer: any = { confirmation: jest.fn(), paymentReceived: jest.fn(), cancelled: jest.fn() };
-    const svc = new RegistrationsService(prisma, {} as any, access, {} as any, mailer);
+    const settings: any = { payments: async () => ({ bankDays: 5 }) };
+    const svc = new RegistrationsService(prisma, settings, access, {} as any, mailer);
     return { svc, r, tx, mailer };
 }
 
@@ -81,10 +82,16 @@ describe('sicurezza iscrizioni', () => {
         expect(mailer.cancelled).toHaveBeenCalledWith('reg1', 'organizzazione');
     });
 
-    it('[medio] l\'organizzatore può ANNULLARE un\'iscrizione online non pagata (posti liberati)', async () => {
-        const { svc, r } = setup({ paymentMethod: 'bank' });
+    it('[medio] l\'organizzatore può ANNULLARE un\'iscrizione online non pagata scaduti i termini (posti liberati)', async () => {
+        const { svc, r } = setup({ paymentMethod: 'bank', submittedAt: new Date(Date.now() - 10 * 86_400_000) });
         await svc.setPayment(organizer, 'reg1', PaymentStatus.REJECTED);
         expect(r.paymentStatus).toBe(PaymentStatus.REJECTED);
+    });
+
+    it('[medio] ...ma non mentre il bonifico può essere ancora in arrivo', async () => {
+        const { svc, r } = setup({ paymentMethod: 'bank', submittedAt: new Date(Date.now() - 2 * 86_400_000) });
+        await expect(svc.setPayment(organizer, 'reg1', PaymentStatus.REJECTED)).rejects.toThrow(/ancora nei termini/);
+        expect(r.paymentStatus).toBe(PaymentStatus.PENDING);
     });
 
     it('[medio] ...ma non un bonifico già confermato', async () => {

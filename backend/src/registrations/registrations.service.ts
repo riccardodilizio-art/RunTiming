@@ -526,6 +526,15 @@ export class RegistrationsService {
             if (!rejectUnpaid) {
                 throw new ForbiddenException('I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria TimingRun');
             }
+            // Solo dopo il termine per il bonifico (+2 giorni di accredito): prima il
+            // pagamento potrebbe essere già partito e arrivare a TimingRun
+            const p = await this.settings.payments();
+            const termine = reg.submittedAt.getTime() + (p.bankDays + 2) * 24 * 60 * 60_000;
+            if (Date.now() < termine) {
+                throw new ForbiddenException(
+                    `Pagamento ancora nei termini: potrai annullarla dal ${new Date(termine).toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' })} (oppure chiedi alla segreteria TimingRun)`,
+                );
+            }
         }
         if (reg.paymentStatus === paymentStatus) return reg;
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;

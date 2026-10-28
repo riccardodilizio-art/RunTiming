@@ -101,3 +101,17 @@ describe('blocco tentativi per email', () => {
         await expect(svc.login('luca@example.com', 'Giusta123')).resolves.toMatchObject({ accessToken: 'tok' });
     }, 30_000);
 });
+
+describe('blocco per account E indirizzo IP', () => {
+    it('chi sbaglia apposta da un IP non blocca l\'accesso dell\'admin da un altro IP', async () => {
+        const argon2 = await import('argon2');
+        const { resetLoginFailures, LOGIN_MAX_FAILS } = await import('./auth.service');
+        resetLoginFailures();
+        const { svc, account } = setup();
+        account.passwordHash = await argon2.hash('Giusta123');
+        (svc as any).jwt = { sign: () => 'tok' };
+        for (let i = 0; i < LOGIN_MAX_FAILS; i++) await expect(svc.login('luca@example.com', 'x', '203.0.113.9')).rejects.toThrow();
+        await expect(svc.login('luca@example.com', 'Giusta123', '203.0.113.9')).rejects.toThrow(/Troppi tentativi/);
+        await expect(svc.login('luca@example.com', 'Giusta123', '198.51.100.7')).resolves.toMatchObject({ accessToken: 'tok' });
+    }, 30_000);
+});

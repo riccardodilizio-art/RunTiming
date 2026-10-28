@@ -6,8 +6,9 @@ import { AuthUser, PER_IP_KEY, TokenVerifier } from './auth';
 
 /**
  * Limite di richieste:
- * - rotte di accesso (login, registrazione, password, verifica tessera): SEMPRE
- *   per IP, il login non conta (un account si crea gratis);
+ * - rotte di accesso (login, registrazione, password, codici sconto): SEMPRE per
+ *   IP, il login non conta (un account si crea gratis);
+ * - verifiche pubbliche (tessera, iscrizione, preventivo): per IP, ma lo staff è esente;
  * - anonimi: per IP (serve TRUST_PROXY corretto dietro nginx/Cloudflare);
  * - utenti con login VALIDO (token verificato sul DB): per account, non per IP
  *   (al campo gara molti telefoni escono dallo stesso IP);
@@ -38,11 +39,13 @@ export class AppThrottlerGuard extends ThrottlerGuard {
     }
 
     protected async handleRequest(props: ThrottlerRequest): Promise<boolean> {
-        const perIp = this.reflector.getAllAndOverride<boolean>(PER_IP_KEY, [props.context.getHandler(), props.context.getClass()]);
-        if (perIp) return super.handleRequest(props);
+        const perIp = this.reflector.getAllAndOverride<boolean | 'staff-exempt'>(PER_IP_KEY, [props.context.getHandler(), props.context.getClass()]);
+        if (perIp === true) return super.handleRequest(props);
         const { req } = this.getRequestResponse(props.context);
         const u = await this.user(req);
         if (u && (u.role === 'ADMIN' || u.role === 'ORGANIZER')) return true;
+        // Rotte pubbliche sensibili: per IP per tutti tranne lo staff (banco iscrizioni il giorno gara)
+        if (perIp === 'staff-exempt') return super.handleRequest(props);
         if (!u) return super.handleRequest(props);
         return super.handleRequest({
             ...props,

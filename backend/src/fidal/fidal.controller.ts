@@ -31,7 +31,7 @@ export class FidalController {
      * non scopre altro. Limite sempre per IP (il login non dà più tentativi).
      */
     @Get('verifica')
-    @ThrottlePerIp()
+    @ThrottlePerIp({ staffExempt: true })
     @Throttle({ default: { limit: 20, ttl: 60_000 } })
     async verifica(@Query('tessera') tessera?: string, @Query('cognome') cognome?: string, @Query('dataNascita') dataNascita?: string) {
         if (!tessera?.trim() || tessera.length > 30) throw new BadRequestException('Parametro "tessera" mancante');

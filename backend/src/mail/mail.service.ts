@@ -68,8 +68,10 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
         try {
             // Anti-spam: un indirizzo non riceve più di N email al giorno dal sito
             // (impedisce di usare le iscrizioni per bombardare una casella)
-            const recent = await this.prisma.emailOutbox.count({
-                where: { to: addr, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) } },
+            // Il recupero password ha già il suo limite (3/ora) e non deve essere
+            // bloccabile riempiendo la casella con iscrizioni finte
+            const recent = opts.kind === 'password' ? 0 : await this.prisma.emailOutbox.count({
+                where: { to: addr, kind: { not: 'password' }, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) } },
             });
             if (recent >= MailService.MAX_PER_ADDRESS_DAY) {
                 this.log.warn(`Email "${opts.kind}" a ${addr} non inviata: limite giornaliero per indirizzo raggiunto`);

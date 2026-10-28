@@ -50,5 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build frontend image
         run: docker build -t runtiming-frontend ./run-timing-frontend
+      - name: Controllo configurazione nginx
+        run: docker run --rm --add-host backend:127.0.0.1 runtiming-frontend nginx -t
       - name: Build backend image
         run: docker build -t runtiming-backend ./backend

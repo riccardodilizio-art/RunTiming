@@ -73,6 +73,20 @@ const safeEqual = (a: string, b: string) =>
 /** Nel DB si salva solo l'impronta della chiave: chi legge il DB non può usarla. */
 const keyHash = (k: string) => createHash('sha256').update(k).digest('hex');
 
+/**
+ * La chiave semi-live corrisponde a quella della gara? Le chiavi generate prima
+ * che si salvasse l'impronta valgono ancora e vengono convertite al primo uso.
+ */
+export async function syncKeyMatches(prisma: PrismaService, raceId: string, key: string | undefined): Promise<boolean> {
+    if (!key || key.length > 200) return false;
+    const race = await prisma.race.findUnique({ where: { id: raceId }, select: { syncKey: true } });
+    if (!race?.syncKey) return false;
+    if (safeEqual(keyHash(key), race.syncKey)) return true;
+    const legacy = !/^[0-9a-f]{64}$/.test(race.syncKey) && safeEqual(key, race.syncKey);
+    if (legacy) await prisma.race.update({ where: { id: raceId }, data: { syncKey: keyHash(key) } });
+    return legacy;
+}
+
 @Injectable()
 export class ResultsService {
     constructor(
@@ -143,14 +157,7 @@ export class ResultsService {
 
     /** Invio dal PC di gara: autenticato solo dalla chiave della gara. */
     async sync(raceId: string, key: string | undefined, dto: SyncCsvDto) {
-        const race = await this.prisma.race.findUnique({ where: { id: raceId }, select: { syncKey: true } });
-        if (!race?.syncKey || !key) throw new UnauthorizedException('Chiave semi-live non valida');
-        if (!safeEqual(keyHash(key), race.syncKey)) {
-            // Chiavi generate prima che si salvasse l'impronta: valide una volta, poi convertite
-            const legacy = !/^[0-9a-f]{64}$/.test(race.syncKey) && safeEqual(key, race.syncKey);
-            if (!legacy) throw new UnauthorizedException('Chiave semi-live non valida');
-            await this.prisma.race.update({ where: { id: raceId }, data: { syncKey: keyHash(key) } });
-        }
+        if (!(await syncKeyMatches(this.prisma, raceId, key))) throw new UnauthorizedException('Chiave semi-live non valida');
         const current = await this.prisma.resultUpload.findUnique({ where: { raceId }, select: { status: true, source: true } });
         if (current?.status === 'final' && current.source === 'upload' && dto.status !== 'final') {
             // Classifica ufficiale caricata dall'admin: il semi-live non la sovrascrive

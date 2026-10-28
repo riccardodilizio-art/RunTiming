@@ -13,8 +13,10 @@ const tokenHash = (t: string) => createHash('sha256').update(t).digest('hex');
 export const RESET_MINUTES = 60;
 
 /**
- * Blocco dei tentativi sbagliati per indirizzo email (da qualunque IP):
- * dopo 10 password errate in 15 minuti l'accesso a quell'account si ferma per 15 minuti.
+ * Blocco dei tentativi sbagliati per account E indirizzo IP: dopo 10 password
+ * errate in 15 minuti da quell'IP, l'accesso a quell'account da quell'IP si
+ * ferma per 15 minuti. Per IP (e non per sola email) così nessuno può bloccare
+ * l'accesso dell'admin dall'esterno sbagliando apposta la password.
  */
 export const LOGIN_MAX_FAILS = 10;
 const LOGIN_WINDOW_MS = 15 * 60_000;
@@ -87,19 +89,20 @@ export class AuthService implements OnApplicationBootstrap {
         return this.sign(account.id, account.email, account.role, account.tokenVersion);
     }
 
-    async login(email: string, password: string) {
+    async login(email: string, password: string, ip = '') {
         const e = normEmail(email);
-        assertNotLocked(e);
+        const k = `${e}|${ip}`;
+        assertNotLocked(k);
         const account = await this.prisma.account.findUnique({ where: { email: e } });
         // Verifica argon2 anche se l'email non esiste: stessi tempi di risposta,
         // così non si scopre quali email sono registrate.
         const ok = await argon2.verify(account?.passwordHash ?? (await dummyHash()), password);
         if (!account || !ok) {
-            recordFailure(e);
+            recordFailure(k);
             throw new UnauthorizedException('Credenziali non valide');
         }
         if (account.disabled) throw new UnauthorizedException('Account disattivato: contatta la segreteria TimingRun');
-        failures.delete(e);
+        failures.delete(k);
         return this.sign(account.id, account.email, account.role, account.tokenVersion);
     }
 
@@ -170,7 +173,8 @@ export class AuthService implements OnApplicationBootstrap {
                 where: { id: r.accountId },
                 data: { passwordHash: hash, tokenVersion: { increment: 1 } },
             });
-            failures.delete(acc.email); // nuova password: sblocca l'accesso
+            // nuova password: sblocca l'accesso da tutti gli IP
+            for (const key of failures.keys()) if (key.startsWith(`${acc.email}|`)) failures.delete(key);
         });
         return { ok: true };
     }
