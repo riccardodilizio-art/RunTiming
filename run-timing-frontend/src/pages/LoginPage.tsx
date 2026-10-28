@@ -4,6 +4,7 @@ import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { loadUsers } from '../hooks/useAdminStore';
 import { USE_API } from '../lib/api';
+import { ForgotPasswordLink } from './PasswordResetPages';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -94,6 +95,7 @@ export default function LoginPage() {
                         </div>
                     </div>
 
+                    <ForgotPasswordLink />
                     <button
                         type="submit"
                         disabled={loading}

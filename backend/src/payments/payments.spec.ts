@@ -28,8 +28,9 @@ function setup(overrides: Record<string, unknown> = {}) {
         createOrder: jest.fn(async () => 'ORDER1'),
         capture: jest.fn(),
     };
-    const svc = new PaymentsService(prisma, settings, paypal, {} as any);
-    return { svc, reg, paypal };
+    const mailer: any = { paymentReceived: jest.fn(async () => undefined), cancelled: jest.fn(async () => undefined) };
+    const svc = new PaymentsService(prisma, settings, paypal, {} as any, mailer);
+    return { svc, reg, paypal, mailer };
 }
 
 describe('pagamenti', () => {
@@ -65,12 +66,13 @@ describe('pagamenti', () => {
         await expect(svc.paypalCapture('RT-ABCDEFGH', 'ALTRO')).rejects.toThrow(/non corrispondente/);
     });
 
-    it('PayPal ok → confermata con data di pagamento', async () => {
-        const { svc, reg, paypal } = setup({ paymentMethod: 'paypal', paypalOrderId: 'ORDER1', pricePaid: 21.03, paymentFee: 1.03 });
+    it('PayPal ok → confermata con data di pagamento ed email di conferma', async () => {
+        const { svc, reg, paypal, mailer } = setup({ paymentMethod: 'paypal', paypalOrderId: 'ORDER1', pricePaid: 21.03, paymentFee: 1.03 });
         paypal.capture.mockResolvedValue({ status: 'COMPLETED', customId: 'reg1', amount: 21.03, currency: 'EUR' });
         const i = await svc.paypalCapture('RT-ABCDEFGH', 'ORDER1');
         expect(i.status).toBe(PaymentStatus.CONFIRMED);
         expect(reg.paidAt).toBeInstanceOf(Date);
+        expect(mailer.paymentReceived).toHaveBeenCalledWith('reg1');
     });
 
     it('[medio] PayPal su iscrizione già RIFIUTATA → non la riattiva', async () => {
@@ -81,6 +83,12 @@ describe('pagamenti', () => {
         await expect(svc.paypalCapture('RT-ABCDEFGH', 'ORDER1')).rejects.toThrow();
         expect(reg.paymentStatus).toBe(PaymentStatus.REJECTED);
         expect(paypal.capture).not.toHaveBeenCalled();
+    });
+
+    it('annulla non paganti: solo per gare a pagamento anticipato', async () => {
+        const prisma: any = { race: { findUnique: async () => ({ id: 'r1', paymentMode: 'both', day: { event: { id: 'e1', createdById: null } } }) } };
+        const svc = new PaymentsService(prisma, {} as any, {} as any, { assert: async () => undefined } as any, {} as any);
+        await expect(svc.cancelUnpaid({ sub: 'a', role: 'ADMIN' } as any, 'r1')).rejects.toThrow(/pagamento anticipato/);
     });
 
     it('gara a pagamento anticipato: il pagamento sul posto non è offerto', async () => {

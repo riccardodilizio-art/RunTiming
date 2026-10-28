@@ -25,6 +25,7 @@ import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
 import { EventAccess } from '../common/access';
 import { allowedMethods, paymentFee } from '../registrations/rules';
 import { PaypalClient } from './paypal.client';
+import { RegistrationMailer } from '../mail/registration-mailer';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const normRef = (r: string) => r.trim().toUpperCase();
@@ -51,6 +52,7 @@ export class PaymentsService {
         private readonly settings: SettingsService,
         private readonly paypal: PaypalClient,
         private readonly access: EventAccess,
+        private readonly mailer: RegistrationMailer,
     ) {}
 
     private async byRef(ref: string): Promise<RegWithRace> {
@@ -152,6 +154,8 @@ export class PaymentsService {
         if (r.count === 0) {
             // Incassato ma l'iscrizione è cambiata nel frattempo: da rimborsare a mano
             this.log.error(`Pagamento PayPal ${orderId} incassato su iscrizione ${reg.id} non più in attesa: verificare/rimborsare`);
+        } else {
+            await this.mailer.paymentReceived(reg.id);
         }
         return this.info(ref);
     }
@@ -192,8 +196,13 @@ export class PaymentsService {
         });
         if (!race) throw new NotFoundException('Gara non trovata');
         await this.access.assert(user, race.day.event.id, race.day.event.createdById);
+        // Solo dove il pagamento anticipato è obbligatorio: altrove si può ancora pagare sul posto
+        if (race.paymentMode !== 'online') {
+            throw new BadRequestException('Annullamento dei non paganti possibile solo per gare a pagamento anticipato');
+        }
         const where = { raceId, paymentStatus: PaymentStatus.PENDING, paymentMethod: { in: ['paypal', 'bank'] } };
-        return this.prisma.$transaction(async tx => {
+        const res = await this.prisma.$transaction(async tx => {
+            const ids = (await tx.registration.findMany({ where, select: { id: true } })).map(r => r.id);
             // Restituisce gli usi dei codici sconto delle iscrizioni annullate
             const codes = await tx.registration.groupBy({ by: ['discountCode'], where: { ...where, discountCode: { not: null } }, _count: true });
             for (const c of codes) {
@@ -202,9 +211,12 @@ export class PaymentsService {
                     data: { usedCount: { decrement: c._count } },
                 });
             }
-            const r = await tx.registration.updateMany({ where, data: { paymentStatus: PaymentStatus.REJECTED } });
-            return { cancelled: r.count };
+            const r = await tx.registration.updateMany({ where: { ...where, id: { in: ids } }, data: { paymentStatus: PaymentStatus.REJECTED } });
+            return { cancelled: r.count, ids };
         });
+        // Avvisa ciascun atleta (email in coda)
+        for (const id of res.ids) await this.mailer.cancelled(id, 'mancato_pagamento');
+        return { cancelled: res.cancelled };
     }
 
     /**
