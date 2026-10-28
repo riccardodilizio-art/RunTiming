@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, Mail, Timer } from 'lucide-react';
 import { USE_API, api } from '../lib/api';
@@ -118,7 +118,11 @@ export function ForgotPasswordPage() {
 
 export function ResetPasswordPage() {
     const [params] = useSearchParams();
-    const token = params.get('token') ?? '';
+    // Il token si legge una volta e si toglie dall'indirizzo (cronologia, schermate condivise)
+    const [token] = useState(() => params.get('token') ?? '');
+    useEffect(() => {
+        if (params.get('token')) window.history.replaceState(null, '', window.location.pathname);
+    }, [params]);
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [showPw, setShowPw] = useState(false);

@@ -68,6 +68,8 @@ export class CreateStaffDto {
 
 export class UpdateStaffDto {
     @IsOptional() @IsString() @MaxLength(120) displayName?: string;
+    /** true = account disattivato (niente accesso, login aperti chiusi subito). */
+    @IsOptional() @IsBoolean() disabled?: boolean;
     @IsOptional() @IsArray() @IsString({ each: true }) assignedEventIds?: string[];
 }
 

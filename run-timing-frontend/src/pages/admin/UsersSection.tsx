@@ -177,7 +177,7 @@ export default function UsersSection() {
 
     function handleDelete(id: string) {
         if (USE_API) {
-            window.alert("Con il backend un account non si elimina: togli gli eventi assegnati per disattivarlo.");
+            window.alert("Con il backend un account non si elimina: aprilo e togli la spunta \"Account attivo\" per disattivarlo (l'accesso viene chiuso subito).");
             setConfirmDelete(null);
             return;
         }

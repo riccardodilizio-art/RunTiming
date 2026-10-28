@@ -170,6 +170,7 @@ function FidalLookup({
     const [mode, setMode] = useState<'tessera' | 'nome'>('tessera');
     const [tessera, setTessera] = useState('');
     const [cognome, setCognome] = useState('');
+    const [nascita, setNascita] = useState('');
     const [nome, setNome] = useState('');
     const [results, setResults] = useState<FidalAthlete[] | null>(null);
     const [found, setFound] = useState<FidalAthlete | null>(null);
@@ -186,7 +187,7 @@ function FidalLookup({
         setError('');
         try {
             if (mode === 'tessera') {
-                const a = await verifyTessera(tessera, cognome);
+                const a = await verifyTessera(tessera, cognome, nascita);
                 setResults(null);
                 setFound(a);
                 if (!a) setResults([]);
@@ -224,7 +225,7 @@ function FidalLookup({
                 </button>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-                Se sei tesserato FIDAL o RunCard, inserisci il numero tessera{USE_API ? ' e il cognome' : ''} per caricare automaticamente i tuoi dati.
+                Se sei tesserato FIDAL o RunCard, inserisci il numero tessera{USE_API ? ', il cognome e la data di nascita' : ''} per caricare automaticamente i tuoi dati.
             </p>
 
             {/* Mode toggle */}
@@ -264,7 +265,17 @@ function FidalLookup({
                             className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                     )}
-                    <button type="button" onClick={handleSearch} disabled={!tessera.trim() || (needsCognome && !cognome.trim()) || searching}
+                    {needsCognome && (
+                        <input
+                            type="date"
+                            value={nascita}
+                            onChange={e => { setNascita(e.target.value); setFound(null); setResults(null); }}
+                            aria-label="Data di nascita"
+                            title="Data di nascita"
+                            className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                    )}
+                    <button type="button" onClick={handleSearch} disabled={!tessera.trim() || (needsCognome && (!cognome.trim() || !nascita)) || searching}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
                         <Search className="h-4 w-4" /> {searching ? 'Cerco…' : 'Cerca'}
                     </button>
@@ -287,7 +298,7 @@ function FidalLookup({
             {/* Results list (nome search) */}
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
             {results !== null && results.length === 0 && (
-                <p className="mt-2 text-xs text-slate-500">{needsCognome ? 'Nessun tesserato con questa tessera e questo cognome. Controlla i dati o compila manualmente il modulo.' : 'Nessun atleta trovato. Compila manualmente il modulo.'}</p>
+                <p className="mt-2 text-xs text-slate-500">{needsCognome ? 'Nessun tesserato con questa tessera, cognome e data di nascita. Controlla i dati o compila manualmente il modulo.' : 'Nessun atleta trovato. Compila manualmente il modulo.'}</p>
             )}
             {results && results.length > 0 && (
                 <div className="mt-2 border border-slate-200 rounded-lg bg-white divide-y divide-slate-100 max-h-40 overflow-y-auto">
@@ -1322,7 +1333,7 @@ export default function RegisterPage() {
                             data={formData}
                             appliedDiscount={appliedDiscount}
                             onApplyDiscount={setAppliedDiscount}
-                            validateCode={USE_API ? checkDiscountApi : validateDiscountCode}
+                            validateCode={USE_API ? (c: string) => checkDiscountApi(c, selectedRace.id) : validateDiscountCode}
                             assignedCat={assignedCat}
                             fidalVerified={fidalVerified}
                         />

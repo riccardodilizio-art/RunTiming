@@ -115,11 +115,11 @@ export default function PaymentPage() {
                 buttons = window.paypal.Buttons({
                     style: { layout: 'vertical', shape: 'rect', label: 'pay' },
                     // Importo deciso dal server, non dal browser
-                    createOrder: async () => (await api.post<{ orderId: string }>(`/payments/${ref}/paypal/order`)).orderId,
+                    createOrder: async () => (await api.post<{ orderId: string }>(`/payments/${encodeURIComponent(ref)}/paypal/order`)).orderId,
                     onApprove: async ({ orderID }) => {
                         setBusy(true);
                         try {
-                            setInfo(await api.post<PayInfo>(`/payments/${ref}/paypal/capture`, { orderId: orderID }));
+                            setInfo(await api.post<PayInfo>(`/payments/${encodeURIComponent(ref)}/paypal/capture`, { orderId: orderID }));
                         } catch (e) {
                             setError(e instanceof Error ? e.message : 'Pagamento non riuscito');
                         } finally {
@@ -139,7 +139,7 @@ export default function PaymentPage() {
     async function chooseBank() {
         setBusy(true);
         try {
-            setInfo(await api.post<PayInfo>(`/payments/${ref}/bank`));
+            setInfo(await api.post<PayInfo>(`/payments/${encodeURIComponent(ref)}/bank`));
             setView('bank');
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Operazione non riuscita');

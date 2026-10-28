@@ -76,6 +76,11 @@ export default function SocietiesSection() {
                                     ) : (
                                         <p className="text-xs mt-1 text-slate-400">Nessun codice FIDAL</p>
                                     )}
+                                    {r.codiceGiaApprovatoAltrove && (
+                                        <p className="text-xs mt-1 text-red-700 flex items-center gap-1">
+                                            <AlertTriangle className="h-3.5 w-3.5" /> Codice già approvato per un'altra società: probabilmente un tentativo di accesso ai dati altrui.
+                                        </p>
+                                    )}
                                     {nameMismatch && (
                                         <p className="text-xs mt-1 text-amber-700 flex items-center gap-1">
                                             <AlertTriangle className="h-3.5 w-3.5" /> Il nome indicato non coincide con quello FIDAL: verifica prima di approvare.

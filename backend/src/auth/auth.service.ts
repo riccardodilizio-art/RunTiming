@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
@@ -11,6 +11,34 @@ const normEmail = (e: string) => e.trim().toLowerCase();
 const tokenHash = (t: string) => createHash('sha256').update(t).digest('hex');
 /** Durata del link "password dimenticata". */
 export const RESET_MINUTES = 60;
+
+/**
+ * Blocco dei tentativi sbagliati per indirizzo email (da qualunque IP):
+ * dopo 10 password errate in 15 minuti l'accesso a quell'account si ferma per 15 minuti.
+ */
+export const LOGIN_MAX_FAILS = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
+const failures = new Map<string, { count: number; first: number; lockedUntil?: number }>();
+export function resetLoginFailures() { failures.clear(); }
+
+function assertNotLocked(email: string) {
+    const f = failures.get(email);
+    if (f?.lockedUntil && f.lockedUntil > Date.now()) {
+        throw new HttpException('Troppi tentativi con questa email: riprova tra 15 minuti o reimposta la password', HttpStatus.TOO_MANY_REQUESTS);
+    }
+}
+
+function recordFailure(email: string) {
+    const now = Date.now();
+    let f = failures.get(email);
+    if (!f || now - f.first > LOGIN_WINDOW_MS) f = { count: 0, first: now };
+    f.count++;
+    if (f.count >= LOGIN_MAX_FAILS) f.lockedUntil = now + LOGIN_WINDOW_MS;
+    failures.set(email, f);
+    if (failures.size > 50_000) { // memoria limitata: si eliminano le voci più vecchie
+        for (const [k, v] of failures) if (now - v.first > LOGIN_WINDOW_MS && !(v.lockedUntil && v.lockedUntil > now)) failures.delete(k);
+    }
+}
 
 let dummy: Promise<string> | undefined;
 const dummyHash = () => (dummy ??= argon2.hash('password-inesistente-per-tempi-costanti'));
@@ -60,11 +88,18 @@ export class AuthService implements OnApplicationBootstrap {
     }
 
     async login(email: string, password: string) {
-        const account = await this.prisma.account.findUnique({ where: { email: normEmail(email) } });
+        const e = normEmail(email);
+        assertNotLocked(e);
+        const account = await this.prisma.account.findUnique({ where: { email: e } });
         // Verifica argon2 anche se l'email non esiste: stessi tempi di risposta,
         // così non si scopre quali email sono registrate.
         const ok = await argon2.verify(account?.passwordHash ?? (await dummyHash()), password);
-        if (!account || !ok) throw new UnauthorizedException('Credenziali non valide');
+        if (!account || !ok) {
+            recordFailure(e);
+            throw new UnauthorizedException('Credenziali non valide');
+        }
+        if (account.disabled) throw new UnauthorizedException('Account disattivato: contatta la segreteria TimingRun');
+        failures.delete(e);
         return this.sign(account.id, account.email, account.role, account.tokenVersion);
     }
 
@@ -101,8 +136,8 @@ export class AuthService implements OnApplicationBootstrap {
      * email sono registrate. Nel DB si salva solo l'impronta del token.
      */
     async forgotPassword(email: string): Promise<{ ok: true }> {
-        const account = await this.prisma.account.findUnique({ where: { email: normEmail(email) }, select: { id: true, email: true } });
-        if (!account) return { ok: true };
+        const account = await this.prisma.account.findUnique({ where: { email: normEmail(email) }, select: { id: true, email: true, disabled: true } });
+        if (!account || account.disabled) return { ok: true };
         // Massimo 3 link nell'ultima ora per account (niente caselle inondate di email)
         const recent = await this.prisma.passwordReset.count({
             where: { accountId: account.id, createdAt: { gte: new Date(Date.now() - 60 * 60_000) } },
@@ -131,10 +166,11 @@ export class AuthService implements OnApplicationBootstrap {
             // Segna il link come usato solo se nessun altro l'ha appena usato
             const used = await tx.passwordReset.updateMany({ where: { id: r.id, usedAt: null }, data: { usedAt: new Date() } });
             if (used.count === 0) throw invalid();
-            await tx.account.update({
+            const acc = await tx.account.update({
                 where: { id: r.accountId },
                 data: { passwordHash: hash, tokenVersion: { increment: 1 } },
             });
+            failures.delete(acc.email); // nuova password: sblocca l'accesso
         });
         return { ok: true };
     }

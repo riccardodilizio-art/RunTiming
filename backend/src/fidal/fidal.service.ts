@@ -32,14 +32,22 @@ export class FidalService {
     }
 
     /** Verifica tesseramento per numero tessera. */
+    /** Risposte WISE recenti (10 minuti): meno chiamate al gestionale FIDAL a parità di tessera. */
+    private readonly recent = new Map<string, { at: number; atleta: FidalAthleteDto | null }>();
+
     async verifyByTessera(tessera: string): Promise<{ tessera: string; tesserato: boolean; atleta: FidalAthleteDto | null }> {
+        const key = tessera.trim().toUpperCase();
+        const hit = this.recent.get(key);
+        if (hit && Date.now() - hit.at < 10 * 60_000) return { tessera: key, tesserato: !!hit.atleta, atleta: hit.atleta && { ...hit.atleta } };
         const raw = await this.wise.getJson<unknown>(this.atletaPath, { [this.atletaParam]: tessera });
         const dto = extractAtleti(raw).map(mapAtleta).find(a => a.tessera) ?? null;
         if (dto) {
             await this.enrich([dto]);
             await this.cache(dto);
         }
-        return { tessera: tessera.toUpperCase(), tesserato: !!dto, atleta: dto };
+        if (this.recent.size > 5000) this.recent.clear();
+        this.recent.set(key, { at: Date.now(), atleta: dto && { ...dto } });
+        return { tessera: key, tesserato: !!dto, atleta: dto };
     }
 
     /** Ricerca atleti per cognome/nome/categoria/società (0 = qualsiasi). */
@@ -159,7 +167,7 @@ export class FidalService {
             tipo: dto.tipo,
             nome: dto.nome,
             cognome: dto.cognome,
-            dataNascita: dto.dataNascita ? new Date(dto.dataNascita) : null,
+            dataNascita: dto.dataNascita && /^\d{4}-\d{2}-\d{2}/.test(dto.dataNascita) ? new Date(`${dto.dataNascita.slice(0, 10)}T00:00:00Z`) : null,
             sesso: dto.sesso,
             societa: dto.societa,
             codiceSocieta: dto.codiceSocieta,

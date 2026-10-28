@@ -57,7 +57,24 @@ describe('pagamenti', () => {
     it('PayPal incassa un importo diverso → iscrizione NON confermata', async () => {
         const { svc, reg, paypal } = setup({ paymentMethod: 'paypal', paypalOrderId: 'ORDER1', pricePaid: 21.03, paymentFee: 1.03 });
         paypal.capture.mockResolvedValue({ status: 'COMPLETED', customId: 'reg1', amount: 1, currency: 'EUR' });
-        await expect(svc.paypalCapture('RT-ABCDEFGH', 'ORDER1')).rejects.toThrow(/non completato/);
+        await expect(svc.paypalCapture('RT-ABCDEFGH', 'ORDER1')).rejects.toThrow(/non corrisponde/);
+        expect(reg.paymentStatus).toBe(PaymentStatus.PENDING);
+    });
+
+    it('[medio] tariffe PayPal cambiate dopo la creazione dell\'ordine: vale l\'importo dell\'ordine', async () => {
+        const { svc, reg, paypal } = setup({ paymentMethod: 'paypal', paypalOrderId: 'ORDER1', pricePaid: 21.03, paymentFee: 1.03, paypalAmount: 21.03, paypalFee: 1.03 });
+        // le impostazioni attuali darebbero un'altra maggiorazione: non conta
+        (svc as any).settings = { payments: async () => ({ ...DEFAULT_PAYMENTS, paypalPercent: 10, paypalFixed: 1 }) };
+        paypal.capture.mockResolvedValue({ status: 'COMPLETED', customId: 'reg1', amount: 21.03, currency: 'EUR' });
+        const i = await svc.paypalCapture('RT-ABCDEFGH', 'ORDER1');
+        expect(i.status).toBe(PaymentStatus.CONFIRMED);
+        expect(reg.pricePaid).toBe(21.03);
+    });
+
+    it('PayPal tiene il pagamento in verifica → resta in attesa con messaggio chiaro', async () => {
+        const { svc, reg, paypal } = setup({ paymentMethod: 'paypal', paypalOrderId: 'ORDER1', paypalAmount: 21.03, paypalFee: 1.03 });
+        paypal.capture.mockResolvedValue({ status: 'PENDING', customId: 'reg1', amount: 21.03, currency: 'EUR' });
+        await expect(svc.paypalCapture('RT-ABCDEFGH', 'ORDER1')).rejects.toThrow(/in verifica/);
         expect(reg.paymentStatus).toBe(PaymentStatus.PENDING);
     });
 

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, AlertCircle, Timer } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { ForgotPasswordLink } from './PasswordResetPages';
+import { safeRedirect } from '../lib/safeRedirect';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -11,7 +12,7 @@ export default function AthleteLoginPage() {
     const navigate  = useNavigate();
     const [searchParams] = useSearchParams();
     const { login } = useAthleteAuth();
-    const redirectTo = searchParams.get('redirect') ?? '/profilo';
+    const redirectTo = safeRedirect(searchParams.get('redirect'));
 
     const [email,   setEmail]   = useState('');
     const [password, setPassword] = useState('');
