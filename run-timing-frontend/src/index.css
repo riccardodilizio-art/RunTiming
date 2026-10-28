@@ -1,4 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Font serviti dal nostro sito (niente Google Fonts: nessun IP dei visitatori a terzi, GDPR) */
+@import '@fontsource/barlow-condensed/latin-400.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-700.css';
+@import '@fontsource/barlow-condensed/latin-800.css';
+@import '@fontsource/barlow-condensed/latin-900.css';
+@import '@fontsource/dm-sans/latin-300.css';
+@import '@fontsource/dm-sans/latin-400.css';
+@import '@fontsource/dm-sans/latin-500.css';
+@import '@fontsource/dm-sans/latin-600.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

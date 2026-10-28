@@ -39,6 +39,8 @@ model Account {
   passwordHash    String
   /// Incrementato a ogni cambio password: invalida i login già emessi
   tokenVersion    Int             @default(0)
+  /// Account disattivato dall'admin (es. organizzatore che non collabora più): niente accesso
+  disabled        Boolean         @default(false)
   role            Role
   displayName     String?
   assignedEventIds String[]       // eventi gestibili (organizer)
@@ -198,6 +200,8 @@ model DiscountCode {
   usedCount   Int       @default(0)
   expiresAt   DateTime?
   isActive    Boolean   @default(true)
+  /// Evento su cui vale il codice (vuoto = tutti gli eventi)
+  eventId     String?
 }
 
 model Registration {
@@ -228,6 +232,10 @@ model Registration {
   /// Codice pagamento univoco: causale del bonifico e chiave per pagare in seguito
   paymentRef       String?         @unique
   paypalOrderId    String?         @unique
+  /// Importo e maggiorazione dell'ordine PayPal al momento della creazione: all'incasso
+  /// si confronta con questi (non con le tariffe attuali, che l'admin può cambiare)
+  paypalAmount     Float?
+  paypalFee        Float?
   paidAt           DateTime?
   discountCode     String?
   paymentMethod    String?

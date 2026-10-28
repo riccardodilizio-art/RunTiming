@@ -1,0 +1,72 @@
+# ─── PRODUZIONE (server, es. Aruba Cloud VPS) ────────────────────────────────
+# Avvio:   docker compose -f docker-compose.prod.yml up -d --build
+# Richiede nel file .env (accanto a questo file) almeno:
+#   JWT_SECRET, POSTGRES_PASSWORD, SITE_URL=https://timingrun.it, ADMIN_EMAIL/ADMIN_PASSWORD (primo avvio)
+#
+# Differenze rispetto allo sviluppo:
+# - database e backend NON sono raggiungibili da internet (nessuna porta aperta):
+#   il sito parla con il backend solo attraverso nginx (/api);
+# - password del database dal .env (obbligatoria), nessun dato demo,
+#   nessuna modifica distruttiva automatica dello schema;
+# - una sola porta pubblica: 80 di nginx (da mettere dietro Cloudflare in https).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: runtiming
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Imposta POSTGRES_PASSWORD nel file .env}
+      POSTGRES_DB: runtiming
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U runtiming"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://runtiming:${POSTGRES_PASSWORD}@db:5432/runtiming
+      JWT_SECRET: ${JWT_SECRET:?Imposta JWT_SECRET nel file .env (vedi .env.example)}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      PORT: "3000"
+      # Il sito chiama /api sullo stesso indirizzo: CORS non serve
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      # nginx davanti = 1; Cloudflare + nginx = 2
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-300}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      SITE_URL: ${SITE_URL:?Imposta SITE_URL nel file .env (es. https://timingrun.it)}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Segreteria – TimingRun}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      PAYPAL_ENV: ${PAYPAL_ENV:-live}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      WISE_BASE_URL: ${WISE_BASE_URL:-http://wise.fidalservizi.it}
+      WISE_USERNAME: ${WISE_USERNAME:-}
+      WISE_PASSWORD: ${WISE_PASSWORD:-}
+    depends_on:
+      db: { condition: service_healthy }
+    # nessuna porta pubblicata: raggiungibile solo da nginx
+
+  frontend:
+    build:
+      context: ./run-timing-frontend
+      args:
+        VITE_API_URL: ""          # stesso indirizzo del sito (/api)
+        VITE_USE_API: "true"
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+    restart: unless-stopped
+    depends_on: [backend]
+    ports: ["80:80"]
+
+volumes:
+  pgdata:

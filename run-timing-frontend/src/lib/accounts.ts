@@ -232,6 +232,8 @@ export interface AdminSocietyRow {
     account: { email: string; displayName: string | null };
     /** Nome ufficiale FIDAL del codice indicato (dal DB FIDAL importato), per il confronto. */
     fidalUfficiale: { codice: string; denominazione: string; citta: string | null } | null;
+    /** Lo stesso codice è già approvato per un'altra società. */
+    codiceGiaApprovatoAltrove?: boolean;
 }
 
 export function listSocietiesApi(pendingOnly: boolean) {
@@ -252,6 +254,7 @@ interface ApiStaff {
     role: string;
     displayName?: string | null;
     assignedEventIds: string[];
+    disabled?: boolean;
 }
 
 export async function listOrganizersApi(): Promise<AppUser[]> {
@@ -265,7 +268,7 @@ export async function listOrganizersApi(): Promise<AppUser[]> {
             displayName: r.displayName || r.email,
             role: 'organizer' as const,
             assignedEventIds: r.assignedEventIds,
-            isActive: true,
+            isActive: !r.disabled,
         }));
 }
 
@@ -280,6 +283,7 @@ export async function saveOrganizerApi(u: AppUser, isNew: boolean): Promise<void
             assignedEventIds: u.assignedEventIds,
         });
     } else {
-        await api.patch(`/accounts/${u.id}`, { displayName: u.displayName, assignedEventIds: u.assignedEventIds });
+        // disabled: l'organizzatore non accede più e i suoi login aperti vengono chiusi subito
+        await api.patch(`/accounts/${u.id}`, { displayName: u.displayName, assignedEventIds: u.assignedEventIds, disabled: !u.isActive });
     }
 }

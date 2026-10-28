@@ -23,6 +23,7 @@ interface Statement {
     event: { id: string; title: string };
     totals: {
         incassatoTimingRun: number; maggiorazioni: number; commissioni: number; daGirareOrganizzatore: number;
+        commissioniDaOrganizzatore?: number;
         inAttesa: { count: number; total: number };
     };
     byMethod: { method: string; count: number; total: number; fees: number }[];
@@ -198,6 +199,11 @@ function StatementCard() {
                         </tbody>
                     </table>
                     <p className="text-xs text-slate-400">Le quote "in loco" le incassa direttamente l'organizzatore e non sono nel totale da girare.</p>
+                    {!!st.totals.commissioniDaOrganizzatore && (
+                        <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                            Commissioni da chiedere all'organizzatore (quote incassate da lui): <strong>{euro(st.totals.commissioniDaOrganizzatore)}</strong>
+                        </p>
+                    )}
                     <button type="button"
                         onClick={() => download(`/events/${eventId}/statement.xlsx`, `rendiconto-${st.event.title}.xlsx`).catch(reportApiError)}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50">

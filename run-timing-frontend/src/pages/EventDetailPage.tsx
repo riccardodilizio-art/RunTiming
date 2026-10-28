@@ -116,7 +116,8 @@ function ElevationChart({ profile }: { profile: ElevationPoint[] }) {
 // ─── Download regulation helper ───────────────────────────────────────────────
 
 function openRegulation(regulationUrl: string | undefined, title: string, slug: string, date: string) {
-    if (regulationUrl) {
+    // Solo link http(s) o del sito (il server li controlla già: qui per sicurezza in più)
+    if (regulationUrl && /^(https?:\/\/|\/(?!\/))/i.test(regulationUrl)) {
         window.open(regulationUrl, '_blank', 'noopener,noreferrer');
         return;
     }

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { CertStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateOnly } from '../common/validators';
 import { SettingsService } from '../settings/settings.module';
 import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
@@ -35,6 +36,13 @@ const PROFILE_KEYS = new Set([
     'societa', 'codice_societa', 'tessera_fidal', 'tessera_runcard', 'tessera_fci', 'tessera_csi',
     'tessera_uisp', 'tessera_fitri', 'tessera_fin', 'tipo_certificato', 'num_certificato',
     'scadenza_certificato', 'gruppo_sanguigno', 'upload_cert_medico', 'upload_tessera',
+]);
+
+/** Campi del modulo che non compaiono MAI nell'elenco pubblico degli iscritti. */
+const NEVER_PUBLIC = new Set([
+    'email', 'telefono', 'codice_fiscale', 'data_nascita', 'tessera_fidal', 'tessera_runcard', 'tessera_fci', 'tessera_csi',
+    'tessera_uisp', 'tessera_fitri', 'tessera_fin', 'tipo_certificato', 'num_certificato', 'scadenza_certificato',
+    'gruppo_sanguigno', 'upload_cert_medico', 'upload_tessera',
 ]);
 
 interface FormFieldDef {
@@ -112,7 +120,7 @@ export class RegistrationsService {
         let discountMessage: string | undefined;
         if (code?.trim()) {
             const d = await this.prisma.discountCode.findUnique({ where: { code: normCode(code) } });
-            discountMessage = discountProblem(d) ?? undefined;
+            discountMessage = discountProblem(d, new Date(), race.day.event.id) ?? undefined;
             if (!discountMessage) discount = d;
         }
         const q = quote({
@@ -339,7 +347,7 @@ export class RegistrationsService {
             nome: normName(a.nome),
             cognome: normName(a.cognome),
             sesso: a.sesso,
-            dataNascita: new Date(a.dataNascita),
+            dataNascita: dateOnly(a.dataNascita),
             societa,
             codiceSocieta,
             tessera: a.tessera,
@@ -388,7 +396,12 @@ export class RegistrationsService {
             }),
         ]);
         const cols = new Set(race.publicColumns);
-        const fields = race.publicFields;
+        // Mai pubblici, anche se scelti per errore: contatti, documenti e dati sanitari
+        const schema = json<FormFieldDef[]>(race.formSchema) ?? [];
+        const fields = race.publicFields.filter(f => {
+            const def = schema.find(x => x.id === f);
+            return def && def.type !== 'file' && !(def.catalogKey && NEVER_PUBLIC.has(def.catalogKey));
+        });
         return {
             total,
             page,
@@ -468,7 +481,7 @@ export class RegistrationsService {
             where: {
                 eventId: event.id,
                 cognome: normName(dto.cognome),
-                dataNascita: new Date(dto.dataNascita),
+                dataNascita: dateOnly(dto.dataNascita),
             },
             include: { race: { select: { name: true } } },
         });
@@ -497,15 +510,22 @@ export class RegistrationsService {
 
     /**
      * Cambio stato pagamento dallo staff.
-     * - PayPal/carta e bonifico: i soldi arrivano a TimingRun → li gestisce SOLO l'admin
+     * - PayPal/carta e bonifico: i soldi arrivano a TimingRun → li conferma SOLO l'admin
      *   (un organizzatore non può "confermare" denaro che TimingRun non ha ricevuto).
-     * - Riattivare un'iscrizione annullata ricontrolla i posti disponibili.
+     *   L'organizzatore può però ANNULLARE un'iscrizione online ancora non pagata
+     *   (es. posti occupati da iscrizioni mai pagate).
+     * - Riattivare un'iscrizione annullata ricontrolla i posti e il codice sconto.
      * - Annullare restituisce l'uso del codice sconto.
+     * - Tutto avviene solo se l'iscrizione è ancora com'era quando l'abbiamo letta.
      */
     async setPayment(user: AuthUser, id: string, paymentStatus: PaymentStatus) {
         const reg = await this.regForStaff(user, id);
-        if (user.role !== Role.ADMIN && (reg.paymentMethod === 'paypal' || reg.paymentMethod === 'bank')) {
-            throw new ForbiddenException('I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria TimingRun');
+        const online = reg.paymentMethod === 'paypal' || reg.paymentMethod === 'bank';
+        if (user.role !== Role.ADMIN && online) {
+            const rejectUnpaid = reg.paymentStatus === PaymentStatus.PENDING && paymentStatus === PaymentStatus.REJECTED;
+            if (!rejectUnpaid) {
+                throw new ForbiddenException('I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria TimingRun');
+            }
         }
         if (reg.paymentStatus === paymentStatus) return reg;
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
@@ -519,13 +539,26 @@ export class RegistrationsService {
                 });
                 if (count >= reg.race.maxParticipants) throw new ConflictException('Gara al completo: impossibile riattivare');
             }
-            if (reg.discountCode && (toRejected || wasRejected)) {
+            if (reg.discountCode && toRejected) {
                 await tx.discountCode.updateMany({
-                    where: { code: reg.discountCode, ...(toRejected ? { usedCount: { gt: 0 } } : {}) },
-                    data: { usedCount: toRejected ? { decrement: 1 } : { increment: 1 } },
+                    where: { code: reg.discountCode, usedCount: { gt: 0 } },
+                    data: { usedCount: { decrement: 1 } },
                 });
             }
-            return tx.registration.update({ where: { id }, data: { paymentStatus, paidAt } });
+            if (reg.discountCode && wasRejected) {
+                // Riattivazione: il codice deve essere ancora utilizzabile
+                const d = await tx.discountCode.findUnique({ where: { code: reg.discountCode } });
+                const ok = d && d.isActive && (!d.expiresAt || d.expiresAt >= new Date()) && (d.maxUses == null || d.usedCount < d.maxUses);
+                if (!ok) throw new ConflictException('Il codice sconto di questa iscrizione è esaurito o scaduto: impossibile riattivarla');
+                await tx.discountCode.update({ where: { code: reg.discountCode }, data: { usedCount: { increment: 1 } } });
+            }
+            // Aggiorna solo se nessuno l'ha cambiata nel frattempo (es. pagamento PayPal in corso)
+            const r = await tx.registration.updateMany({
+                where: { id, paymentStatus: reg.paymentStatus, paymentMethod: reg.paymentMethod },
+                data: { paymentStatus, paidAt },
+            });
+            if (r.count === 0) throw new ConflictException('L\'iscrizione è cambiata nel frattempo: ricarica la pagina e riprova');
+            return tx.registration.findUniqueOrThrow({ where: { id } });
         });
         if (paymentStatus === PaymentStatus.CONFIRMED) await this.mailer.paymentReceived(id);
         if (paymentStatus === PaymentStatus.REJECTED) await this.mailer.cancelled(id, 'organizzazione');

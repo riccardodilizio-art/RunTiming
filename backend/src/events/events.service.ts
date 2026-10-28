@@ -19,10 +19,12 @@ const raceCount = {
     },
 } as const;
 
-/** Toglie dalle gare i campi interni (chiave semi-live) prima di rispondere. */
-function publicEvent<E extends { days: { races: { syncKey?: string | null }[] }[] }>(ev: E) {
+/** Toglie i campi interni (chiave semi-live delle gare, account di chi ha creato l'evento) prima di rispondere. */
+function publicEvent<E extends { createdById?: string | null; days: { races: { syncKey?: string | null }[] }[] }>(ev: E) {
+    const { createdById: _c, ...rest } = ev;
+    void _c;
     return {
-        ...ev,
+        ...rest,
         days: ev.days.map(d => ({
             ...d,
             races: d.races.map(({ syncKey: _k, ...r }) => { void _k; return r; }),
@@ -209,7 +211,8 @@ export class EventsService {
 
     /** Solo informazioni generali: consentito anche all'organizzatore dell'evento. */
     async updateInfo(user: AuthUser, id: string, dto: EventInfoDto) {
-        const ev = await this.byId(id);
+        const ev = await this.prisma.event.findUnique({ where: { id }, select: { createdById: true } });
+        if (!ev) throw new NotFoundException('Evento non trovato');
         await this.access.assert(user, id, ev.createdById);
         await this.prisma.event.update({ where: { id }, data: infoData(dto) });
         return this.byId(id);

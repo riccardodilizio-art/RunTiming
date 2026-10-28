@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { CertStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { dateOnly } from '../common/validators';
 import { AuthService } from '../auth/auth.service';
 import { FidalModule } from '../fidal/fidal.module';
 import { FidalService } from '../fidal/fidal.service';
@@ -81,7 +82,7 @@ export class ProfilesService {
         const data = {
             nome: dto.nome.trim(),
             cognome: dto.cognome.trim(),
-            dataNascita: new Date(dto.dataNascita),
+            dataNascita: dateOnly(dto.dataNascita),
             sesso: dto.sesso,
             codFiscale: dto.codFiscale?.toUpperCase() ?? null,
             phone: dto.phone ?? null,
@@ -179,6 +180,10 @@ export class ProfilesService {
     }
 
     async saveSociety(accountId: string, dto: SocietyProfileDto) {
+        // Roster: solo oggetti di dimensione ragionevole (niente dati arbitrari o enormi)
+        if (dto.roster?.some(r => !r || typeof r !== 'object' || Array.isArray(r) || JSON.stringify(r).length > 4000)) {
+            throw new BadRequestException('Roster non valido');
+        }
         const codiceFidal = dto.codiceFidal?.trim().toUpperCase() || null;
         const current = await this.prisma.society.findUnique({ where: { accountId }, select: { codiceFidal: true } });
         const data = {
@@ -212,13 +217,31 @@ export class ProfilesService {
             ? await this.prisma.fidalSociety.findMany({ where: { codice: { in: codes } }, select: { codice: true, denominazione: true, citta: true } })
             : [];
         const byCode = new Map(official.map(o => [o.codice.toUpperCase(), o]));
-        return rows.map(r => ({ ...r, fidalUfficiale: r.codiceFidal ? byCode.get(r.codiceFidal) ?? null : null }));
+        const approvedCodes = new Set(
+            (await this.prisma.society.findMany({ where: { fidalApproved: true, codiceFidal: { in: codes } }, select: { id: true, codiceFidal: true } }))
+                .map(x => `${x.codiceFidal}|${x.id}`),
+        );
+        return rows.map(r => ({
+            ...r,
+            fidalUfficiale: r.codiceFidal ? byCode.get(r.codiceFidal) ?? null : null,
+            // Lo stesso codice è già approvato per un'altra società
+            codiceGiaApprovatoAltrove: !!r.codiceFidal && [...approvedCodes].some(k => k.startsWith(`${r.codiceFidal}|`) && k !== `${r.codiceFidal}|${r.id}`),
+        }));
     }
 
     async decideSocietyFidal(id: string, approved: boolean) {
         const s = await this.prisma.society.findUnique({ where: { id }, select: { codiceFidal: true } });
         if (!s) throw new NotFoundException('Società non trovata');
         if (approved && !s.codiceFidal) throw new BadRequestException('La società non ha indicato un codice FIDAL');
+        if (approved) {
+            const other = await this.prisma.society.findFirst({
+                where: { id: { not: id }, codiceFidal: s.codiceFidal, fidalApproved: true },
+                select: { societaNome: true, account: { select: { email: true } } },
+            });
+            if (other) {
+                throw new ConflictException(`Codice già approvato per un'altra società (${other.societaNome}, ${other.account.email}): revoca prima quello`);
+            }
+        }
         return this.prisma.society.update({
             where: { id },
             data: { fidalApproved: approved },
@@ -231,7 +254,7 @@ export class ProfilesService {
     staff() {
         return this.prisma.account.findMany({
             where: { role: { in: [Role.ADMIN, Role.ORGANIZER] } },
-            select: { id: true, email: true, role: true, displayName: true, assignedEventIds: true, createdAt: true },
+            select: { id: true, email: true, role: true, displayName: true, assignedEventIds: true, disabled: true, createdAt: true },
             orderBy: { email: 'asc' },
         });
     }
@@ -241,14 +264,21 @@ export class ProfilesService {
         return { id: a.id, email: a.email, role: a.role, displayName: a.displayName, assignedEventIds: a.assignedEventIds };
     }
 
-    async updateStaff(id: string, dto: UpdateStaffDto) {
+    async updateStaff(id: string, dto: UpdateStaffDto, by?: string) {
         const a = await this.prisma.account.findUnique({ where: { id } });
         if (!a) throw new NotFoundException('Account non trovato');
         if (a.role !== Role.ADMIN && a.role !== Role.ORGANIZER) throw new ForbiddenException('Non è un account staff');
+        if (dto.disabled && id === by) throw new BadRequestException('Non puoi disattivare il tuo stesso account');
         return this.prisma.account.update({
             where: { id },
-            data: { displayName: dto.displayName, assignedEventIds: dto.assignedEventIds },
-            select: { id: true, email: true, role: true, displayName: true, assignedEventIds: true },
+            data: {
+                displayName: dto.displayName,
+                assignedEventIds: dto.assignedEventIds,
+                ...(dto.disabled !== undefined ? { disabled: dto.disabled } : {}),
+                // Disattivando si chiudono subito anche i login già aperti
+                ...(dto.disabled ? { tokenVersion: { increment: 1 } } : {}),
+            },
+            select: { id: true, email: true, role: true, displayName: true, assignedEventIds: true, disabled: true },
         });
     }
 }
@@ -322,8 +352,8 @@ export class ProfilesController {
 
     @Patch('accounts/:id')
     @Roles(Role.ADMIN)
-    updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
-        return this.profiles.updateStaff(id, dto);
+    updateStaff(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: UpdateStaffDto) {
+        return this.profiles.updateStaff(id, dto, u.sub);
     }
 }
 

@@ -86,3 +86,18 @@ describe('password dimenticata', () => {
         await expect(svc.resetPassword('x'.repeat(43), 'NuovaPassword1')).rejects.toThrow(/non valido/);
     });
 });
+
+describe('blocco tentativi per email', () => {
+    it('10 password sbagliate → account bloccato 15 minuti, anche con la password giusta; la reimpostazione sblocca', async () => {
+        const argon2 = await import('argon2');
+        const { resetLoginFailures, LOGIN_MAX_FAILS } = await import('./auth.service');
+        resetLoginFailures();
+        const { svc, account } = setup();
+        account.passwordHash = await argon2.hash('Giusta123');
+        (svc as any).jwt = { sign: () => 'tok' };
+        for (let i = 0; i < LOGIN_MAX_FAILS; i++) await expect(svc.login('luca@example.com', 'sbagliata')).rejects.toThrow(/Credenziali/);
+        await expect(svc.login('LUCA@example.com', 'Giusta123')).rejects.toThrow(/Troppi tentativi/);
+        resetLoginFailures();
+        await expect(svc.login('luca@example.com', 'Giusta123')).resolves.toMatchObject({ accessToken: 'tok' });
+    }, 30_000);
+});

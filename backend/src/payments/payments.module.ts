@@ -127,7 +127,10 @@ export class PaymentsService {
             description: `Iscrizione ${reg.race.day.event.title} – ${reg.race.name}`,
             amount: reg.pricePaid,
         });
-        await this.prisma.registration.update({ where: { id: reg.id }, data: { paypalOrderId: orderId } });
+        await this.prisma.registration.update({
+            where: { id: reg.id },
+            data: { paypalOrderId: orderId, paypalAmount: reg.pricePaid, paypalFee: reg.paymentFee },
+        });
         return { orderId, amount: reg.pricePaid };
     }
 
@@ -138,14 +141,26 @@ export class PaymentsService {
         // Annullata (es. scadenza del pagamento anticipato): NON si incassa, il posto non c'è più
         if (reg.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Iscrizione annullata: pagamento non possibile');
         if (reg.paypalOrderId !== orderId) throw new BadRequestException('Ordine PayPal non corrispondente');
-        // Importo atteso per PayPal calcolato dalla quota, indipendente da un eventuale
-        // cambio di metodo fatto in un'altra scheda mentre si pagava
-        const subtotal = round2(reg.pricePaid - reg.paymentFee);
-        const fee = paymentFee('paypal', subtotal, await this.settings.payments());
-        const expected = round2(subtotal + fee);
+        // Importo atteso = quello dell'ordine creato dal server (salvato alla creazione),
+        // indipendente da cambi di metodo in un'altra scheda o di tariffe nel frattempo
+        let expected = reg.paypalAmount;
+        let fee = reg.paypalFee;
+        if (expected == null || fee == null) {
+            const subtotal = round2(reg.pricePaid - reg.paymentFee);
+            fee = paymentFee('paypal', subtotal, await this.settings.payments());
+            expected = round2(subtotal + fee);
+        }
         const c = await this.paypal.capture(orderId);
-        if (c.status !== 'COMPLETED' || c.customId !== reg.id || c.currency !== 'EUR' || round2(c.amount ?? 0) !== expected) {
-            throw new BadRequestException('Pagamento PayPal non completato');
+        if (c.status === 'PENDING') {
+            // PayPal trattiene il pagamento per verifiche: si conferma a mano quando arriva
+            this.log.warn(`Pagamento PayPal ${orderId} (iscrizione ${reg.id}) in verifica da PayPal`);
+            throw new ConflictException('Pagamento in verifica da parte di PayPal: la segreteria confermerà l\'iscrizione appena arriva');
+        }
+        if (c.status !== 'COMPLETED' || c.customId !== reg.id) throw new BadRequestException('Pagamento PayPal non completato');
+        if (c.currency !== 'EUR' || round2(c.amount ?? 0) !== round2(expected)) {
+            // I soldi sono stati presi ma non tornano: niente conferma automatica, va controllato
+            this.log.error(`Pagamento PayPal ${orderId} su iscrizione ${reg.id}: incassati ${c.amount} ${c.currency}, attesi ${expected} EUR — verificare`);
+            throw new ConflictException('Pagamento ricevuto ma l\'importo non corrisponde: la segreteria verificherà e ti contatterà');
         }
         const r = await this.prisma.registration.updateMany({
             where: { id: reg.id, paymentStatus: PaymentStatus.PENDING },
@@ -245,6 +260,9 @@ export class PaymentsService {
             maggiorazioni: sum(collected, r => r.paymentFee),
             commissioni: sum(collected, r => r.commissionAmount),
             daGirareOrganizzatore: sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount),
+            // Quote incassate direttamente dall'organizzatore (sul posto / a mano):
+            // la commissione TimingRun su queste la deve l'organizzatore
+            commissioniDaOrganizzatore: sum(ok.filter(r => r.paymentMethod === 'onsite' || r.paymentMethod === 'manual'), r => r.commissionAmount),
             inAttesa: { count: pending.length, total: sum(pending, r => r.pricePaid) },
         };
         return { event, totals, byMethod, rows: regs };
@@ -261,6 +279,7 @@ export class PaymentsService {
             ['di cui maggiorazioni metodo (TimingRun)', s.totals.maggiorazioni],
             ['di cui commissioni (TimingRun)', s.totals.commissioni],
             ["Da girare all'organizzatore", s.totals.daGirareOrganizzatore],
+            ["Commissioni dovute dall'organizzatore (quote incassate da lui)", s.totals.commissioniDaOrganizzatore],
             ['In attesa di pagamento', `${s.totals.inAttesa.count} iscrizioni · ${s.totals.inAttesa.total} €`],
             [],
             ['Metodo', 'Pagate', 'Totale €', 'Maggiorazioni €'],

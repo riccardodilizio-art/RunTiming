@@ -1,4 +1,6 @@
-# Stack completo di sviluppo: db + cache + backend + frontend.
+# Stack di SVILUPPO sul proprio PC: db + backend + frontend.
+# Per il server usare docker-compose.prod.yml (vedi istruzioni lì dentro).
+# Le porte sono aperte solo su questo PC (127.0.0.1), non sulla rete.
 services:
   db:
     image: postgres:16-alpine
@@ -6,19 +8,10 @@ services:
       POSTGRES_USER: runtiming
       POSTGRES_PASSWORD: runtiming
       POSTGRES_DB: runtiming
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U runtiming"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    ports: ["6379:6379"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +20,6 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://runtiming:runtiming@db:5432/runtiming
-      REDIS_URL: redis://redis:6379
       # Segreto per firmare i login: OBBLIGATORIO, casuale, almeno 32 caratteri,
       # nel .env di root (il backend non parte con valori deboli). Generalo con:
       #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
@@ -68,8 +60,7 @@ services:
       WISE_PASSWORD: ${WISE_PASSWORD:-}
     depends_on:
       db: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
 
   frontend:
     build:
@@ -82,7 +73,7 @@ services:
         # Chiave pubblica Turnstile (facoltativa, va in coppia con TURNSTILE_SECRET_KEY)
         VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     depends_on: [backend]
-    ports: ["8080:80"]
+    ports: ["127.0.0.1:8080:80"]
 
 volumes:
   pgdata:

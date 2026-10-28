@@ -69,7 +69,10 @@ function outboxStub() {
                 return row;
             }),
             findMany: async () => rows.filter(r => r.status === 'pending' && r.sendAfter <= new Date()),
+            count: async ({ where }: any) => rows.filter(r => r.to === where.to).length,
+            deleteMany: async () => ({ count: 0 }),
             updateMany: async ({ where, data }: any) => {
+                if (!where.id) return { count: 0 };
                 const r = rows.find(x => x.id === where.id && x.status === where.status);
                 if (!r) return { count: 0 };
                 r.status = data.status;
@@ -141,6 +144,42 @@ describe('coda email', () => {
 });
 
 // ─── Promemoria pagamento anticipato ─────────────────────────────────────────
+
+describe('anti-spam e link password', () => {
+    const env = { ...process.env };
+    afterEach(() => { process.env = { ...env }; });
+    const mail = { subject: 'Oggetto', html: '<p>x</p>', text: 'x' };
+
+    it('massimo 15 email al giorno allo stesso indirizzo (anche se scritto in maiuscolo)', async () => {
+        const { prisma, rows } = outboxStub();
+        const svc = new MailService(prisma);
+        for (let i = 0; i < 30; i++) await svc.enqueue(i % 2 ? 'Vittima@Example.com' : 'vittima@example.com', mail, { kind: 'iscrizione' });
+        expect(rows).toHaveLength(MailService.MAX_PER_ADDRESS_DAY);
+    });
+
+    it('email password con invio non attivo: il link non viene conservato', async () => {
+        delete process.env.MAIL_FROM;
+        const { prisma, rows } = outboxStub();
+        await new MailService(prisma).enqueue('a@example.com', { subject: 'x', html: 'token=SEGRETO', text: 'token=SEGRETO' }, { kind: 'password' });
+        expect(JSON.stringify(rows)).not.toContain('SEGRETO');
+    });
+
+    it('email password inviata: il link viene cancellato dalla coda', async () => {
+        Object.assign(process.env, { MAIL_FROM: 'iscrizioni@timingrun.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
+        const { prisma, rows } = outboxStub();
+        const svc = new MailService(prisma);
+        jest.spyOn(svc as any, 'send').mockResolvedValue(undefined);
+        await svc.enqueue('a@example.com', { subject: 'x', html: 'token=SEGRETO', text: 'token=SEGRETO' }, { kind: 'password' });
+        await svc.tick();
+        expect(rows[0].status).toBe('sent');
+        expect(JSON.stringify(rows)).not.toContain('SEGRETO');
+    });
+
+    it('in produzione con email attive serve SITE_URL https', () => {
+        Object.assign(process.env, { NODE_ENV: 'production', MAIL_FROM: 'i@timingrun.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y', SITE_URL: 'http://localhost:8080' });
+        expect(() => new MailService({} as any).onModuleInit()).toThrow(/SITE_URL/);
+    });
+});
 
 describe('promemoria pagamento', () => {
     it('una sola volta per iscrizione, anche se il controllo gira più volte', async () => {

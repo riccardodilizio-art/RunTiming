@@ -37,6 +37,37 @@ class SyncCsvDto {
     @IsOptional() @IsIn(['live', 'final']) status?: 'live' | 'final';
 }
 
+const STATUSES = ['finisher', 'dnf', 'dns', 'dsq'] as const;
+const str = (v: unknown, max: number) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
+
+/**
+ * Classifica caricata dallo staff: si tengono solo i campi previsti, con
+ * lunghezze limitate (niente dati arbitrari pubblicati, niente elementi vuoti).
+ */
+export function sanitizeResults(list: unknown[]): Result[] {
+    return list.map((x, i) => {
+        if (!x || typeof x !== 'object' || Array.isArray(x)) throw new BadRequestException(`Riga ${i + 1} della classifica non valida`);
+        const r = x as Record<string, unknown>;
+        const status = STATUSES.includes(r.status as (typeof STATUSES)[number]) ? (r.status as Result['status']) : 'finisher';
+        const position = Number(r.position);
+        const out: Result = {
+            position: Number.isFinite(position) && position >= 0 && position < 1e6 ? Math.floor(position) : i + 1,
+            bib: str(r.bib, 20),
+            athleteName: str(r.athleteName, 120),
+            category: str(r.category, 60),
+            time: str(r.time, 20),
+            status,
+        };
+        if (r.team != null) out.team = str(r.team, 120);
+        if (r.gap != null) out.gap = str(r.gap, 20);
+        if (Array.isArray(r.lapSplits)) {
+            out.lapSplits = r.lapSplits.slice(0, 200).filter(l => l && typeof l === 'object')
+                .map(l => Object.fromEntries(Object.entries(l as object).slice(0, 10).map(([k, v]) => [k.slice(0, 30), typeof v === 'number' ? v : str(v, 40)]))) as unknown as Result['lapSplits'];
+        }
+        return out;
+    });
+}
+
 const safeEqual = (a: string, b: string) =>
     a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 /** Nel DB si salva solo l'impronta della chiave: chi legge il DB non può usarla. */
@@ -99,7 +130,7 @@ export class ResultsService {
 
     async put(user: AuthUser, raceId: string, dto: PutResultsDto) {
         await this.raceForStaff(user, raceId);
-        return this.replace(raceId, dto.results, dto.status, 'upload', dto.fileName ?? 'import', {});
+        return this.replace(raceId, sanitizeResults(dto.results), dto.status, 'upload', dto.fileName ?? 'import', {});
     }
 
     /** Genera (o rigenera) la chiave del programma semi-live per la gara. */
@@ -131,6 +162,8 @@ export class ResultsService {
         } catch (e) {
             throw new BadRequestException((e as Error).message);
         }
+        // Lista vuota (es. filtro sbagliato in Race Result): non si cancella la classifica pubblicata
+        if (parsed.results.length === 0) throw new BadRequestException('Nessun risultato nella lista inviata: classifica non modificata');
         const status = dto.status ?? 'live';
         const res = await this.replace(raceId, parsed.results, status, 'sync', 'race-result', { recognized: parsed.recognized });
         return { ...res, recognized: parsed.recognized };

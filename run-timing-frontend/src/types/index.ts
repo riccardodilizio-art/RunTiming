@@ -168,6 +168,8 @@ export interface DiscountCode {
     usedCount: number;
     expiresAt?: string;
     isActive: boolean;
+    /** Evento su cui vale il codice (assente = tutti). Solo con il backend. */
+    eventId?: string;
 }
 
 export interface CommissionConfig {

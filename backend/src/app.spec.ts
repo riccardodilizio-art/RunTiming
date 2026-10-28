@@ -12,12 +12,14 @@ import { jwtSecret } from './common/auth';
 // le protezioni di sicurezza. Database sostituito da uno stub.
 
 // Account esistenti: l'id è il ruolo (es. "ADMIN"), tokenVersion 0
-const accounts: Record<string, { id: string; email: string; role: string; tokenVersion: number }> = {
+const accounts: Record<string, { id: string; email: string; role: string; tokenVersion: number; disabled?: boolean }> = {
     ADMIN: { id: 'ADMIN', email: 'a@x.it', role: 'ADMIN', tokenVersion: 0 },
     ORGANIZER: { id: 'ORGANIZER', email: 'o@x.it', role: 'ORGANIZER', tokenVersion: 0 },
     ATHLETE: { id: 'ATHLETE', email: 't@x.it', role: 'ATHLETE', tokenVersion: 0 },
     SOCIETY: { id: 'SOCIETY', email: 's@x.it', role: 'SOCIETY', tokenVersion: 0 },
     PROMOSSO: { id: 'PROMOSSO', email: 'p@x.it', role: 'ATHLETE', tokenVersion: 3 },
+    SOCIETY2: { id: 'SOCIETY2', email: 's2@x.it', role: 'SOCIETY', tokenVersion: 0 },
+    SPENTO: { id: 'SPENTO', email: 'off@x.it', role: 'ORGANIZER', tokenVersion: 0, disabled: true },
 };
 
 const prismaStub = {
@@ -207,6 +209,34 @@ describe('App (smoke + sicurezza)', () => {
         expect(trustProxy('true')).toBe(1);
         expect(trustProxy('2')).toBe(2);
         expect(trustProxy('loopback')).toBe('loopback');
+    });
+
+    it('[alto] con un account società NON si hanno più tentativi di login (limite sempre per IP)', async () => {
+        let r!: request.Response;
+        for (let i = 0; i < 12; i++) {
+            r = await request(app.getHttpServer()).post('/api/auth/login')
+                .set('Authorization', token('SOCIETY2')).send({ email: 'admin@x.it', password: 'tentativo' });
+        }
+        expect(r.status).toBe(429); // con il vecchio limite "società ×20" sarebbero stati 200 tentativi
+    });
+
+    it('[alto] account disattivato: il suo login non vale più', () =>
+        request(app.getHttpServer()).get('/api/auth/me').set('Authorization', token('SPENTO')).expect(401));
+
+    it('[medio] body grandi solo con credenziali: anonimo → 401 prima di leggere 25 MB', () =>
+        request(app.getHttpServer()).post('/api/sync/races/x/results').send({ csv: 'x' }).expect(401));
+
+    it('[medio] verifica tessera senza data di nascita → 400 (non rivela più la data)', () =>
+        request(app.getHttpServer()).get('/api/fidal/verifica?tessera=AB123&cognome=ROSSI').expect(400));
+
+    it('[basso] niente intestazione X-Powered-By', async () => {
+        const r = await request(app.getHttpServer()).get('/api/events');
+        expect(r.headers['x-powered-by']).toBeUndefined();
+    });
+
+    it('[basso] password lunghissima al login → 400 (niente lavoro inutile per il server)', async () => {
+        const r = await request(app.getHttpServer()).post('/api/auth/login').send({ email: 'a@x.it', password: 'x'.repeat(5000) });
+        expect([400, 429]).toContain(r.status);
     });
 
     it('registrazione pubblica non può creare admin', () =>

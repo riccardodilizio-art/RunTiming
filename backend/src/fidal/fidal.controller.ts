@@ -1,41 +1,56 @@
 import {
-    BadRequestException, Controller, ForbiddenException, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors,
+    BadRequestException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, ServiceUnavailableException, UploadedFile,
+    UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { normName } from '../registrations/rules';
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
-import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
+import { AuthGuard, AuthUser, CurrentUser, Roles, ThrottlePerIp } from '../common/auth';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
 
 // API pulita esposta al frontend. Il frontend chiama SEMPRE queste rotte, mai
 // WISE direttamente (che è HTTP, cookie-based e cross-origin).
-// Le ricerche restano pubbliche (servono all'iscrizione senza account);
-// gli import del database FIDAL sono riservati all'admin.
+// Pubblica solo la verifica tessera (con cognome + data di nascita); ricerca per
+// nome e roster società sono riservati; gli import del database solo all'admin.
 @Controller('fidal')
 export class FidalController {
+    private readonly log = new Logger(FidalController.name);
+
     constructor(
         private readonly fidal: FidalService,
         private readonly prisma: PrismaService,
     ) {}
 
     /**
-     * GET /api/fidal/verifica?tessera=NC000657&cognome=Rossi — pubblica (serve
-     * all'iscrizione senza account) ma risponde solo a chi conosce tessera E
-     * cognome, e senza la scadenza del certificato (dato sanitario).
+     * GET /api/fidal/verifica?tessera=…&cognome=…&dataNascita=AAAA-MM-GG — pubblica
+     * (serve all'iscrizione senza account). Risponde "tesserato" solo se tessera,
+     * cognome E data di nascita corrispondono, e non restituisce né la data di
+     * nascita né la scadenza del certificato: chi conosce solo tessera e cognome
+     * non scopre altro. Limite sempre per IP (il login non dà più tentativi).
      */
     @Get('verifica')
+    @ThrottlePerIp()
     @Throttle({ default: { limit: 20, ttl: 60_000 } })
-    async verifica(@Query('tessera') tessera?: string, @Query('cognome') cognome?: string) {
-        if (!tessera?.trim()) throw new BadRequestException('Parametro "tessera" mancante');
+    async verifica(@Query('tessera') tessera?: string, @Query('cognome') cognome?: string, @Query('dataNascita') dataNascita?: string) {
+        if (!tessera?.trim() || tessera.length > 30) throw new BadRequestException('Parametro "tessera" mancante');
         if (!cognome?.trim()) throw new BadRequestException('Indica anche il cognome');
-        const r = await this.fidal.verifyByTessera(tessera.trim());
-        if (!r.atleta || normName(r.atleta.cognome) !== normName(cognome)) {
+        if (!dataNascita || !/^\d{4}-\d{2}-\d{2}$/.test(dataNascita)) throw new BadRequestException('Indica anche la data di nascita (AAAA-MM-GG)');
+        let r: Awaited<ReturnType<FidalService['verifyByTessera']>>;
+        try {
+            r = await this.fidal.verifyByTessera(tessera.trim());
+        } catch (e) {
+            this.log.warn(`Verifica FIDAL non riuscita: ${(e as Error).message}`);
+            throw new ServiceUnavailableException('Verifica FIDAL non disponibile in questo momento: compila i dati a mano');
+        }
+        const a = r.atleta;
+        if (!a || normName(a.cognome) !== normName(cognome) || a.dataNascita?.slice(0, 10) !== dataNascita) {
             return { tessera: r.tessera, tesserato: false, atleta: null };
         }
-        const { certScadenza: _cert, ...atleta } = r.atleta;
-        void _cert;
+        // Niente data di nascita (la conosce già chi chiede) né scadenza certificato (dato sanitario)
+        const { certScadenza: _cert, dataNascita: _dob, ...atleta } = a;
+        void _cert; void _dob;
         return { tessera: r.tessera, tesserato: true, atleta };
     }
 

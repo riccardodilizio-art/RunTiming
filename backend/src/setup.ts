@@ -1,6 +1,7 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
 /**
  * Configurazione comune dell'app (usata da main.ts e dai test).
@@ -14,8 +15,15 @@ export function configureApp(app: NestExpressApplication): void {
 
     // Limiti dei body: grandi SOLO per classifiche (staff / chiave semi-live) e
     // roster società; 1 MB per tutto il resto (iscrizioni comprese).
-    app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, json({ limit: '25mb' }));
-    app.use('/api/societies/me', json({ limit: '5mb' }));
+    // Prima di leggere un body grande serve almeno una credenziale (token o chiave
+    // semi-live): un anonimo non può far elaborare al server 25 MB per volta.
+    // La credenziale vera la controllano poi le guardie della rotta.
+    const needsCredential = (req: Request, res: Response, next: NextFunction) => {
+        if (req.method === 'GET' || req.headers.authorization?.startsWith('Bearer ') || req.headers['x-sync-key']) return next();
+        res.status(401).json({ statusCode: 401, message: 'Accesso richiesto' });
+    };
+    app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, needsCredential, json({ limit: '25mb' }));
+    app.use('/api/societies/me', needsCredential, json({ limit: '5mb' }));
     app.use(json({ limit: '1mb' }));
 
     app.setGlobalPrefix('api');
@@ -26,6 +34,13 @@ export function configureApp(app: NestExpressApplication): void {
         new Logger('CORS').warn('CORS_ORIGIN non impostato: il backend risponde solo al sito sullo stesso indirizzo (/api)');
     }
     app.enableCors({ origin: origins?.length ? origins : false, credentials: true });
+
+    // Niente "X-Powered-By: Express" nelle risposte
+    app.disable('x-powered-by');
+
+    if (process.env.NODE_ENV === 'production' && !process.env.TURNSTILE_SECRET_KEY) {
+        new Logger('Sicurezza').warn('TURNSTILE_SECRET_KEY non impostata: iscrizioni anonime e nuovi account senza verifica anti-bot');
+    }
 
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 }
