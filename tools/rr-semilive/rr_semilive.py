@@ -24,6 +24,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime
 
@@ -41,8 +42,9 @@ def load_config(path: str) -> dict:
         raise SystemExit("config.json: servono 'sito' e almeno una voce in 'gare'")
     # La chiave della gara viaggia con ogni invio: solo connessioni cifrate
     # (http consentito solo verso questo stesso PC, per le prove)
-    sito = cfg["sito"].strip().lower()
-    if not (sito.startswith("https://") or sito.startswith("http://localhost") or sito.startswith("http://127.0.0.1")):
+    u = urllib.parse.urlsplit(cfg["sito"].strip())
+    locale = u.scheme == "http" and u.hostname in ("localhost", "127.0.0.1")
+    if not (u.scheme == "https" and u.hostname) and not locale:
         raise SystemExit("config.json: 'sito' deve iniziare con https:// (es. https://timingrun.it)")
     for g in cfg["gare"]:
         for k in ("nome", "lista_race_result", "id_gara", "chiave"):

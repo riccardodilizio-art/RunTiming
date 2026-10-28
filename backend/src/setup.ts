@@ -2,24 +2,40 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json } from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import { TokenVerifier } from './common/auth';
+import { PrismaService } from './prisma/prisma.service';
+import { syncKeyMatches } from './results/results.module';
 
 /**
  * Configurazione comune dell'app (usata da main.ts e dai test).
  * L'app va creata con { bodyParser: false }: i limiti dei body sono qui.
  */
 export function configureApp(app: NestExpressApplication): void {
-    // Dietro un proxy (nginx, piattaforma cloud) l'IP vero arriva da X-Forwarded-For:
-    // serve al limite di richieste per IP. Numero di proxy davanti al backend:
-    // 1 = solo nginx, 2 = Cloudflare + nginx. Vuoto = backend esposto direttamente.
+    // Dietro un proxy (nginx) l'IP vero arriva da X-Forwarded-For: serve al limite
+    // di richieste per IP. 1 = nginx davanti (anche con Cloudflare: nginx ricava
+    // l'IP vero dagli indirizzi Cloudflare). Vuoto = backend esposto direttamente.
     app.set('trust proxy', trustProxy(process.env.TRUST_PROXY));
 
     // Limiti dei body: grandi SOLO per classifiche (staff / chiave semi-live) e
     // roster società; 1 MB per tutto il resto (iscrizioni comprese).
-    // Prima di leggere un body grande serve almeno una credenziale (token o chiave
-    // semi-live): un anonimo non può far elaborare al server 25 MB per volta.
-    // La credenziale vera la controllano poi le guardie della rotta.
-    const needsCredential = (req: Request, res: Response, next: NextFunction) => {
-        if (req.method === 'GET' || req.headers.authorization?.startsWith('Bearer ') || req.headers['x-sync-key']) return next();
+    // Prima di leggere un body grande serve una credenziale VALIDA (login verificato
+    // sul DB, o chiave semi-live della gara): un anonimo non può far elaborare al
+    // server 25 MB per volta. I permessi precisi li controllano poi le guardie.
+    const tokens = app.get(TokenVerifier, { strict: false });
+    const prisma = app.get(PrismaService, { strict: false });
+    const needsCredential = async (req: Request, res: Response, next: NextFunction) => {
+        if (req.method === 'GET' || req.method === 'OPTIONS') return next(); // OPTIONS = preflight CORS
+        try {
+            const auth = req.headers.authorization;
+            if (auth?.startsWith('Bearer ')) {
+                const u = await tokens.verify(auth.slice(7));
+                (req as Request & { __throttleUser?: unknown }).__throttleUser = u;
+                return next();
+            }
+            const key = req.headers['x-sync-key'];
+            const raceId = /^\/api\/sync\/races\/([^/?]+)\/results/.exec(req.originalUrl)?.[1];
+            if (typeof key === 'string' && raceId && (await syncKeyMatches(prisma, decodeURIComponent(raceId), key))) return next();
+        } catch { /* credenziale non valida */ }
         res.status(401).json({ statusCode: 401, message: 'Accesso richiesto' });
     };
     app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, needsCredential, json({ limit: '25mb' }));

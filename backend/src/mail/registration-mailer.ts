@@ -80,6 +80,9 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
         return this.safely('iscrizione', async () => {
             const reg = await this.load(id);
             if (!reg?.email) return;
+            // Iscrizioni fatte da una società: la società vede tutto nella sua area, e un
+            // account società (gratuito) non deve poter far partire email verso indirizzi qualsiasi
+            if (reg.societyId && !reg.athleteId) return;
             await this.mail.enqueue(reg.email, registrationMail(await this.data(reg)), { kind: 'iscrizione', dedupeKey: `iscrizione:${id}` });
         });
     }
@@ -88,7 +91,7 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
     paymentReceived(id: string) {
         return this.safely('pagamento', async () => {
             const reg = await this.load(id);
-            if (!reg?.email || reg.paymentStatus !== PaymentStatus.CONFIRMED) return;
+            if (!reg?.email || reg.paymentStatus !== PaymentStatus.CONFIRMED || (reg.societyId && !reg.athleteId)) return;
             if (reg.paymentMethod !== 'paypal' && reg.paymentMethod !== 'bank') return;
             await this.mail.enqueue(reg.email, paymentReceivedMail(await this.data(reg)), { kind: 'pagamento', dedupeKey: `pagamento:${id}` });
         });
@@ -98,7 +101,7 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
     cancelled(id: string, motivo: 'mancato_pagamento' | 'organizzazione') {
         return this.safely('annullamento', async () => {
             const reg = await this.load(id);
-            if (!reg?.email || reg.paymentStatus !== PaymentStatus.REJECTED) return;
+            if (!reg?.email || reg.paymentStatus !== PaymentStatus.REJECTED || (reg.societyId && !reg.athleteId)) return;
             await this.mail.enqueue(reg.email, cancelledMail(await this.data(reg), motivo), {
                 kind: 'annullamento', dedupeKey: `annullamento:${id}:${new Date().toISOString().slice(0, 16)}`,
             });

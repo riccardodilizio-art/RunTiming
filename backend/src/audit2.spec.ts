@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { discountProblem } from './discounts/discounts.module';
 import { sanitizeResults } from './results/results.module';
 import { trustProxy } from './setup';
+import { isoDate } from './fidal/fidal.mapper';
 
 // Regressioni della seconda prova di attacco (ottobre 2026).
 
@@ -34,5 +35,14 @@ describe('classifiche caricate', () => {
 describe('configurazione', () => {
     it('TRUST_PROXY "true" non si fida di qualunque proxy', () => {
         expect(trustProxy('true')).toBe(1);
+    });
+});
+
+describe('date WISE', () => {
+    it('accetta ISO e GG/MM/AAAA', () => {
+        expect(isoDate('1985-03-07T00:00:00')).toBe('1985-03-07');
+        expect(isoDate('7/3/1985')).toBe('1985-03-07');
+        expect(isoDate('07-03-1985')).toBe('1985-03-07');
+        expect(isoDate('boh')).toBeNull();
     });
 });

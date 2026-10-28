@@ -37,8 +37,9 @@ function DiscountModal({
         setDraft(d => ({ ...d, [key]: value }));
     }
 
-    const minLen = USE_API ? 6 : 3;
-    const isValid = draft.code.trim().length >= minLen && /^[A-Z0-9-]+$/.test(draft.code.trim()) && draft.value > 0;
+    // Le regole sul codice valgono solo per i codici nuovi (quelli esistenti non si rinominano)
+    const minLen = USE_API && !code ? 6 : 3;
+    const isValid = (!!code || (draft.code.trim().length >= minLen && /^[A-Z0-9-]+$/.test(draft.code.trim()))) && draft.value > 0;
     const { events } = useAdminStore();
 
     return (

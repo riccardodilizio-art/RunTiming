@@ -232,9 +232,19 @@ export class ProfilesService {
     async decideSocietyFidal(id: string, approved: boolean) {
         const s = await this.prisma.society.findUnique({ where: { id }, select: { codiceFidal: true } });
         if (!s) throw new NotFoundException('Società non trovata');
+        // Un'approvazione alla volta per codice: due approvazioni contemporanee non passano entrambe
+        return this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${'fidal:' + (s.codiceFidal ?? id)}))::text`;
+            return this.decideSocietyFidalLocked(tx, id, approved);
+        });
+    }
+
+    private async decideSocietyFidalLocked(tx: Prisma.TransactionClient, id: string, approved: boolean) {
+        const s = await tx.society.findUnique({ where: { id }, select: { codiceFidal: true } });
+        if (!s) throw new NotFoundException('Società non trovata');
         if (approved && !s.codiceFidal) throw new BadRequestException('La società non ha indicato un codice FIDAL');
         if (approved) {
-            const other = await this.prisma.society.findFirst({
+            const other = await tx.society.findFirst({
                 where: { id: { not: id }, codiceFidal: s.codiceFidal, fidalApproved: true },
                 select: { societaNome: true, account: { select: { email: true } } },
             });
@@ -242,7 +252,7 @@ export class ProfilesService {
                 throw new ConflictException(`Codice già approvato per un'altra società (${other.societaNome}, ${other.account.email}): revoca prima quello`);
             }
         }
-        return this.prisma.society.update({
+        return tx.society.update({
             where: { id },
             data: { fidalApproved: approved },
             select: { id: true, codiceFidal: true, fidalApproved: true },

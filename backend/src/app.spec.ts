@@ -226,6 +226,15 @@ describe('App (smoke + sicurezza)', () => {
     it('[medio] body grandi solo con credenziali: anonimo → 401 prima di leggere 25 MB', () =>
         request(app.getHttpServer()).post('/api/sync/races/x/results').send({ csv: 'x' }).expect(401));
 
+    it('[alto] body grande con un token inventato → 401 prima di leggerlo', () =>
+        request(app.getHttpServer()).put('/api/races/x/results').set('Authorization', 'Bearer inventato').send({ status: 'live', results: [] }).expect(401));
+
+    it('preflight CORS (OPTIONS) non bloccato dal controllo credenziali', async () => {
+        const r = await request(app.getHttpServer()).options('/api/societies/me')
+            .set('Origin', process.env.CORS_ORIGIN!.split(',')[0]).set('Access-Control-Request-Method', 'PUT');
+        expect(r.status).not.toBe(401);
+    });
+
     it('[medio] verifica tessera senza data di nascita → 400 (non rivela più la data)', () =>
         request(app.getHttpServer()).get('/api/fidal/verifica?tessera=AB123&cognome=ROSSI').expect(400));
 

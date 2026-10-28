@@ -8,7 +8,10 @@ function setup(current: { codiceFidal: string | null; fidalApproved: boolean } |
             findUnique: async () => current,
             upsert: async (args: any) => { saved.push(args); return args.update; },
             update: async ({ data }: any) => ({ ...current, ...data }),
+            findFirst: async () => null,
         },
+        $queryRaw: async () => [],
+        $transaction: async (fn: any) => fn(prisma),
     };
     return { svc: new ProfilesService(prisma, {} as any, {} as any), saved };
 }

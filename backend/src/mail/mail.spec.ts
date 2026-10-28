@@ -157,6 +157,15 @@ describe('anti-spam e link password', () => {
         expect(rows).toHaveLength(MailService.MAX_PER_ADDRESS_DAY);
     });
 
+    it('casella riempita con iscrizioni finte: il recupero password parte lo stesso', async () => {
+        const { prisma, rows } = outboxStub();
+        prisma.emailOutbox.count = async ({ where }: any) => rows.filter(r => r.to === where.to && r.kind !== 'password').length;
+        const svc = new MailService(prisma);
+        for (let i = 0; i < 20; i++) await svc.enqueue('vittima@example.com', mail, { kind: 'iscrizione' });
+        await svc.enqueue('vittima@example.com', mail, { kind: 'password' });
+        expect(rows.filter(r => r.kind === 'password')).toHaveLength(1);
+    });
+
     it('email password con invio non attivo: il link non viene conservato', async () => {
         delete process.env.MAIL_FROM;
         const { prisma, rows } = outboxStub();

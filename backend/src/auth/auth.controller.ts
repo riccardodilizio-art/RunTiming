@@ -51,8 +51,8 @@ export class AuthController {
     @Post('login')
     @ThrottlePerIp()
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
-    login(@Body() dto: LoginDto) {
-        return this.auth.login(dto.email, dto.password);
+    login(@Body() dto: LoginDto, @Ip() ip: string) {
+        return this.auth.login(dto.email, dto.password, ip);
     }
 
     /** "Password dimenticata": risponde sempre ok (non rivela se l'email esiste). */
