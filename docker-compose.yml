@@ -32,7 +32,7 @@ services:
       # nel .env di root (il backend non parte con valori deboli). Generalo con:
       #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
       JWT_SECRET: ${JWT_SECRET:?Imposta JWT_SECRET nel file .env (vedi .env.example)}
-      # Numero di proxy davanti al backend (nginx/Cloudflare) per leggere l'IP reale
+      # Proxy davanti al backend: 1 = solo nginx, 2 = Cloudflare + nginx (qui: nessuno)
       TRUST_PROXY: ${TRUST_PROXY:-}
       # Limite generale di richieste al minuto per IP
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-300}

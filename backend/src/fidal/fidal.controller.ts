@@ -39,10 +39,13 @@ export class FidalController {
         return { tessera: r.tessera, tesserato: true, atleta };
     }
 
-    /** GET /api/fidal/cerca?cognome=Rossi — solo staff e società (dati personali). */
+    /**
+     * GET /api/fidal/cerca?cognome=Rossi — solo admin e organizzatori (dati personali).
+     * Le società no: l'account società si crea liberamente, quindi non è "staff".
+     */
     @Get('cerca')
     @UseGuards(AuthGuard)
-    @Roles(Role.ADMIN, Role.ORGANIZER, Role.SOCIETY)
+    @Roles(Role.ADMIN, Role.ORGANIZER)
     cerca(
         @Query('cognome') cognome?: string,
         @Query('nome') nome?: string,

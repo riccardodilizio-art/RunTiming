@@ -4,7 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
-import { configureApp } from './setup';
+import { configureApp, trustProxy } from './setup';
 import { jwtSecret } from './common/auth';
 
 // Smoke test: l'app si avvia con tutti i moduli collegati (niente errori di
@@ -175,6 +175,28 @@ describe('App (smoke + sicurezza)', () => {
             last = (await request(app.getHttpServer()).post('/api/auth/login').send({ email: 'x@y.it', password: 'sbagliata' })).status;
         }
         expect(last).toBe(429);
+    });
+
+    it('[nuovo] staff e società non vengono bloccati dal limite iscrizioni (giorno gara)', async () => {
+        for (const who of ['ORGANIZER', 'SOCIETY']) {
+            let blocked = false;
+            for (let i = 0; i < 15; i++) {
+                const r = await request(app.getHttpServer()).post('/api/registrations').set('Authorization', token(who)).send({});
+                if (r.status === 429) blocked = true;
+            }
+            expect(blocked).toBe(false);
+        }
+    });
+
+    it('[nuovo] la società non può cercare nell\'anagrafica FIDAL per nome', () =>
+        request(app.getHttpServer()).get('/api/fidal/cerca?cognome=ROSSI').set('Authorization', token('SOCIETY')).expect(403));
+
+    it('[nuovo] TRUST_PROXY interpretato correttamente', () => {
+        expect(trustProxy(undefined)).toBe(false);
+        expect(trustProxy('')).toBe(false);
+        expect(trustProxy('true')).toBe(1);
+        expect(trustProxy('2')).toBe(2);
+        expect(trustProxy('loopback')).toBe('loopback');
     });
 
     it('registrazione pubblica non può creare admin', () =>

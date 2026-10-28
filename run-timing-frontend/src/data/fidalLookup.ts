@@ -47,7 +47,7 @@ function rethrowIfServerAnswered(e: unknown) {
 }
 
 /** Ruoli che possono cercare nell'anagrafica FIDAL per nome (dati personali). */
-export const FIDAL_SEARCH_ROLES = ['ADMIN', 'ORGANIZER', 'SOCIETY'];
+export const FIDAL_SEARCH_ROLES = ['ADMIN', 'ORGANIZER'];
 
 /**
  * Verifica un atleta per numero tessera. Con l'API serve anche il cognome:
