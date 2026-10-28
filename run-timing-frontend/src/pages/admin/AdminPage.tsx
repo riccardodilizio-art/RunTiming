@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Tag, UserCheck, Check, Database, Euro } from 'lucide-react';
+import { Calendar, Tag, UserCheck, Check, Database, Euro, Building2 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAdminStore, ensureEventApi, isEventFull, reportApiError } from '../../hooks/useAdminStore';
 import { useAuth } from '../../context/useAuth';
@@ -11,9 +11,11 @@ import DiscountSection from './DiscountSection';
 import UsersSection from './UsersSection';
 import FidalImportSection from './FidalImportSection';
 import PaymentsSection from './PaymentsSection';
+import SocietiesSection from './SocietiesSection';
+import { USE_API } from '../../lib/api';
 import type { Event } from '../../types';
 
-type AdminSection = 'gare' | 'pagamenti' | 'account' | 'sconti' | 'utenti' | 'fidal';
+type AdminSection = 'gare' | 'pagamenti' | 'account' | 'societa' | 'sconti' | 'utenti' | 'fidal';
 
 export default function AdminPage() {
     const { events, saveEvent, deleteEvent } = useAdminStore();
@@ -42,6 +44,7 @@ export default function AdminPage() {
         ...(isAdmin ? [
             { key: 'pagamenti' as AdminSection, label: 'Pagamenti', icon: <Euro className="h-4 w-4" /> },
             { key: 'account' as AdminSection, label: 'Account atleti',   icon: <UserCheck className="h-4 w-4" /> },
+            ...(USE_API ? [{ key: 'societa' as AdminSection, label: 'Società', icon: <Building2 className="h-4 w-4" /> }] : []),
             { key: 'sconti'  as AdminSection, label: 'Sconti',           icon: <Tag className="h-4 w-4" /> },
             { key: 'utenti'  as AdminSection, label: 'Organizzatori',    icon: <UserCheck className="h-4 w-4" /> },
             { key: 'fidal'   as AdminSection, label: 'DB FIDAL',         icon: <Database className="h-4 w-4" /> },
@@ -114,6 +117,8 @@ export default function AdminPage() {
                     <PaymentsSection />
                 ) : section === 'account' ? (
                     <AccountsSection />
+                ) : section === 'societa' ? (
+                    <SocietiesSection />
                 ) : section === 'sconti' ? (
                     <DiscountSection />
                 ) : section === 'utenti' ? (

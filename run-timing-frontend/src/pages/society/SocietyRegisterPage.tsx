@@ -43,8 +43,7 @@ export default function SocietyRegisterPage() {
             setError('Compila tutti i campi obbligatori.');
             return;
         }
-        // Con l'API il roster FIDAL si importa subito dopo la creazione dell'account
-        // (l'anagrafica si legge solo da autenticati): vedi registerSocietyApi
+        // Con l'API il roster FIDAL si importa dalla dashboard dopo l'approvazione del codice
         const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal && !USE_API
             ? (await listBySociety(form.codiceFidal)).map(fidalToRoster)
             : []);
@@ -129,7 +128,7 @@ export default function SocietyRegisterPage() {
                     {form.ente === 'fidal' && form.codiceFidal && USE_API && (
                         <p className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-xs text-slate-600">
                             <Users className="inline w-4 h-4 mr-1 text-brand-700" />
-                            Gli atleti tesserati con questo codice verranno importati nel roster appena creato l'account.
+                            Dopo la registrazione verifichiamo il codice società: una volta approvato potrai importare gli atleti tesserati dalla tua area società.
                         </p>
                     )}
                     {form.ente === 'fidal' && form.codiceFidal && !USE_API && (

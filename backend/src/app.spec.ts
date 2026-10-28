@@ -37,7 +37,7 @@ const prismaStub = {
         }),
     },
     race: { findUnique: async () => null },
-    society: { findUnique: async () => ({ codiceFidal: 'CH000' }) },
+    society: { findUnique: async () => ({ codiceFidal: 'CH000', fidalApproved: false }) },
 };
 
 describe('App (smoke + sicurezza)', () => {
@@ -186,6 +186,16 @@ describe('App (smoke + sicurezza)', () => {
             }
             expect(blocked).toBe(false);
         }
+    });
+
+    it('[nuovo] società: roster FIDAL del proprio codice solo dopo l\'approvazione admin', async () => {
+        const r = await request(app.getHttpServer()).get('/api/fidal/societa/CH000').set('Authorization', token('SOCIETY')).expect(403);
+        expect(r.body.message).toMatch(/approvazione/);
+    });
+
+    it('[nuovo] approvazione codici FIDAL: solo admin', async () => {
+        await request(app.getHttpServer()).get('/api/societies?pending=1').set('Authorization', token('ORGANIZER')).expect(403);
+        await request(app.getHttpServer()).patch('/api/societies/s1/fidal').set('Authorization', token('SOCIETY')).send({ approved: true }).expect(403);
     });
 
     it('[nuovo] la società non può cercare nell\'anagrafica FIDAL per nome', () =>

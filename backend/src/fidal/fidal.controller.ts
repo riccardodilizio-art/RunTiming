@@ -63,16 +63,25 @@ export class FidalController {
         );
     }
 
-    /** GET /api/fidal/societa/:codice — staff, oppure la società stessa per il proprio codice. */
+    /**
+     * GET /api/fidal/societa/:codice — staff, oppure la società stessa per il
+     * proprio codice, solo dopo che l'admin l'ha approvato.
+     */
     @Get('societa/:codice')
     @UseGuards(AuthGuard)
     @Roles(Role.ADMIN, Role.ORGANIZER, Role.SOCIETY)
     async societa(@CurrentUser() user: AuthUser, @Param('codice') codice: string) {
         if (!codice?.trim()) throw new BadRequestException('Codice società mancante');
         if (user.role === Role.SOCIETY) {
-            const s = await this.prisma.society.findUnique({ where: { accountId: user.sub }, select: { codiceFidal: true } });
+            const s = await this.prisma.society.findUnique({
+                where: { accountId: user.sub },
+                select: { codiceFidal: true, fidalApproved: true },
+            });
             if (!s?.codiceFidal || s.codiceFidal.toUpperCase() !== codice.trim().toUpperCase()) {
                 throw new ForbiddenException('Puoi vedere solo gli atleti della tua società');
+            }
+            if (!s.fidalApproved) {
+                throw new ForbiddenException('Codice FIDAL in attesa di approvazione da parte di TimingRun');
             }
         }
         return this.fidal.listBySociety(codice.trim());

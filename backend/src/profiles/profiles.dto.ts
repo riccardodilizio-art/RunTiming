@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
     ArrayMaxSize,
     IsArray,
+    IsBoolean,
     IsDateString,
     IsEmail,
     IsIn,
@@ -47,6 +48,10 @@ export class SocietyProfileDto {
     @IsOptional() @IsString() @MaxLength(20) codiceFidal?: string;
     /** Roster come nel prototipo (RosterAthlete[]). */
     @IsOptional() @IsArray() @ArrayMaxSize(2000) roster?: unknown[];
+}
+
+export class SocietyFidalDecisionDto {
+    @IsBoolean() approved!: boolean;
 }
 
 export class CertDecisionDto {

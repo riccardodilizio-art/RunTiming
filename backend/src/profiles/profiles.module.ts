@@ -28,6 +28,7 @@ import {
     CreateStaffDto,
     SearchDto,
     SocietyProfileDto,
+    SocietyFidalDecisionDto,
     UpdateStaffDto,
 } from './profiles.dto';
 
@@ -177,17 +178,51 @@ export class ProfilesService {
         return this.prisma.society.findUnique({ where: { accountId } });
     }
 
-    saveSociety(accountId: string, dto: SocietyProfileDto) {
+    async saveSociety(accountId: string, dto: SocietyProfileDto) {
+        const codiceFidal = dto.codiceFidal?.trim().toUpperCase() || null;
+        const current = await this.prisma.society.findUnique({ where: { accountId }, select: { codiceFidal: true } });
         const data = {
             societaNome: dto.societaNome.trim(),
             ente: dto.ente,
-            codiceFidal: dto.codiceFidal?.toUpperCase() ?? null,
+            codiceFidal,
+            // Codice nuovo o cambiato: torna da approvare
+            ...(current?.codiceFidal !== codiceFidal ? { fidalApproved: false } : {}),
             ...(dto.roster ? { roster: dto.roster as Prisma.InputJsonValue } : {}),
         };
         return this.prisma.society.upsert({
             where: { accountId },
             create: { ...data, roster: (dto.roster ?? []) as Prisma.InputJsonValue, accountId },
             update: data,
+        });
+    }
+
+    /** Admin: società registrate (con il nome ufficiale FIDAL del codice, per il confronto). */
+    async societies(pendingOnly: boolean) {
+        const rows = await this.prisma.society.findMany({
+            where: pendingOnly ? { codiceFidal: { not: null }, fidalApproved: false } : {},
+            select: {
+                id: true, societaNome: true, ente: true, codiceFidal: true, fidalApproved: true, createdAt: true,
+                account: { select: { email: true, displayName: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+        });
+        const codes = rows.map(r => r.codiceFidal).filter((c): c is string => !!c);
+        const official = codes.length
+            ? await this.prisma.fidalSociety.findMany({ where: { codice: { in: codes } }, select: { codice: true, denominazione: true, citta: true } })
+            : [];
+        const byCode = new Map(official.map(o => [o.codice.toUpperCase(), o]));
+        return rows.map(r => ({ ...r, fidalUfficiale: r.codiceFidal ? byCode.get(r.codiceFidal) ?? null : null }));
+    }
+
+    async decideSocietyFidal(id: string, approved: boolean) {
+        const s = await this.prisma.society.findUnique({ where: { id }, select: { codiceFidal: true } });
+        if (!s) throw new NotFoundException('Società non trovata');
+        if (approved && !s.codiceFidal) throw new BadRequestException('La società non ha indicato un codice FIDAL');
+        return this.prisma.society.update({
+            where: { id },
+            data: { fidalApproved: approved },
+            select: { id: true, codiceFidal: true, fidalApproved: true },
         });
     }
 
@@ -258,6 +293,19 @@ export class ProfilesController {
     @Roles(Role.SOCIETY)
     saveSociety(@CurrentUser() u: AuthUser, @Body() dto: SocietyProfileDto) {
         return this.profiles.saveSociety(u.sub, dto);
+    }
+
+    /** Admin: GET /api/societies?pending=1 (codici FIDAL da approvare). */
+    @Get('societies')
+    @Roles(Role.ADMIN)
+    societies(@Query('pending') pending?: string) {
+        return this.profiles.societies(pending === '1' || pending === 'true');
+    }
+
+    @Patch('societies/:id/fidal')
+    @Roles(Role.ADMIN)
+    decideSocietyFidal(@Param('id') id: string, @Body() dto: SocietyFidalDecisionDto) {
+        return this.profiles.decideSocietyFidal(id, dto.approved);
     }
 
     @Get('accounts')

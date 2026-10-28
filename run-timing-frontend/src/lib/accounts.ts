@@ -5,8 +5,6 @@ import type { Affiliation, AppUser, AthleteAccount, CertStatus, RaceEnte, Roster
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { ApiError, api, setAuthToken } from './api';
 import { takeCaptchaToken } from './captcha';
-import { listBySociety } from '../data/fidalLookup';
-import { fidalToRoster } from '../pages/society/rosterUtils';
 
 interface ApiAffiliation {
     id: string;
@@ -38,6 +36,7 @@ interface ApiSociety {
     societaNome: string;
     ente: string;
     codiceFidal?: string | null;
+    fidalApproved?: boolean;
     roster: RosterAthlete[];
     createdAt: string;
 }
@@ -156,6 +155,7 @@ function toSociety(me: ApiMe, s: ApiSociety | null): SocietyAccount {
         societaNome: s?.societaNome ?? '',
         ente: (s?.ente as RaceEnte) ?? 'fidal',
         codiceFidal: s?.codiceFidal ?? undefined,
+        fidalApproved: s?.fidalApproved ?? false,
         roster: s?.roster ?? [],
         createdAt: s?.createdAt ?? me.createdAt,
     };
@@ -197,14 +197,8 @@ export async function registerSocietyApi(
         captchaToken: takeCaptchaToken(),
     });
     setAuthToken(r.accessToken);
-    let roster = data.roster ?? [];
-    // L'anagrafica FIDAL si legge solo da autenticati: il roster della società
-    // si importa ora che l'account esiste (e solo per il proprio codice)
-    if (!roster.length && data.ente === 'fidal' && data.codiceFidal) {
-        await api.put('/societies/me', societyBody({ ...data, roster: [] }));
-        try { roster = (await listBySociety(data.codiceFidal)).map(fidalToRoster); } catch { /* importabile dalla dashboard */ }
-    }
-    await api.put('/societies/me', societyBody({ ...data, roster }));
+    // Il roster FIDAL si importa dalla dashboard dopo che TimingRun ha approvato il codice
+    await api.put('/societies/me', societyBody({ ...data, roster: data.roster ?? [] }));
     return fetchSociety();
 }
 
@@ -224,6 +218,28 @@ export async function listAthletesApi(): Promise<AthleteAccount[]> {
         if (rows.length < 50) break;
     }
     return out;
+}
+
+// ─── Admin: approvazione codici FIDAL delle società ──────────────────────────
+
+export interface AdminSocietyRow {
+    id: string;
+    societaNome: string;
+    ente: string;
+    codiceFidal: string | null;
+    fidalApproved: boolean;
+    createdAt: string;
+    account: { email: string; displayName: string | null };
+    /** Nome ufficiale FIDAL del codice indicato (dal DB FIDAL importato), per il confronto. */
+    fidalUfficiale: { codice: string; denominazione: string; citta: string | null } | null;
+}
+
+export function listSocietiesApi(pendingOnly: boolean) {
+    return api.get<AdminSocietyRow[]>(`/societies${pendingOnly ? '?pending=1' : ''}`);
+}
+
+export function decideSocietyFidalApi(id: string, approved: boolean) {
+    return api.patch(`/societies/${id}/fidal`, { approved });
 }
 
 export function decideCertApi(athleteId: string, status: 'verificato' | 'rifiutato') {
