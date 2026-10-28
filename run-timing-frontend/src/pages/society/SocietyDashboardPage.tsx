@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw,
+    Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw, Clock,
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration, loadMyRegistrationsApi, reportApiError, ensureEventApi } from '../../hooks/useAdminStore';
@@ -105,9 +105,14 @@ export default function SocietyDashboardPage() {
         if (!currentSociety) return;
         void saveRoster(roster.filter(r => r.id !== id));
     }
+    // Con l'API l'import FIDAL si sblocca quando TimingRun approva il codice società
+    const fidalPending = USE_API && !!currentSociety?.codiceFidal && !currentSociety.fidalApproved;
     async function reimportFidal() {
-        if (!currentSociety?.codiceFidal) return;
-        const imported = (await listBySociety(currentSociety.codiceFidal)).map(fidalToRoster);
+        if (!currentSociety?.codiceFidal || fidalPending) return;
+        let imported: RosterAthlete[];
+        try {
+            imported = (await listBySociety(currentSociety.codiceFidal)).map(fidalToRoster);
+        } catch (e) { reportApiError(e); return; }
         // merge: skip athletes already present by name+birthdate
         const key = (a: RosterAthlete) => `${a.nome}|${a.cognome}|${a.dataNascita}`.toLowerCase();
         const existing = new Set(roster.map(key));
@@ -144,7 +149,7 @@ export default function SocietyDashboardPage() {
                         <p className="text-slate-500 text-sm mt-0.5">{roster.length} atleti in società</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        {currentSociety.codiceFidal && (
+                        {currentSociety.codiceFidal && !fidalPending && (
                             <button onClick={reimportFidal}
                                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors">
                                 <RefreshCw className="h-4 w-4" /> Reimporta da FIDAL
@@ -160,6 +165,16 @@ export default function SocietyDashboardPage() {
                         </button>
                     </div>
                 </div>
+
+                {fidalPending && (
+                    <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-sm">
+                        <Clock className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>
+                            Codice FIDAL <strong className="font-mono">{currentSociety.codiceFidal}</strong> in attesa di verifica da parte di TimingRun.
+                            Appena approvato potrai importare gli atleti tesserati; intanto puoi aggiungerli a mano.
+                        </span>
+                    </div>
+                )}
 
                 {reimported > 0 && (
                     <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-green-700 text-sm">

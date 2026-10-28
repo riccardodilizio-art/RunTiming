@@ -37,6 +37,8 @@ model Account {
   id              String          @id @default(cuid())
   email           String          @unique
   passwordHash    String
+  /// Incrementato a ogni cambio password: invalida i login già emessi
+  tokenVersion    Int             @default(0)
   role            Role
   displayName     String?
   assignedEventIds String[]       // eventi gestibili (organizer)
@@ -83,6 +85,9 @@ model Society {
   societaNome String
   ente        String
   codiceFidal String?
+  /// Codice FIDAL approvato dall'admin: solo allora la società può importare
+  /// gli atleti tesserati (l'account società si crea liberamente).
+  fidalApproved Boolean @default(false)
   roster      Json     // RosterAthlete[]
   createdAt   DateTime @default(now())
 }

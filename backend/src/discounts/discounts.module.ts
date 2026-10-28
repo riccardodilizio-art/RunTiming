@@ -13,6 +13,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { DiscountCode, Prisma, Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard, Roles } from '../common/auth';
@@ -101,6 +102,7 @@ export class DiscountsController {
     constructor(private readonly discounts: DiscountsService) {}
 
     @Get('check/:code')
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
     check(@Param('code') code: string) {
         return this.discounts.check(code);
     }

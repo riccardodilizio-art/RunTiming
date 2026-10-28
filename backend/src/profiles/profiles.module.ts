@@ -28,6 +28,7 @@ import {
     CreateStaffDto,
     SearchDto,
     SocietyProfileDto,
+    SocietyFidalDecisionDto,
     UpdateStaffDto,
 } from './profiles.dto';
 
@@ -45,14 +46,16 @@ export class ProfilesService {
      * Tessera FIDAL confermata su WISE (stesso cognome e data di nascita)?
      * Se WISE non risponde, il tesseramento resta "manual" (non verificato).
      */
-    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<boolean> {
+    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<{ ok: boolean; cert?: string | null }> {
         try {
             const r = await this.fidal.verifyByTessera(tessera.trim());
-            return !!r.atleta
+            const ok = !!r.atleta
                 && normName(r.atleta.cognome) === normName(cognome)
                 && r.atleta.dataNascita === dataNascita.slice(0, 10);
+            // Scadenza certificato dal dato FIDAL, non da quanto scrive l'atleta
+            return { ok, cert: ok ? r.atleta?.certScadenza ?? null : undefined };
         } catch {
-            return false;
+            return { ok: false };
         }
     }
 
@@ -87,11 +90,11 @@ export class ProfilesService {
             certExpiry,
             certStatus,
         };
-        const sources = await Promise.all(
+        const checks = await Promise.all(
             (dto.affiliations ?? []).map(async a =>
-                a.ente === 'fidal' && a.numeroTessera && (await this.fidalConfirmed(a.numeroTessera, dto.cognome, dto.dataNascita))
-                    ? 'fidal_db'
-                    : 'manual',
+                a.ente === 'fidal' && a.numeroTessera
+                    ? this.fidalConfirmed(a.numeroTessera, dto.cognome, dto.dataNascita)
+                    : ({ ok: false } as { ok: boolean; cert?: string | null }),
             ),
         );
         try {
@@ -101,6 +104,16 @@ export class ProfilesService {
                     create: { ...data, accountId },
                     update: data,
                 });
+                // Cambiano nome, cognome o data di nascita: un tesseramento verificato su FIDAL
+                // per la persona di prima non vale più (va riverificato inviandolo di nuovo).
+                const identityChanged = !!prev && (
+                    normName(prev.nome) !== normName(dto.nome) ||
+                    normName(prev.cognome) !== normName(dto.cognome) ||
+                    prev.dataNascita.toISOString().slice(0, 10) !== dto.dataNascita.slice(0, 10)
+                );
+                if (identityChanged && !dto.affiliations) {
+                    await tx.affiliation.updateMany({ where: { athleteId: p.id, source: 'fidal_db' }, data: { source: 'manual' } });
+                }
                 if (dto.affiliations) {
                     await tx.affiliation.deleteMany({ where: { athleteId: p.id } });
                     if (dto.affiliations.length) {
@@ -111,9 +124,11 @@ export class ProfilesService {
                                 societaNome: a.societaNome,
                                 codiceSocieta: a.codiceSocieta ?? null,
                                 numeroTessera: a.numeroTessera ?? null,
-                                certScadenza: a.certScadenza ? new Date(a.certScadenza) : null,
+                                certScadenza: checks[i].ok
+                                    ? (checks[i].cert ? new Date(checks[i].cert as string) : null)
+                                    : a.certScadenza ? new Date(a.certScadenza) : null,
                                 // "fidal_db" solo se confermato da WISE lato server, mai dal client
-                                source: sources[i],
+                                source: checks[i].ok ? 'fidal_db' : 'manual',
                             })),
                         });
                     }
@@ -163,17 +178,51 @@ export class ProfilesService {
         return this.prisma.society.findUnique({ where: { accountId } });
     }
 
-    saveSociety(accountId: string, dto: SocietyProfileDto) {
+    async saveSociety(accountId: string, dto: SocietyProfileDto) {
+        const codiceFidal = dto.codiceFidal?.trim().toUpperCase() || null;
+        const current = await this.prisma.society.findUnique({ where: { accountId }, select: { codiceFidal: true } });
         const data = {
             societaNome: dto.societaNome.trim(),
             ente: dto.ente,
-            codiceFidal: dto.codiceFidal?.toUpperCase() ?? null,
+            codiceFidal,
+            // Codice nuovo o cambiato: torna da approvare
+            ...(current?.codiceFidal !== codiceFidal ? { fidalApproved: false } : {}),
             ...(dto.roster ? { roster: dto.roster as Prisma.InputJsonValue } : {}),
         };
         return this.prisma.society.upsert({
             where: { accountId },
             create: { ...data, roster: (dto.roster ?? []) as Prisma.InputJsonValue, accountId },
             update: data,
+        });
+    }
+
+    /** Admin: società registrate (con il nome ufficiale FIDAL del codice, per il confronto). */
+    async societies(pendingOnly: boolean) {
+        const rows = await this.prisma.society.findMany({
+            where: pendingOnly ? { codiceFidal: { not: null }, fidalApproved: false } : {},
+            select: {
+                id: true, societaNome: true, ente: true, codiceFidal: true, fidalApproved: true, createdAt: true,
+                account: { select: { email: true, displayName: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+        });
+        const codes = rows.map(r => r.codiceFidal).filter((c): c is string => !!c);
+        const official = codes.length
+            ? await this.prisma.fidalSociety.findMany({ where: { codice: { in: codes } }, select: { codice: true, denominazione: true, citta: true } })
+            : [];
+        const byCode = new Map(official.map(o => [o.codice.toUpperCase(), o]));
+        return rows.map(r => ({ ...r, fidalUfficiale: r.codiceFidal ? byCode.get(r.codiceFidal) ?? null : null }));
+    }
+
+    async decideSocietyFidal(id: string, approved: boolean) {
+        const s = await this.prisma.society.findUnique({ where: { id }, select: { codiceFidal: true } });
+        if (!s) throw new NotFoundException('Società non trovata');
+        if (approved && !s.codiceFidal) throw new BadRequestException('La società non ha indicato un codice FIDAL');
+        return this.prisma.society.update({
+            where: { id },
+            data: { fidalApproved: approved },
+            select: { id: true, codiceFidal: true, fidalApproved: true },
         });
     }
 
@@ -244,6 +293,19 @@ export class ProfilesController {
     @Roles(Role.SOCIETY)
     saveSociety(@CurrentUser() u: AuthUser, @Body() dto: SocietyProfileDto) {
         return this.profiles.saveSociety(u.sub, dto);
+    }
+
+    /** Admin: GET /api/societies?pending=1 (codici FIDAL da approvare). */
+    @Get('societies')
+    @Roles(Role.ADMIN)
+    societies(@Query('pending') pending?: string) {
+        return this.profiles.societies(pending === '1' || pending === 'true');
+    }
+
+    @Patch('societies/:id/fidal')
+    @Roles(Role.ADMIN)
+    decideSocietyFidal(@Param('id') id: string, @Body() dto: SocietyFidalDecisionDto) {
+        return this.profiles.decideSocietyFidal(id, dto.approved);
     }
 
     @Get('accounts')

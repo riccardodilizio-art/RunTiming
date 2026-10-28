@@ -16,7 +16,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import { randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
@@ -39,6 +39,8 @@ class SyncCsvDto {
 
 const safeEqual = (a: string, b: string) =>
     a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+/** Nel DB si salva solo l'impronta della chiave: chi legge il DB non può usarla. */
+const keyHash = (k: string) => createHash('sha256').update(k).digest('hex');
 
 @Injectable()
 export class ResultsService {
@@ -104,15 +106,19 @@ export class ResultsService {
     async newSyncKey(user: AuthUser, raceId: string) {
         await this.raceForStaff(user, raceId);
         const syncKey = randomBytes(24).toString('base64url');
-        await this.prisma.race.update({ where: { id: raceId }, data: { syncKey } });
-        return { raceId, syncKey };
+        await this.prisma.race.update({ where: { id: raceId }, data: { syncKey: keyHash(syncKey) } });
+        return { raceId, syncKey }; // mostrata una sola volta
     }
 
     /** Invio dal PC di gara: autenticato solo dalla chiave della gara. */
     async sync(raceId: string, key: string | undefined, dto: SyncCsvDto) {
         const race = await this.prisma.race.findUnique({ where: { id: raceId }, select: { syncKey: true } });
-        if (!race?.syncKey || !key || !safeEqual(key, race.syncKey)) {
-            throw new UnauthorizedException('Chiave semi-live non valida');
+        if (!race?.syncKey || !key) throw new UnauthorizedException('Chiave semi-live non valida');
+        if (!safeEqual(keyHash(key), race.syncKey)) {
+            // Chiavi generate prima che si salvasse l'impronta: valide una volta, poi convertite
+            const legacy = !/^[0-9a-f]{64}$/.test(race.syncKey) && safeEqual(key, race.syncKey);
+            if (!legacy) throw new UnauthorizedException('Chiave semi-live non valida');
+            await this.prisma.race.update({ where: { id: raceId }, data: { syncKey: keyHash(key) } });
         }
         const current = await this.prisma.resultUpload.findUnique({ where: { raceId }, select: { status: true, source: true } });
         if (current?.status === 'final' && current.source === 'upload' && dto.status !== 'final') {

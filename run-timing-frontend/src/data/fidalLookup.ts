@@ -5,7 +5,7 @@
 // contro WISE (tramite il nostro backend). Se l'API non risponde, fa fallback
 // al dataset locale così l'iscrizione non si blocca mai.
 
-import { api, USE_API } from '../lib/api';
+import { api, ApiError, USE_API } from '../lib/api';
 import { lookupByName, lookupBySociety, lookupByTessera, type FidalAthlete } from './mockFidal';
 import { dsLookupByTessera } from './fidalDataset';
 
@@ -41,13 +41,28 @@ function normalize(a: Partial<FidalAthlete> & { tessera: string }): FidalAthlete
     };
 }
 
-/** Verifica un atleta per numero tessera. */
-export async function verifyTessera(tessera: string): Promise<FidalAthlete | null> {
+/** Fallback al dataset locale solo se il server non è raggiungibile (non se ha risposto "no"). */
+function rethrowIfServerAnswered(e: unknown) {
+    if (e instanceof ApiError) throw e;
+}
+
+/** Ruoli che possono cercare nell'anagrafica FIDAL per nome (dati personali). */
+export const FIDAL_SEARCH_ROLES = ['ADMIN', 'ORGANIZER'];
+
+/**
+ * Verifica un atleta per numero tessera. Con l'API serve anche il cognome:
+ * il server risponde solo se tessera e cognome corrispondono, così la tessera
+ * da sola non basta a leggere i dati di qualcun altro.
+ */
+export async function verifyTessera(tessera: string, cognome = ''): Promise<FidalAthlete | null> {
     if (USE_API) {
         try {
-            const r = await api.get<VerifyResponse>(`/fidal/verifica?tessera=${encodeURIComponent(tessera)}`);
+            const q = new URLSearchParams({ tessera, cognome });
+            const r = await api.get<VerifyResponse>(`/fidal/verifica?${q.toString()}`);
             return r.atleta ? enrichCertScadenza(normalize(r.atleta)) : null; // risposta valida: nessun fallback
-        } catch {
+        } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return null;
+            rethrowIfServerAnswered(e);
             return lookupByTessera(tessera); // API irraggiungibile → dataset locale
         }
     }
@@ -62,14 +77,15 @@ export async function listBySociety(codiceSocieta: string): Promise<FidalAthlete
                 `/fidal/societa/${encodeURIComponent(codiceSocieta)}`,
             );
             return list.map(normalize);
-        } catch {
+        } catch (e) {
+            rethrowIfServerAnswered(e);
             return lookupBySociety(codiceSocieta);
         }
     }
     return lookupBySociety(codiceSocieta);
 }
 
-/** Cerca atleti per cognome (+ nome opzionale). */
+/** Cerca atleti per cognome (+ nome opzionale). Con l'API: solo staff. */
 export async function searchByName(cognome: string, nome?: string): Promise<FidalAthlete[]> {
     if (USE_API) {
         try {
@@ -77,7 +93,8 @@ export async function searchByName(cognome: string, nome?: string): Promise<Fida
             if (nome) q.set('nome', nome);
             const list = await api.get<(Partial<FidalAthlete> & { tessera: string })[]>(`/fidal/cerca?${q.toString()}`);
             return list.map(normalize);
-        } catch {
+        } catch (e) {
+            rethrowIfServerAnswered(e);
             return lookupByName(cognome, nome);
         }
     }

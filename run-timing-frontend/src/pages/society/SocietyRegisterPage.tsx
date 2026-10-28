@@ -3,8 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Building2, Check, AlertCircle, Users } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { listBySociety } from '../../data/fidalLookup';
+import { USE_API } from '../../lib/api';
 import { fidalToRoster } from './rosterUtils';
 import type { RaceEnte, RosterAthlete } from '../../types';
+import { Captcha } from '../../components/Captcha';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -41,7 +43,8 @@ export default function SocietyRegisterPage() {
             setError('Compila tutti i campi obbligatori.');
             return;
         }
-        const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal
+        // Con l'API il roster FIDAL si importa dalla dashboard dopo l'approvazione del codice
+        const roster = preview ?? (form.ente === 'fidal' && form.codiceFidal && !USE_API
             ? (await listBySociety(form.codiceFidal)).map(fidalToRoster)
             : []);
         if (form.password.length < 8) { setError('La password deve essere di almeno 8 caratteri.'); return; }
@@ -122,7 +125,13 @@ export default function SocietyRegisterPage() {
                         </div>
                     </div>
 
-                    {form.ente === 'fidal' && form.codiceFidal && (
+                    {form.ente === 'fidal' && form.codiceFidal && USE_API && (
+                        <p className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-xs text-slate-600">
+                            <Users className="inline w-4 h-4 mr-1 text-brand-700" />
+                            Dopo la registrazione verifichiamo il codice società: una volta approvato potrai importare gli atleti tesserati dalla tua area società.
+                        </p>
+                    )}
+                    {form.ente === 'fidal' && form.codiceFidal && !USE_API && (
                         <div className="rounded-xl border border-brand-200 bg-brand-50 p-3">
                             <button type="button" onClick={loadRoster}
                                 className="flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-900">
@@ -137,6 +146,8 @@ export default function SocietyRegisterPage() {
                             )}
                         </div>
                     )}
+
+                    <Captcha className="flex justify-center" />
 
                     <button type="submit"
                         className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">

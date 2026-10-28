@@ -19,6 +19,17 @@ const raceCount = {
     },
 } as const;
 
+/** Toglie dalle gare i campi interni (chiave semi-live) prima di rispondere. */
+function publicEvent<E extends { days: { races: { syncKey?: string | null }[] }[] }>(ev: E) {
+    return {
+        ...ev,
+        days: ev.days.map(d => ({
+            ...d,
+            races: d.races.map(({ syncKey: _k, ...r }) => { void _k; return r; }),
+        })),
+    };
+}
+
 export function slugify(s: string): string {
     return s
         .normalize('NFD')
@@ -138,7 +149,7 @@ export class EventsService {
             },
         });
         if (!ev) throw new NotFoundException('Evento non trovato');
-        return ev;
+        return publicEvent(ev);
     }
 
     // ─── Gestione ──────────────────────────────────────────────────────────
@@ -219,7 +230,9 @@ export class EventsService {
         });
         if (!race) throw new NotFoundException('Gara non trovata');
         await this.access.assert(user, race.day.event.id, race.day.event.createdById);
-        return this.prisma.race.update({ where: { id: raceId }, data: { isOpen } });
+        const { syncKey: _k, ...r } = await this.prisma.race.update({ where: { id: raceId }, data: { isOpen } });
+        void _k;
+        return r;
     }
 
     private async byId(id: string) {
@@ -228,7 +241,7 @@ export class EventsService {
             include: { days: { orderBy: { date: 'asc' }, include: { races: { include: raceCount } } } },
         });
         if (!ev) throw new NotFoundException('Evento non trovato');
-        return ev;
+        return publicEvent(ev);
     }
 
     /**

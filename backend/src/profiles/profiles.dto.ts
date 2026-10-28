@@ -1,7 +1,9 @@
+import { IsBirthDate } from '../common/validators';
 import { Type } from 'class-transformer';
 import {
     ArrayMaxSize,
     IsArray,
+    IsBoolean,
     IsDateString,
     IsEmail,
     IsIn,
@@ -29,7 +31,7 @@ export class AffiliationDto {
 export class AthleteProfileDto {
     @IsString() @MinLength(1) @MaxLength(80) nome!: string;
     @IsString() @MinLength(1) @MaxLength(80) cognome!: string;
-    @IsDateString() dataNascita!: string;
+    @IsBirthDate() dataNascita!: string;
     @IsIn(['M', 'F']) sesso!: string;
     @IsOptional() @Matches(/^[A-Za-z0-9]{16}$/, { message: 'Codice fiscale non valido' }) codFiscale?: string;
     @IsOptional() @IsString() @MaxLength(30) phone?: string;
@@ -46,6 +48,10 @@ export class SocietyProfileDto {
     @IsOptional() @IsString() @MaxLength(20) codiceFidal?: string;
     /** Roster come nel prototipo (RosterAthlete[]). */
     @IsOptional() @IsArray() @ArrayMaxSize(2000) roster?: unknown[];
+}
+
+export class SocietyFidalDecisionDto {
+    @IsBoolean() approved!: boolean;
 }
 
 export class CertDecisionDto {

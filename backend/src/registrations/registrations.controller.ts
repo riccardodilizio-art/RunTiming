@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Ip, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { assertHuman } from '../common/captcha';
 import { Role } from '@prisma/client';
 import type { Response } from 'express';
 import { AuthGuard, AuthUser, CurrentUser, OptionalAuthGuard, Roles } from '../common/auth';
@@ -21,6 +23,7 @@ export class RegistrationsController {
 
     /** Prezzo attuale (quota + sconto + commissione + maggiorazione del metodo). ?code=XYZ&method=bank */
     @Get('races/:id/quote')
+    @Throttle({ default: { limit: 60, ttl: 60_000 } })
     quote(@Param('id') id: string, @Query('code') code?: string, @Query('method') method?: string) {
         const m = ['paypal', 'bank', 'onsite'].includes(method ?? '') ? (method as PayMethod) : undefined;
         return this.regs.quote(id, code, m);
@@ -35,6 +38,7 @@ export class RegistrationsController {
 
     /** "Verifica iscrizione": cognome + data di nascita. */
     @Post('events/:slug/verify')
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
     verify(@Param('slug') slug: string, @Body() dto: VerifyDto) {
         return this.regs.verify(slug, dto);
     }
@@ -43,8 +47,10 @@ export class RegistrationsController {
 
     /** Con login (atleta, società, staff) oppure come ospite con i dati atleta ed email. */
     @Post('registrations')
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
     @UseGuards(OptionalAuthGuard)
-    create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateRegistrationDto) {
+    async create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateRegistrationDto, @Ip() ip: string) {
+        if (!user) await assertHuman(dto.captchaToken, ip); // ospiti: verifica anti-robot
         return this.regs.create(user, dto);
     }
 

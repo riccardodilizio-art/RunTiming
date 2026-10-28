@@ -7,13 +7,15 @@ import {
 } from 'lucide-react';
 import { useAdminStore, saveRegistration, loadRegistrations, checkDiscountApi } from '../hooks/useAdminStore';
 import { USE_API, api, tokenRole } from '../lib/api';
+import { takeCaptchaToken } from '../lib/captcha';
+import { Captcha } from '../components/Captcha';
 import { resolveCommission, calcCommissionAmount } from '../utils/commission';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { useAuth } from '../context/useAuth';
 import { useSocietyAuth } from '../context/useSocietyAuth';
 import DynamicForm from '../components/registration/DynamicForm';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
-import { verifyTessera, searchByName } from '../data/fidalLookup';
+import { verifyTessera, searchByName, FIDAL_SEARCH_ROLES } from '../data/fidalLookup';
 import { certExpiresBeforeEvent } from '../utils/cert';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
@@ -173,13 +175,18 @@ function FidalLookup({
     const [found, setFound] = useState<FidalAthlete | null>(null);
     const [open, setOpen] = useState(true);
     const [searching, setSearching] = useState(false);
+    const [error, setError] = useState('');
+    // Con l'API la ricerca per nome nell'anagrafica FIDAL è riservata allo staff
+    const canSearchByName = !USE_API || FIDAL_SEARCH_ROLES.includes(tokenRole() ?? '');
+    const needsCognome = USE_API && mode === 'tessera';
 
     async function handleSearch() {
         if (searching) return;
         setSearching(true);
+        setError('');
         try {
             if (mode === 'tessera') {
-                const a = await verifyTessera(tessera);
+                const a = await verifyTessera(tessera, cognome);
                 setResults(null);
                 setFound(a);
                 if (!a) setResults([]);
@@ -188,6 +195,8 @@ function FidalLookup({
                 setResults(list);
                 setFound(null);
             }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Ricerca non riuscita');
         } finally {
             setSearching(false);
         }
@@ -215,11 +224,11 @@ function FidalLookup({
                 </button>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-                Se sei tesserato FIDAL o RunCard, inserisci il numero tessera per caricare automaticamente i tuoi dati.
+                Se sei tesserato FIDAL o RunCard, inserisci il numero tessera{USE_API ? ' e il cognome' : ''} per caricare automaticamente i tuoi dati.
             </p>
 
             {/* Mode toggle */}
-            <div className="flex gap-2 mb-3">
+            {canSearchByName && <div className="flex gap-2 mb-3">
                 {(['tessera', 'nome'] as const).map(m => (
                     <button
                         key={m}
@@ -232,7 +241,7 @@ function FidalLookup({
                         {m === 'tessera' ? 'Per numero tessera' : 'Per cognome / nome'}
                     </button>
                 ))}
-            </div>
+            </div>}
 
             {mode === 'tessera' ? (
                 <div className="flex gap-2">
@@ -242,9 +251,20 @@ function FidalLookup({
                         onChange={e => { setTessera(e.target.value.toUpperCase()); setFound(null); setResults(null); }}
                         onKeyDown={e => e.key === 'Enter' && handleSearch()}
                         placeholder="es. RM001234 oppure RC001122"
-                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
+                        className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
                     />
-                    <button type="button" onClick={handleSearch} disabled={!tessera.trim() || searching}
+                    {needsCognome && (
+                        <input
+                            type="text"
+                            value={cognome}
+                            onChange={e => { setCognome(e.target.value); setFound(null); setResults(null); }}
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            placeholder="Cognome *"
+                            aria-label="Cognome"
+                            className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                    )}
+                    <button type="button" onClick={handleSearch} disabled={!tessera.trim() || (needsCognome && !cognome.trim()) || searching}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-40">
                         <Search className="h-4 w-4" /> {searching ? 'Cerco…' : 'Cerca'}
                     </button>
@@ -265,8 +285,9 @@ function FidalLookup({
             )}
 
             {/* Results list (nome search) */}
+            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
             {results !== null && results.length === 0 && (
-                <p className="mt-2 text-xs text-slate-500">Nessun atleta trovato. Compila manualmente il modulo.</p>
+                <p className="mt-2 text-xs text-slate-500">{needsCognome ? 'Nessun tesserato con questa tessera e questo cognome. Controlla i dati o compila manualmente il modulo.' : 'Nessun atleta trovato. Compila manualmente il modulo.'}</p>
             )}
             {results && results.length > 0 && (
                 <div className="mt-2 border border-slate-200 rounded-lg bg-white divide-y divide-slate-100 max-h-40 overflow-y-auto">
@@ -985,6 +1006,8 @@ export default function RegisterPage() {
                     tessera: byCatalog('tessera_fidal') || byCatalog('tessera_runcard') || chosenAff?.numeroTessera || undefined,
                     email: byCatalog('email') || currentAthlete?.email || undefined,
                 },
+                // Iscrizione senza account: verifica anti-bot (se attiva)
+                captchaToken: tokenRole() ? undefined : takeCaptchaToken(),
             });
             // PayPal/carta o bonifico: si va alla pagina di pagamento (link valido anche dopo)
             const ref = r.registration.paymentRef;
@@ -1327,6 +1350,9 @@ export default function RegisterPage() {
                         />
                     )}
                 </div>
+
+                {/* Verifica anti-bot per chi si iscrive senza account (solo se attiva) */}
+                {USE_API && isLastStep && !tokenRole() && <Captcha className="mt-5 flex justify-end" />}
 
                 {/* Nav buttons */}
                 {step < STEPS.length - 1 && (
