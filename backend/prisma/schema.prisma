@@ -46,6 +46,40 @@ model Account {
   athlete         AthleteProfile?
   society         Society?
   createdEvents   Event[]         @relation("OrganizerEvents")
+  passwordResets  PasswordReset[]
+}
+
+/// Link "password dimenticata": nel DB solo l'impronta del token, valido 1 ora, monouso.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([accountId])
+}
+
+/// Coda delle email: si scrivono qui e un processo le invia (con nuovi tentativi
+/// se il servizio non risponde). dedupeKey evita doppioni (es. un solo promemoria).
+model EmailOutbox {
+  id        String    @id @default(cuid())
+  to        String
+  subject   String
+  html      String
+  text      String
+  kind      String    // iscrizione | pagamento | promemoria | annullamento | password
+  dedupeKey String?   @unique
+  status    String    @default("pending") // pending | sending | sent | failed | disabled
+  attempts  Int       @default(0)
+  lastError String?
+  sendAfter DateTime  @default(now())
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, sendAfter])
 }
 
 model AthleteProfile {
@@ -204,6 +238,8 @@ model Registration {
   createdById      String?
   certStatus       CertStatus?
   submittedAt      DateTime        @default(now())
+  /// Promemoria di pagamento già inviato (gare a pagamento anticipato)
+  reminderSentAt   DateTime?
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])

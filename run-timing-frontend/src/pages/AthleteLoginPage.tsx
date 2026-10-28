@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, AlertCircle, Timer } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
+import { ForgotPasswordLink } from './PasswordResetPages';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -72,6 +73,7 @@ export default function AthleteLoginPage() {
                             </button>
                         </div>
                     </div>
+                    <ForgotPasswordLink />
                     <button type="submit" disabled={loading}
                         className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2">
                         {loading

@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.module';
 import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
 import { FidalService } from '../fidal/fidal.service';
+import { RegistrationMailer } from '../mail/registration-mailer';
 import { discountProblem, normCode } from '../discounts/discounts.module';
 import {
     CommissionConfig,
@@ -85,6 +86,7 @@ export class RegistrationsService {
         private readonly settings: SettingsService,
         private readonly access: EventAccess,
         private readonly fidal: FidalService,
+        private readonly mailer: RegistrationMailer,
     ) {}
 
     // ─── Lettura gara / permessi ────────────────────────────────────────────
@@ -196,7 +198,7 @@ export class RegistrationsService {
         }
         const needsRef = paymentStatus === PaymentStatus.PENDING && paymentMethod !== 'manual';
 
-        return this.prisma.$transaction(async tx => {
+        const created = await this.prisma.$transaction(async tx => {
             // Serializza le iscrizioni sulla stessa gara (posti limitati, doppioni)
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${race.id}))::text`;
 
@@ -263,6 +265,9 @@ export class RegistrationsService {
             });
             return { registration: reg, quote: q, ageWarning: ageProblem ?? undefined };
         });
+        // Email di conferma con i dati per pagare (in coda: non rallenta né blocca l'iscrizione)
+        await this.mailer.confirmation(created.registration.id);
+        return created;
     }
 
     /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */
@@ -504,7 +509,7 @@ export class RegistrationsService {
         }
         if (reg.paymentStatus === paymentStatus) return reg;
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
-        return this.prisma.$transaction(async tx => {
+        const updated = await this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;
             const wasRejected = reg.paymentStatus === PaymentStatus.REJECTED;
             const toRejected = paymentStatus === PaymentStatus.REJECTED;
@@ -522,6 +527,9 @@ export class RegistrationsService {
             }
             return tx.registration.update({ where: { id }, data: { paymentStatus, paidAt } });
         });
+        if (paymentStatus === PaymentStatus.CONFIRMED) await this.mailer.paymentReceived(id);
+        if (paymentStatus === PaymentStatus.REJECTED) await this.mailer.cancelled(id, 'organizzazione');
+        return updated;
     }
 
     async setCert(user: AuthUser, id: string, certStatus: CertStatus) {

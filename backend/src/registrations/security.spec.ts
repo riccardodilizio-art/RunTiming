@@ -31,8 +31,9 @@ function setup(reg: Record<string, unknown> = {}, raceDate = new Date('2026-12-1
         $transaction: async (fn: any) => fn(tx),
     };
     const access: any = { assert: async () => undefined };
-    const svc = new RegistrationsService(prisma, {} as any, access, {} as any);
-    return { svc, r, tx };
+    const mailer: any = { confirmation: jest.fn(), paymentReceived: jest.fn(), cancelled: jest.fn() };
+    const svc = new RegistrationsService(prisma, {} as any, access, {} as any, mailer);
+    return { svc, r, tx, mailer };
 }
 
 describe('sicurezza iscrizioni', () => {
@@ -54,10 +55,17 @@ describe('sicurezza iscrizioni', () => {
         expect(r.paidAt).toBeInstanceOf(Date);
     });
 
-    it('l\'admin conferma il bonifico ricevuto', async () => {
-        const { svc, r } = setup({ paymentMethod: 'bank' });
+    it('l\'admin conferma il bonifico ricevuto → email "pagamento ricevuto"', async () => {
+        const { svc, r, mailer } = setup({ paymentMethod: 'bank' });
         await svc.setPayment(admin, 'reg1', PaymentStatus.CONFIRMED);
         expect(r.paymentStatus).toBe(PaymentStatus.CONFIRMED);
+        expect(mailer.paymentReceived).toHaveBeenCalledWith('reg1');
+    });
+
+    it('iscrizione annullata dall\'organizzazione → email di annullamento', async () => {
+        const { svc, mailer } = setup({ paymentMethod: 'onsite' });
+        await svc.setPayment(organizer, 'reg1', PaymentStatus.REJECTED);
+        expect(mailer.cancelled).toHaveBeenCalledWith('reg1', 'organizzazione');
     });
 
     it('[medio] riattivare un\'iscrizione annullata su gara piena → rifiutato', async () => {

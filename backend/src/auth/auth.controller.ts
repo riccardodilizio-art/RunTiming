@@ -21,6 +21,16 @@ class LoginDto {
     @IsString() password!: string;
 }
 
+class ForgotPasswordDto {
+    @IsEmail() email!: string;
+    @IsOptional() @IsString() @MaxLength(2048) captchaToken?: string;
+}
+
+class ResetPasswordDto {
+    @IsString() @MinLength(20) @MaxLength(200) token!: string;
+    @IsString() @MinLength(8) @MaxLength(128) password!: string;
+}
+
 class ChangePasswordDto {
     @IsString() current!: string;
     @IsString() @MinLength(8) @MaxLength(128) next!: string;
@@ -41,6 +51,20 @@ export class AuthController {
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
     login(@Body() dto: LoginDto) {
         return this.auth.login(dto.email, dto.password);
+    }
+
+    /** "Password dimenticata": risponde sempre ok (non rivela se l'email esiste). */
+    @Post('password/forgot')
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
+    async forgot(@Body() dto: ForgotPasswordDto, @Ip() ip: string) {
+        await assertHuman(dto.captchaToken, ip);
+        return this.auth.forgotPassword(dto.email);
+    }
+
+    @Post('password/reset')
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    reset(@Body() dto: ResetPasswordDto) {
+        return this.auth.resetPassword(dto.token, dto.password);
     }
 
     @Get('me')

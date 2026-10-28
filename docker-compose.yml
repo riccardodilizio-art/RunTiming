@@ -38,6 +38,15 @@ services:
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-300}
       # Anti-bot Cloudflare Turnstile (facoltativo): senza chiave è disattivato
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Email (Amazon SES, datacenter di Milano). Senza chiavi le email restano
+      # in coda come "disabled" e il sito funziona lo stesso.
+      SITE_URL: ${SITE_URL:-http://localhost:8080}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Segreteria – TimingRun}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       # Admin iniziale (dal .env di root): ADMIN_EMAIL=... ADMIN_PASSWORD=...
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
