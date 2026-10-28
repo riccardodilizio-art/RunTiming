@@ -45,14 +45,16 @@ export class ProfilesService {
      * Tessera FIDAL confermata su WISE (stesso cognome e data di nascita)?
      * Se WISE non risponde, il tesseramento resta "manual" (non verificato).
      */
-    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<boolean> {
+    private async fidalConfirmed(tessera: string, cognome: string, dataNascita: string): Promise<{ ok: boolean; cert?: string | null }> {
         try {
             const r = await this.fidal.verifyByTessera(tessera.trim());
-            return !!r.atleta
+            const ok = !!r.atleta
                 && normName(r.atleta.cognome) === normName(cognome)
                 && r.atleta.dataNascita === dataNascita.slice(0, 10);
+            // Scadenza certificato dal dato FIDAL, non da quanto scrive l'atleta
+            return { ok, cert: ok ? r.atleta?.certScadenza ?? null : undefined };
         } catch {
-            return false;
+            return { ok: false };
         }
     }
 
@@ -87,11 +89,11 @@ export class ProfilesService {
             certExpiry,
             certStatus,
         };
-        const sources = await Promise.all(
+        const checks = await Promise.all(
             (dto.affiliations ?? []).map(async a =>
-                a.ente === 'fidal' && a.numeroTessera && (await this.fidalConfirmed(a.numeroTessera, dto.cognome, dto.dataNascita))
-                    ? 'fidal_db'
-                    : 'manual',
+                a.ente === 'fidal' && a.numeroTessera
+                    ? this.fidalConfirmed(a.numeroTessera, dto.cognome, dto.dataNascita)
+                    : ({ ok: false } as { ok: boolean; cert?: string | null }),
             ),
         );
         try {
@@ -101,6 +103,16 @@ export class ProfilesService {
                     create: { ...data, accountId },
                     update: data,
                 });
+                // Cambiano nome, cognome o data di nascita: un tesseramento verificato su FIDAL
+                // per la persona di prima non vale più (va riverificato inviandolo di nuovo).
+                const identityChanged = !!prev && (
+                    normName(prev.nome) !== normName(dto.nome) ||
+                    normName(prev.cognome) !== normName(dto.cognome) ||
+                    prev.dataNascita.toISOString().slice(0, 10) !== dto.dataNascita.slice(0, 10)
+                );
+                if (identityChanged && !dto.affiliations) {
+                    await tx.affiliation.updateMany({ where: { athleteId: p.id, source: 'fidal_db' }, data: { source: 'manual' } });
+                }
                 if (dto.affiliations) {
                     await tx.affiliation.deleteMany({ where: { athleteId: p.id } });
                     if (dto.affiliations.length) {
@@ -111,9 +123,11 @@ export class ProfilesService {
                                 societaNome: a.societaNome,
                                 codiceSocieta: a.codiceSocieta ?? null,
                                 numeroTessera: a.numeroTessera ?? null,
-                                certScadenza: a.certScadenza ? new Date(a.certScadenza) : null,
+                                certScadenza: checks[i].ok
+                                    ? (checks[i].cert ? new Date(checks[i].cert as string) : null)
+                                    : a.certScadenza ? new Date(a.certScadenza) : null,
                                 // "fidal_db" solo se confermato da WISE lato server, mai dal client
-                                source: sources[i],
+                                source: checks[i].ok ? 'fidal_db' : 'manual',
                             })),
                         });
                     }

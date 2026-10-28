@@ -37,6 +37,8 @@ model Account {
   id              String          @id @default(cuid())
   email           String          @unique
   passwordHash    String
+  /// Incrementato a ogni cambio password: invalida i login già emessi
+  tokenVersion    Int             @default(0)
   role            Role
   displayName     String?
   assignedEventIds String[]       // eventi gestibili (organizer)

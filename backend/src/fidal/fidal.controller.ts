@@ -1,8 +1,11 @@
 import {
-    BadRequestException, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors,
+    BadRequestException, Controller, ForbiddenException, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { normName } from '../registrations/rules';
 import { Role } from '@prisma/client';
-import { AuthGuard, Roles } from '../common/auth';
+import { Throttle } from '@nestjs/throttler';
+import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
 
@@ -12,17 +15,34 @@ import { FidalService } from './fidal.service';
 // gli import del database FIDAL sono riservati all'admin.
 @Controller('fidal')
 export class FidalController {
-    constructor(private readonly fidal: FidalService) {}
+    constructor(
+        private readonly fidal: FidalService,
+        private readonly prisma: PrismaService,
+    ) {}
 
-    /** GET /api/fidal/verifica?tessera=NC000657 */
+    /**
+     * GET /api/fidal/verifica?tessera=NC000657&cognome=Rossi — pubblica (serve
+     * all'iscrizione senza account) ma risponde solo a chi conosce tessera E
+     * cognome, e senza la scadenza del certificato (dato sanitario).
+     */
     @Get('verifica')
-    verifica(@Query('tessera') tessera?: string) {
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
+    async verifica(@Query('tessera') tessera?: string, @Query('cognome') cognome?: string) {
         if (!tessera?.trim()) throw new BadRequestException('Parametro "tessera" mancante');
-        return this.fidal.verifyByTessera(tessera.trim());
+        if (!cognome?.trim()) throw new BadRequestException('Indica anche il cognome');
+        const r = await this.fidal.verifyByTessera(tessera.trim());
+        if (!r.atleta || normName(r.atleta.cognome) !== normName(cognome)) {
+            return { tessera: r.tessera, tesserato: false, atleta: null };
+        }
+        const { certScadenza: _cert, ...atleta } = r.atleta;
+        void _cert;
+        return { tessera: r.tessera, tesserato: true, atleta };
     }
 
-    /** GET /api/fidal/cerca?cognome=Rossi&nome=Marco&categoria=0&societa=0 */
+    /** GET /api/fidal/cerca?cognome=Rossi — solo staff e società (dati personali). */
     @Get('cerca')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN, Role.ORGANIZER, Role.SOCIETY)
     cerca(
         @Query('cognome') cognome?: string,
         @Query('nome') nome?: string,
@@ -40,10 +60,18 @@ export class FidalController {
         );
     }
 
-    /** GET /api/fidal/societa/:codice */
+    /** GET /api/fidal/societa/:codice — staff, oppure la società stessa per il proprio codice. */
     @Get('societa/:codice')
-    societa(@Param('codice') codice: string) {
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN, Role.ORGANIZER, Role.SOCIETY)
+    async societa(@CurrentUser() user: AuthUser, @Param('codice') codice: string) {
         if (!codice?.trim()) throw new BadRequestException('Codice società mancante');
+        if (user.role === Role.SOCIETY) {
+            const s = await this.prisma.society.findUnique({ where: { accountId: user.sub }, select: { codiceFidal: true } });
+            if (!s?.codiceFidal || s.codiceFidal.toUpperCase() !== codice.trim().toUpperCase()) {
+                throw new ForbiddenException('Puoi vedere solo gli atleti della tua società');
+            }
+        }
         return this.fidal.listBySociety(codice.trim());
     }
 

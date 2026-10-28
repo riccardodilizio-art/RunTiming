@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +18,9 @@ import { PaymentsModule } from './payments/payments.module';
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
+        // Limite di richieste per IP: 300 al minuto in generale, più basso sulle
+        // rotte sensibili (login, iscrizioni, verifica, codici sconto) con @Throttle.
+        ThrottlerModule.forRoot([{ ttl: 60_000, limit: Number(process.env.RATE_LIMIT_PER_MIN) || 300 }]),
         PrismaModule,
         HealthModule,
         AuthModule,
@@ -30,5 +35,6 @@ import { PaymentsModule } from './payments/payments.module';
         PaymentsModule,
         // TODO: storage file (certificati, locandine), email.
     ],
+    providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

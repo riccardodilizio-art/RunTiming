@@ -14,6 +14,12 @@ function setup(overrides: Record<string, unknown> = {}) {
         registration: {
             findUnique: async () => reg,
             update: async ({ data }: any) => Object.assign(reg, data),
+            // Aggiornamento condizionato: si applica solo se lo stato combacia
+            updateMany: async ({ where, data }: any) => {
+                if (where.paymentStatus && reg.paymentStatus !== where.paymentStatus) return { count: 0 };
+                Object.assign(reg, data);
+                return { count: 1 };
+            },
         },
     };
     const settings: any = { payments: async () => ({ ...DEFAULT_PAYMENTS, iban: 'IT60X0542811101000000123456' }) };
@@ -65,6 +71,16 @@ describe('pagamenti', () => {
         const i = await svc.paypalCapture('RT-ABCDEFGH', 'ORDER1');
         expect(i.status).toBe(PaymentStatus.CONFIRMED);
         expect(reg.paidAt).toBeInstanceOf(Date);
+    });
+
+    it('[medio] PayPal su iscrizione già RIFIUTATA → non la riattiva', async () => {
+        const { svc, reg, paypal } = setup({
+            paymentStatus: PaymentStatus.REJECTED, paymentMethod: 'paypal', paypalOrderId: 'ORDER1', pricePaid: 21.03, paymentFee: 1.03,
+        });
+        paypal.capture.mockResolvedValue({ status: 'COMPLETED', customId: 'reg1', amount: 21.03, currency: 'EUR' });
+        await expect(svc.paypalCapture('RT-ABCDEFGH', 'ORDER1')).rejects.toThrow();
+        expect(reg.paymentStatus).toBe(PaymentStatus.REJECTED);
+        expect(paypal.capture).not.toHaveBeenCalled();
     });
 
     it('gara a pagamento anticipato: il pagamento sul posto non è offerto', async () => {

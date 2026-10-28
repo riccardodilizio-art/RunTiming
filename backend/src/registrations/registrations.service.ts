@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
 import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
+import { FidalService } from '../fidal/fidal.service';
 import { discountProblem, normCode } from '../discounts/discounts.module';
 import {
     CommissionConfig,
@@ -60,12 +62,29 @@ interface AthleteSnapshot {
 
 const json = <T>(v: Prisma.JsonValue | null | undefined): T | undefined => (v ?? undefined) as unknown as T;
 
+/** Tiene solo i campi del modulo della gara; testi tagliati a 500 caratteri. */
+export function sanitizeFormData(
+    data: Record<string, unknown> | undefined,
+    schema: FormFieldDef[],
+): Record<string, string | boolean> {
+    const out: Record<string, string | boolean> = {};
+    if (!data) return out;
+    for (const f of schema.slice(0, 200)) {
+        const v = data[f.id];
+        if (typeof v === 'boolean') out[f.id] = v;
+        else if (typeof v === 'string') out[f.id] = v.slice(0, 500);
+        else if (typeof v === 'number' && Number.isFinite(v)) out[f.id] = String(v);
+    }
+    return out;
+}
+
 @Injectable()
 export class RegistrationsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly settings: SettingsService,
         private readonly access: EventAccess,
+        private readonly fidal: FidalService,
     ) {}
 
     // ─── Lettura gara / permessi ────────────────────────────────────────────
@@ -118,6 +137,10 @@ export class RegistrationsService {
         const isStaff = !!user && (user.role === Role.ADMIN || user.role === Role.ORGANIZER);
         if (isStaff) await this.assertCanManage(user!, event.id, event.createdById);
         if (!race.isOpen && !isStaff) throw new BadRequestException('Iscrizioni chiuse per questa gara');
+        // Gara già disputata: niente iscrizioni (lo staff può ancora registrare a posteriori)
+        if (!isStaff && race.day.date.toISOString().slice(0, 10) < todayRome()) {
+            throw new BadRequestException('La gara si è già svolta: iscrizioni chiuse');
+        }
 
         const { athlete, athleteId, societyId } = await this.resolveAthlete(user, race, dto);
 
@@ -127,8 +150,9 @@ export class RegistrationsService {
         if (ageProblem && !isStaff) throw new BadRequestException(ageProblem);
         const category = assignCategory(json<RaceCategory[]>(race.categories), age, athlete.sesso);
 
-        // Campi extra obbligatori del modulo gara (i file arriveranno con lo storage)
-        const formData = dto.formData ?? {};
+        // Modulo: si tengono SOLO i campi previsti dalla gara, con lunghezze limitate
+        // (niente dati arbitrari o enormi nel database)
+        const formData = sanitizeFormData(dto.formData, json<FormFieldDef[]>(race.formSchema) ?? []);
         const missing = (json<FormFieldDef[]>(race.formSchema) ?? [])
             .filter(f => f.required && f.type !== 'file' && !(f.catalogKey && PROFILE_KEYS.has(f.catalogKey)))
             .filter(f => {
@@ -241,6 +265,18 @@ export class RegistrationsService {
         });
     }
 
+    /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */
+    private async fidalCheck(tessera: string, cognome: string, dataNascita: string, raceDay: Date): Promise<boolean> {
+        try {
+            const r = await this.fidal.verifyByTessera(tessera.trim());
+            const at = r.atleta;
+            if (!at || normName(at.cognome) !== normName(cognome) || at.dataNascita !== dataNascita.slice(0, 10)) return false;
+            return !at.certScadenza || at.certScadenza >= raceDay.toISOString().slice(0, 10);
+        } catch {
+            return false; // WISE non raggiungibile: non verificato (certificato da controllare)
+        }
+    }
+
     /** Ricava l'anagrafica in base a chi sta iscrivendo. */
     private async resolveAthlete(user: AuthUser | undefined, race: RaceWithEvent, dto: CreateRegistrationDto) {
         const ente = (race.ente ?? '').toLowerCase();
@@ -268,7 +304,9 @@ export class RegistrationsService {
                 codiceSocieta: aff?.codiceSocieta,
                 tessera: aff?.numeroTessera,
                 email: user.email,
-                fidalVerified: aff?.ente.toLowerCase() === 'fidal' && aff.source === 'fidal_db',
+                // Verificato su FIDAL e (se nota) scadenza certificato non prima della gara
+                fidalVerified: aff?.ente.toLowerCase() === 'fidal' && aff.source === 'fidal_db'
+                    && (!aff.certScadenza || aff.certScadenza >= raceDay),
                 certValid: p.certStatus === CertStatus.VERIFICATO && !!p.certExpiry && p.certExpiry >= raceDay,
             };
             return { athlete, athleteId: p.id, societyId: undefined };
@@ -288,6 +326,10 @@ export class RegistrationsService {
             codiceSocieta = s.codiceFidal ?? codiceSocieta;
         }
         if (ente === 'fidal' && !a.tessera) throw new BadRequestException('Per questa gara serve la tessera FIDAL o Runcard');
+        const isStaffUser = user?.role === Role.ADMIN || user?.role === Role.ORGANIZER;
+        // Tessera verificata DAL SERVER (WISE/dump): stesso cognome e data di nascita,
+        // certificato (se noto) valido alla data gara. Il browser non può dichiararlo.
+        const verified = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : false;
         const athlete: AthleteSnapshot = {
             nome: normName(a.nome),
             cognome: normName(a.cognome),
@@ -297,8 +339,8 @@ export class RegistrationsService {
             codiceSocieta,
             tessera: a.tessera,
             email: a.email,
-            // Solo lo staff può dichiarare "verificato" (es. dopo controllo WISE)
-            fidalVerified: !!a.fidalVerified && (user?.role === Role.ADMIN || user?.role === Role.ORGANIZER),
+            // Verifica del server, oppure dichiarazione dello staff (es. controllo manuale)
+            fidalVerified: verified || (!!a.fidalVerified && isStaffUser),
             certValid: false,
         };
         return { athlete, athleteId: undefined, societyId };
@@ -433,8 +475,6 @@ export class RegistrationsService {
             pagamento: r.paymentStatus,
             certificato: r.certStatus,
             iscrittoIl: r.submittedAt,
-            // Per completare il pagamento (link /pagamento/CODICE) se ancora in attesa
-            codicePagamento: r.paymentStatus === PaymentStatus.PENDING && r.paymentMethod !== 'onsite' ? r.paymentRef : undefined,
         }));
     }
 
@@ -450,10 +490,38 @@ export class RegistrationsService {
         return reg;
     }
 
+    /**
+     * Cambio stato pagamento dallo staff.
+     * - PayPal/carta e bonifico: i soldi arrivano a TimingRun → li gestisce SOLO l'admin
+     *   (un organizzatore non può "confermare" denaro che TimingRun non ha ricevuto).
+     * - Riattivare un'iscrizione annullata ricontrolla i posti disponibili.
+     * - Annullare restituisce l'uso del codice sconto.
+     */
     async setPayment(user: AuthUser, id: string, paymentStatus: PaymentStatus) {
         const reg = await this.regForStaff(user, id);
+        if (user.role !== Role.ADMIN && (reg.paymentMethod === 'paypal' || reg.paymentMethod === 'bank')) {
+            throw new ForbiddenException('I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria TimingRun');
+        }
+        if (reg.paymentStatus === paymentStatus) return reg;
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
-        return this.prisma.registration.update({ where: { id }, data: { paymentStatus, paidAt } });
+        return this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;
+            const wasRejected = reg.paymentStatus === PaymentStatus.REJECTED;
+            const toRejected = paymentStatus === PaymentStatus.REJECTED;
+            if (wasRejected && reg.race.maxParticipants > 0) {
+                const count = await tx.registration.count({
+                    where: { raceId: reg.raceId, paymentStatus: { not: PaymentStatus.REJECTED } },
+                });
+                if (count >= reg.race.maxParticipants) throw new ConflictException('Gara al completo: impossibile riattivare');
+            }
+            if (reg.discountCode && (toRejected || wasRejected)) {
+                await tx.discountCode.updateMany({
+                    where: { code: reg.discountCode, ...(toRejected ? { usedCount: { gt: 0 } } : {}) },
+                    data: { usedCount: toRejected ? { decrement: 1 } : { increment: 1 } },
+                });
+            }
+            return tx.registration.update({ where: { id }, data: { paymentStatus, paidAt } });
+        });
     }
 
     async setCert(user: AuthUser, id: string, certStatus: CertStatus) {

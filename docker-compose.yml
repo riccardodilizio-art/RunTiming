@@ -28,7 +28,16 @@ services:
     environment:
       DATABASE_URL: postgresql://runtiming:runtiming@db:5432/runtiming
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: change-me-in-prod
+      # Segreto per firmare i login: OBBLIGATORIO, casuale, almeno 32 caratteri,
+      # nel .env di root (il backend non parte con valori deboli). Generalo con:
+      #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+      JWT_SECRET: ${JWT_SECRET:?Imposta JWT_SECRET nel file .env (vedi .env.example)}
+      # Numero di proxy davanti al backend (nginx/Cloudflare) per leggere l'IP reale
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      # Limite generale di richieste al minuto per IP
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-300}
+      # Anti-bot Cloudflare Turnstile (facoltativo): senza chiave è disattivato
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       # Admin iniziale (dal .env di root): ADMIN_EMAIL=... ADMIN_PASSWORD=...
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
@@ -61,6 +70,8 @@ services:
         # Metti VITE_USE_API=true nel .env di root per far usare al sito la
         # verifica FIDAL in tempo reale via backend (default: dataset locale).
         VITE_USE_API: ${VITE_USE_API:-false}
+        # Chiave pubblica Turnstile (facoltativa, va in coppia con TURNSTILE_SECRET_KEY)
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     depends_on: [backend]
     ports: ["8080:80"]
 

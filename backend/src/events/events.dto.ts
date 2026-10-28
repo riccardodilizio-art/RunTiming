@@ -11,6 +11,7 @@ import {
     IsOptional,
     IsString,
     Matches,
+    Max,
     MaxLength,
     Min,
     MinLength,
@@ -20,6 +21,9 @@ import {
 // Stessa forma del tipo `Event` del frontend (types/index.ts), così l'EventEditor
 // può salvare direttamente. Le parti flessibili (modulo, quote, categorie,
 // commissioni, attestato) restano JSON e sono validate solo come oggetti/array.
+
+/** https://… , http://… oppure un percorso del sito (/immagini/…). */
+const SAFE_URL = /^(https?:\/\/[^\s<>"']+|\/(?!\/)[^\s<>"']*)$/i;
 
 export class RaceDto {
     /** Id esistente (aggiornamento) o assente (nuova gara). */
@@ -60,9 +64,10 @@ export class EventInfoDto {
     @IsOptional() @IsString() province?: string;
     @IsOptional() @IsNumber() lat?: number;
     @IsOptional() @IsNumber() lng?: number;
-    @IsOptional() @IsString() coverImage?: string;
-    @IsOptional() @IsString() flyerUrl?: string;
-    @IsOptional() @IsString() regulationUrl?: string;
+    // Solo link http(s) o percorsi del sito: niente javascript:, data: o altri schemi
+    @IsOptional() @Matches(SAFE_URL, { message: 'Link non valido (usa https://…)' }) @MaxLength(2000) coverImage?: string;
+    @IsOptional() @Matches(SAFE_URL, { message: 'Link non valido (usa https://…)' }) @MaxLength(2000) flyerUrl?: string;
+    @IsOptional() @Matches(SAFE_URL, { message: 'Link non valido (usa https://…)' }) @MaxLength(2000) regulationUrl?: string;
     @IsOptional() @IsString() @MaxLength(20000) description?: string;
     @IsOptional() @IsString() organizer?: string;
     @IsOptional() @IsObject() routeInfo?: Record<string, unknown>;
@@ -83,5 +88,5 @@ export class EventsQueryDto {
     @IsOptional() @IsIn(['upcoming', 'past', 'all']) when?: string;
     @IsOptional() @IsString() @MaxLength(80) q?: string;
     @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-    @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
+    @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize?: number;
 }

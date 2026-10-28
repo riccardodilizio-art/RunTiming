@@ -5,6 +5,7 @@ import {
     Controller,
     Get,
     Injectable,
+    Logger,
     Module,
     NotFoundException,
     Param,
@@ -14,6 +15,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { PaymentStatus, Prisma, Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
@@ -42,6 +44,8 @@ type RegWithRace = Prisma.RegistrationGetPayload<{
 
 @Injectable()
 export class PaymentsService {
+    private readonly log = new Logger(PaymentsService.name);
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly settings: SettingsService,
@@ -95,11 +99,13 @@ export class PaymentsService {
         const p = await this.settings.payments();
         const subtotal = round2(reg.pricePaid - reg.paymentFee);
         const fee = paymentFee(method, subtotal, p);
-        return this.prisma.registration.update({
-            where: { id: reg.id },
+        // Aggiorna solo se ancora in attesa (nel frattempo potrebbe essere stata pagata o annullata)
+        const r = await this.prisma.registration.updateMany({
+            where: { id: reg.id, paymentStatus: PaymentStatus.PENDING },
             data: { paymentMethod: method, paymentFee: fee, pricePaid: round2(subtotal + fee) },
-            include: { race: { include: { day: { include: { event: true } } } } },
         });
+        if (r.count === 0) throw new ConflictException('Iscrizione già pagata o annullata');
+        return this.byRef(reg.paymentRef!);
     }
 
     async chooseBank(ref: string) {
@@ -127,15 +133,26 @@ export class PaymentsService {
     async paypalCapture(ref: string, orderId: string) {
         const reg = await this.byRef(ref);
         if (reg.paymentStatus === PaymentStatus.CONFIRMED) return this.info(ref);
+        // Annullata (es. scadenza del pagamento anticipato): NON si incassa, il posto non c'è più
+        if (reg.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Iscrizione annullata: pagamento non possibile');
         if (reg.paypalOrderId !== orderId) throw new BadRequestException('Ordine PayPal non corrispondente');
+        // Importo atteso per PayPal calcolato dalla quota, indipendente da un eventuale
+        // cambio di metodo fatto in un'altra scheda mentre si pagava
+        const subtotal = round2(reg.pricePaid - reg.paymentFee);
+        const fee = paymentFee('paypal', subtotal, await this.settings.payments());
+        const expected = round2(subtotal + fee);
         const c = await this.paypal.capture(orderId);
-        if (c.status !== 'COMPLETED' || c.customId !== reg.id || c.currency !== 'EUR' || round2(c.amount ?? 0) !== round2(reg.pricePaid)) {
+        if (c.status !== 'COMPLETED' || c.customId !== reg.id || c.currency !== 'EUR' || round2(c.amount ?? 0) !== expected) {
             throw new BadRequestException('Pagamento PayPal non completato');
         }
-        await this.prisma.registration.update({
-            where: { id: reg.id },
-            data: { paymentStatus: PaymentStatus.CONFIRMED, paidAt: new Date() },
+        const r = await this.prisma.registration.updateMany({
+            where: { id: reg.id, paymentStatus: PaymentStatus.PENDING },
+            data: { paymentStatus: PaymentStatus.CONFIRMED, paidAt: new Date(), paymentMethod: 'paypal', paymentFee: fee, pricePaid: expected },
         });
+        if (r.count === 0) {
+            // Incassato ma l'iscrizione è cambiata nel frattempo: da rimborsare a mano
+            this.log.error(`Pagamento PayPal ${orderId} incassato su iscrizione ${reg.id} non più in attesa: verificare/rimborsare`);
+        }
         return this.info(ref);
     }
 
@@ -175,11 +192,19 @@ export class PaymentsService {
         });
         if (!race) throw new NotFoundException('Gara non trovata');
         await this.access.assert(user, race.day.event.id, race.day.event.createdById);
-        const r = await this.prisma.registration.updateMany({
-            where: { raceId, paymentStatus: PaymentStatus.PENDING, paymentMethod: { in: ['paypal', 'bank'] } },
-            data: { paymentStatus: PaymentStatus.REJECTED },
+        const where = { raceId, paymentStatus: PaymentStatus.PENDING, paymentMethod: { in: ['paypal', 'bank'] } };
+        return this.prisma.$transaction(async tx => {
+            // Restituisce gli usi dei codici sconto delle iscrizioni annullate
+            const codes = await tx.registration.groupBy({ by: ['discountCode'], where: { ...where, discountCode: { not: null } }, _count: true });
+            for (const c of codes) {
+                await tx.discountCode.updateMany({
+                    where: { code: c.discountCode!, usedCount: { gte: c._count } },
+                    data: { usedCount: { decrement: c._count } },
+                });
+            }
+            const r = await tx.registration.updateMany({ where, data: { paymentStatus: PaymentStatus.REJECTED } });
+            return { cancelled: r.count };
         });
-        return { cancelled: r.count };
     }
 
     /**
@@ -247,6 +272,7 @@ export class PaymentsService {
 }
 
 @Controller()
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class PaymentsController {
     constructor(private readonly payments: PaymentsService) {}
 

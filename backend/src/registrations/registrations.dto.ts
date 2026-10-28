@@ -1,7 +1,7 @@
+import { IsBirthDate } from '../common/validators';
 import { Type } from 'class-transformer';
 import {
     IsBoolean,
-    IsDateString,
     IsEmail,
     IsIn,
     IsInt,
@@ -19,7 +19,7 @@ import {
 export class AthleteDataDto {
     @IsString() @MinLength(1) @MaxLength(80) nome!: string;
     @IsString() @MinLength(1) @MaxLength(80) cognome!: string;
-    @IsDateString() dataNascita!: string;
+    @IsBirthDate() dataNascita!: string;
     @IsIn(['M', 'F']) sesso!: 'M' | 'F';
     @IsOptional() @IsString() @MaxLength(120) societa?: string;
     @IsOptional() @IsString() @MaxLength(20) codiceSocieta?: string;
@@ -42,6 +42,8 @@ export class CreateRegistrationDto {
     @IsOptional() @ValidateNested() @Type(() => AthleteDataDto) athlete?: AthleteDataDto;
     /** Solo admin / organizzatore: segna subito come pagata (es. contanti). */
     @IsOptional() @IsBoolean() markPaid?: boolean;
+    /** Token anti-robot (Turnstile) per le iscrizioni da ospite, se configurato. */
+    @IsOptional() @IsString() @MaxLength(4096) captchaToken?: string;
 }
 
 export class ListQueryDto {
@@ -64,5 +66,5 @@ export class UpdateCertDto {
 /** "Verifica iscrizione" pubblica, sul modello Endu: cognome + data di nascita. */
 export class VerifyDto {
     @IsString() @MinLength(2) @MaxLength(80) cognome!: string;
-    @IsDateString() dataNascita!: string;
+    @IsBirthDate() dataNascita!: string;
 }

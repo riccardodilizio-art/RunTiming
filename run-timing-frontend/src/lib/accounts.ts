@@ -4,6 +4,9 @@
 import type { Affiliation, AppUser, AthleteAccount, CertStatus, RaceEnte, RosterAthlete, SocietyAccount } from '../types';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { ApiError, api, setAuthToken } from './api';
+import { takeCaptchaToken } from './captcha';
+import { listBySociety } from '../data/fidalLookup';
+import { fidalToRoster } from '../pages/society/rosterUtils';
 
 interface ApiAffiliation {
     id: string;
@@ -128,6 +131,7 @@ export async function registerAthleteApi(data: Omit<AthleteAccount, 'id' | 'crea
         password: data.password,
         displayName: `${data.name} ${data.surname}`.trim(),
         role: 'ATHLETE',
+        captchaToken: takeCaptchaToken(),
     });
     setAuthToken(r.accessToken);
     await api.put('/athletes/me', profileBody({ ...data, id: '', createdAt: '' }));
@@ -190,9 +194,17 @@ export async function registerSocietyApi(
         password: data.password,
         displayName: `${data.presidentName} ${data.presidentSurname}`.trim(),
         role: 'SOCIETY',
+        captchaToken: takeCaptchaToken(),
     });
     setAuthToken(r.accessToken);
-    await api.put('/societies/me', societyBody({ ...data, roster: data.roster ?? [] }));
+    let roster = data.roster ?? [];
+    // L'anagrafica FIDAL si legge solo da autenticati: il roster della società
+    // si importa ora che l'account esiste (e solo per il proprio codice)
+    if (!roster.length && data.ente === 'fidal' && data.codiceFidal) {
+        await api.put('/societies/me', societyBody({ ...data, roster: [] }));
+        try { roster = (await listBySociety(data.codiceFidal)).map(fidalToRoster); } catch { /* importabile dalla dashboard */ }
+    }
+    await api.put('/societies/me', societyBody({ ...data, roster }));
     return fetchSociety();
 }
 
