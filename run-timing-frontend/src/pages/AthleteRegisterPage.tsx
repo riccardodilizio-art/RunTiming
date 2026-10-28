@@ -4,6 +4,7 @@ import { UserPlus, Eye, EyeOff, AlertCircle, Timer, ShieldCheck, ArrowLeft } fro
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import { Captcha } from '../components/Captcha';
 import { safeRedirect } from '../lib/safeRedirect';
+import { BrandName } from '../components/BrandName';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -101,7 +102,7 @@ export default function AthleteRegisterPage() {
                             <Timer className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-display font-700 text-xl text-slate-800">
-                            Run<span className="text-brand-600">Timing</span>
+                            <BrandName />
                         </span>
                     </Link>
                     <h1 className="font-display font-700 text-2xl text-slate-800">Crea il tuo account</h1>

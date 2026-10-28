@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, Mail, Timer } from 'l
 import { USE_API, api } from '../lib/api';
 import { takeCaptchaToken } from '../lib/captcha';
 import { Captcha } from '../components/Captcha';
+import { BrandName } from '../components/BrandName';
 
 // "Password dimenticata" e "Reimposta password": valgono per tutti gli account
 // (atleti, società, organizzatori, admin). Il link arriva per email ed è valido 1 ora.
@@ -23,7 +24,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
                             <Timer className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-display font-700 text-xl text-slate-800">
-                            Run<span className="text-brand-600">Timing</span>
+                            <BrandName />
                         </span>
                     </Link>
                     <h1 className="font-display font-700 text-2xl text-slate-800">{title}</h1>

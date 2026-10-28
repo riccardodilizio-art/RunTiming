@@ -6,19 +6,31 @@ import { cancelledMail, passwordResetMail, registrationMail, RegMailData } from 
 const base: RegMailData = {
     nome: 'LUCA', cognome: 'VERDI', evento: 'Corsa di Prova', gara: '10 km', data: new Date('2026-11-15'),
     categoria: 'SM35', importo: 21, metodo: 'bank', stato: 'PENDING', paymentRef: 'RT-ABCD1234', obbligatorio: true,
-    bank: { iban: 'IT60X0542811101000000123456', intestatario: 'TimingRun', banca: 'Banca Prova', giorni: 5 },
-    siteUrl: 'https://timingrun.it',
+    bank: { iban: 'IT60X0542811101000000123456', intestatario: 'Mario Titolare', banca: 'Banca Prova', giorni: 5 },
+    siteUrl: 'https://iltuosito.it',
 };
+
+describe('nome del sito', () => {
+    const env = { ...process.env };
+    afterEach(() => { process.env = { ...env }; });
+    it('cambiando SITE_NAME cambiano firma, intestazione e oggetto (nessun nome scritto nel codice)', () => {
+        process.env.SITE_NAME = 'NuovoNome';
+        const m = passwordResetMail('https://iltuosito.it/reimposta-password?token=abc', 60);
+        expect(m.subject).toBe('Reimposta la password del tuo account NuovoNome');
+        expect(m.html).toContain('Segreteria – NuovoNome');
+        expect(m.html).not.toMatch(/TimingRun|RunTiming/);
+    });
+});
 
 describe('testi email', () => {
     it('bonifico: IBAN, causale con codice e cognome, importo, link pagamento, avviso pagamento anticipato', () => {
         const m = registrationMail(base);
         expect(m.subject).toBe('Iscrizione ricevuta: dati per il bonifico – Corsa di Prova');
-        for (const s of ['IT60X0542811101000000123456', 'RT-ABCD1234 VERDI', '21,00', 'entro 5 giorni', 'https://timingrun.it/pagamento/RT-ABCD1234', 'pagamento anticipato']) {
+        for (const s of ['IT60X0542811101000000123456', 'RT-ABCD1234 VERDI', '21,00', 'entro 5 giorni', 'https://iltuosito.it/pagamento/RT-ABCD1234', 'pagamento anticipato']) {
             expect(m.html).toContain(s);
             expect(m.text).toContain(s);
         }
-        expect(m.html).toContain('Segreteria – TimingRun');
+        expect(m.html).toContain('Segreteria – RunTiming'); // nome predefinito del sito
     });
 
     it('iscrizione gratuita / già pagata: confermata, niente dati di pagamento', () => {
@@ -45,8 +57,8 @@ describe('testi email', () => {
     });
 
     it('recupero password: link e durata', () => {
-        const m = passwordResetMail('https://timingrun.it/reimposta-password?token=abc', 60);
-        expect(m.html).toContain('https://timingrun.it/reimposta-password?token=abc');
+        const m = passwordResetMail('https://iltuosito.it/reimposta-password?token=abc', 60);
+        expect(m.html).toContain('https://iltuosito.it/reimposta-password?token=abc');
         expect(m.text).toContain('60 minuti');
     });
 });
@@ -88,7 +100,7 @@ function outboxStub() {
 describe('coda email', () => {
     const env = { ...process.env };
     afterEach(() => { process.env = { ...env }; });
-    const configure = () => Object.assign(process.env, { MAIL_FROM: 'iscrizioni@timingrun.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
+    const configure = () => Object.assign(process.env, { MAIL_FROM: 'iscrizioni@iltuosito.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
     const mail = { subject: 'Oggetto', html: '<p>x</p>', text: 'x' };
 
     it('senza configurazione: in coda come "disabled", nessun invio', async () => {
@@ -174,7 +186,7 @@ describe('anti-spam e link password', () => {
     });
 
     it('email password inviata: il link viene cancellato dalla coda', async () => {
-        Object.assign(process.env, { MAIL_FROM: 'iscrizioni@timingrun.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
+        Object.assign(process.env, { MAIL_FROM: 'iscrizioni@iltuosito.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
         const { prisma, rows } = outboxStub();
         const svc = new MailService(prisma);
         jest.spyOn(svc as any, 'send').mockResolvedValue(undefined);
@@ -185,7 +197,7 @@ describe('anti-spam e link password', () => {
     });
 
     it('in produzione con email attive serve SITE_URL https', () => {
-        Object.assign(process.env, { NODE_ENV: 'production', MAIL_FROM: 'i@timingrun.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y', SITE_URL: 'http://localhost:8080' });
+        Object.assign(process.env, { NODE_ENV: 'production', MAIL_FROM: 'i@iltuosito.it', AWS_ACCESS_KEY_ID: 'x', AWS_SECRET_ACCESS_KEY: 'y', SITE_URL: 'http://localhost:8080' });
         expect(() => new MailService({} as any).onModuleInit()).toThrow(/SITE_URL/);
     });
 });
@@ -207,7 +219,7 @@ describe('promemoria pagamento', () => {
                 },
             },
         };
-        const settings: any = { payments: async () => ({ iban: 'IT00', intestatario: 'TimingRun', banca: '', bankDays: 5 }) };
+        const settings: any = { payments: async () => ({ iban: 'IT00', intestatario: 'Mario Titolare', banca: '', bankDays: 5 }) };
         const mail: any = { enqueue: jest.fn(async () => undefined) };
         const m = new RegistrationMailer(prisma, settings, mail);
         expect(await m.sendReminders()).toBe(1);

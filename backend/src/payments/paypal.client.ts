@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { siteName } from '../common/brand';
 
 // Client minimale per PayPal Orders v2 (pagamenti con conto PayPal e con
 // carta: le carte le gestisce PayPal, i loro dati non passano mai dal sito).
@@ -80,7 +81,7 @@ export class PaypalClient {
                 description: o.description.slice(0, 127),
                 amount: { currency_code: 'EUR', value: o.amount.toFixed(2) },
             }],
-            application_context: { brand_name: 'TimingRun', shipping_preference: 'NO_SHIPPING', user_action: 'PAY_NOW' },
+            application_context: { brand_name: siteName().slice(0, 127), shipping_preference: 'NO_SHIPPING', user_action: 'PAY_NOW' },
         }, `create-${o.paymentRef}-${o.amount.toFixed(2)}`);
         return r.id;
     }

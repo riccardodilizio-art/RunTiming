@@ -1,6 +1,7 @@
 import { X, Printer, Timer, Award } from 'lucide-react';
 import { eventStartDate } from '../../utils/event';
 import type { Result, Event, Race } from '../../types';
+import { SITE_NAME } from '../../lib/brand';
 
 interface Props {
     result: Result;
@@ -96,7 +97,7 @@ function Certificate({ result, event, race, catPosition }: Omit<Props, 'onClose'
                             <Timer className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <p className="font-display font-800 text-lg text-brand-700 leading-none">RunTiming</p>
+                            <p className="font-display font-800 text-lg text-brand-700 leading-none">{SITE_NAME}</p>
                             <p className="text-slate-400 text-xs">Cronometraggio ufficiale</p>
                         </div>
                     </div>

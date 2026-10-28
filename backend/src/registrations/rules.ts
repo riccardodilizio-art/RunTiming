@@ -88,7 +88,7 @@ export interface FeeSettings {
 
 /**
  * Maggiorazione del metodo di pagamento, a carico dell'atleta e incassata da
- * TimingRun: bonifico = fisso (controllo e regolarizzazione), PayPal/carta =
+ * Segreteria del sito: bonifico = fisso (controllo e regolarizzazione), PayPal/carta =
  * percentuale + fisso (costo del circuito). Sul posto e gratuito: nessuna.
  */
 export function paymentFee(method: PayMethod, amount: number, s: FeeSettings): number {

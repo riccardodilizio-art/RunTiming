@@ -3,8 +3,9 @@ import { Check, Download, Search, X, Banknote, FileSpreadsheet, Settings2 } from
 import { USE_API, api, download } from '../../lib/api';
 import { useAdminStore, reportApiError } from '../../hooks/useAdminStore';
 import { eventStartDate } from '../../utils/event';
+import { SITE_NAME } from '../../lib/brand';
 
-// Pagamenti (solo admin): tutti gli incassi online passano da TimingRun,
+// Pagamenti (solo admin): tutti gli incassi online passano dalla segreteria del sito,
 // che controlla i bonifici e a fine gara gira le quote agli organizzatori.
 
 interface PaymentSettings {
@@ -22,7 +23,7 @@ interface BankRow {
 interface Statement {
     event: { id: string; title: string };
     totals: {
-        incassatoTimingRun: number; maggiorazioni: number; commissioni: number; daGirareOrganizzatore: number;
+        incassatoSegreteria: number; maggiorazioni: number; commissioni: number; daGirareOrganizzatore: number;
         commissioniDaOrganizzatore?: number;
         inAttesa: { count: number; total: number };
     };
@@ -177,8 +178,8 @@ function StatementCard() {
                 <>
                     <div className="grid sm:grid-cols-2 gap-3">
                         <div className="rounded-xl bg-slate-50 p-3">
-                            <p className="text-xs text-slate-500">Incassato da TimingRun</p>
-                            <p className="text-xl font-bold text-slate-800">{euro(st.totals.incassatoTimingRun)}</p>
+                            <p className="text-xs text-slate-500">Incassato dalla segreteria ({SITE_NAME})</p>
+                            <p className="text-xl font-bold text-slate-800">{euro(st.totals.incassatoSegreteria)}</p>
                             <p className="text-xs text-slate-500">di cui tue maggiorazioni {euro(st.totals.maggiorazioni)} · commissioni {euro(st.totals.commissioni)}</p>
                         </div>
                         <div className="rounded-xl bg-brand-50 p-3">

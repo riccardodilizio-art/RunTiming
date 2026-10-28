@@ -152,7 +152,7 @@ export interface SocietyAccount {
     societaNome: string;
     ente: RaceEnte;
     codiceFidal?: string;
-    /** Codice FIDAL approvato da TimingRun: sblocca l'import degli atleti (solo API). */
+    /** Codice FIDAL approvato dalla segreteria: sblocca l'import degli atleti (solo API). */
     fidalApproved?: boolean;
     roster: RosterAthlete[];
     createdAt: string;

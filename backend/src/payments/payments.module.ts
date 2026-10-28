@@ -26,6 +26,7 @@ import { EventAccess } from '../common/access';
 import { allowedMethods, paymentFee } from '../registrations/rules';
 import { PaypalClient } from './paypal.client';
 import { RegistrationMailer } from '../mail/registration-mailer';
+import { siteName } from '../common/brand';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const normRef = (r: string) => r.trim().toUpperCase();
@@ -235,7 +236,7 @@ export class PaymentsService {
     }
 
     /**
-     * Rendiconto dell'evento: incassato da TimingRun (PayPal/carta e bonifici
+     * Rendiconto dell'evento: incassato dalla segreteria (PayPal/carta e bonifici
      * confermati), maggiorazioni e commissioni trattenute, importo da girare
      * all'organizzatore. Le quote pagate sul posto le incassa l'organizzatore.
      */
@@ -256,12 +257,12 @@ export class PaymentsService {
         });
         const pending = regs.filter(r => r.paymentStatus === PaymentStatus.PENDING);
         const totals = {
-            incassatoTimingRun: sum(collected, r => r.pricePaid),
+            incassatoSegreteria: sum(collected, r => r.pricePaid),
             maggiorazioni: sum(collected, r => r.paymentFee),
             commissioni: sum(collected, r => r.commissionAmount),
             daGirareOrganizzatore: sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount),
             // Quote incassate direttamente dall'organizzatore (sul posto / a mano):
-            // la commissione TimingRun su queste la deve l'organizzatore
+            // la commissione della segreteria su queste la deve l'organizzatore
             commissioniDaOrganizzatore: sum(ok.filter(r => r.paymentMethod === 'onsite' || r.paymentMethod === 'manual'), r => r.commissionAmount),
             inAttesa: { count: pending.length, total: sum(pending, r => r.pricePaid) },
         };
@@ -275,9 +276,9 @@ export class PaymentsService {
         sum.addRows([
             ['Rendiconto', s.event.title],
             [],
-            ['Incassato da TimingRun (PayPal/carta + bonifici)', s.totals.incassatoTimingRun],
-            ['di cui maggiorazioni metodo (TimingRun)', s.totals.maggiorazioni],
-            ['di cui commissioni (TimingRun)', s.totals.commissioni],
+            [`Incassato da ${siteName()} (PayPal/carta + bonifici)`, s.totals.incassatoSegreteria],
+            [`di cui maggiorazioni metodo (${siteName()})`, s.totals.maggiorazioni],
+            [`di cui commissioni (${siteName()})`, s.totals.commissioni],
             ["Da girare all'organizzatore", s.totals.daGirareOrganizzatore],
             ["Commissioni dovute dall'organizzatore (quote incassate da lui)", s.totals.commissioniDaOrganizzatore],
             ['In attesa di pagamento', `${s.totals.inAttesa.count} iscrizioni · ${s.totals.inAttesa.total} €`],
@@ -329,7 +330,7 @@ export class PaymentsController {
         return this.payments.paypalCapture(ref, dto.orderId);
     }
 
-    // ─── Admin (i soldi passano da TimingRun) ─────────────────────────────
+    // ─── Admin (i soldi passano dalla segreteria) ─────────────────────────────
 
     @Get('admin/payments/bank')
     @UseGuards(AuthGuard)

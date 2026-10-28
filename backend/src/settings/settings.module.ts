@@ -9,9 +9,9 @@ const COMMISSION_KEY = 'commission';
 const PAYMENTS_KEY = 'payments';
 
 /**
- * Impostazioni dei pagamenti. Tutti gli incassi arrivano a TimingRun, che a
+ * Impostazioni dei pagamenti. Tutti gli incassi arrivano alla segreteria del sito, che a
  * fine gara gira le quote agli organizzatori: le maggiorazioni dei metodi
- * di pagamento sono a carico dell'atleta e restano a TimingRun.
+ * di pagamento sono a carico dell'atleta e restano alla segreteria.
  */
 export interface PaymentSettings {
     /** Maggiorazione fissa per il bonifico (controllo e regolarizzazione). */
@@ -33,7 +33,7 @@ export const DEFAULT_PAYMENTS: PaymentSettings = {
     paypalFixed: 0.35,
     bankDays: 5,
     iban: '',
-    intestatario: 'TimingRun',
+    intestatario: '', // da impostare dal pannello admin (titolare del conto)
     banca: '',
 };
 

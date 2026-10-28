@@ -9,6 +9,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthGuard, AuthUser, CurrentUser, Roles, ThrottlePerIp } from '../common/auth';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FidalService } from './fidal.service';
+import { siteName } from '../common/brand';
 
 // API pulita esposta al frontend. Il frontend chiama SEMPRE queste rotte, mai
 // WISE direttamente (che è HTTP, cookie-based e cross-origin).
@@ -96,7 +97,7 @@ export class FidalController {
                 throw new ForbiddenException('Puoi vedere solo gli atleti della tua società');
             }
             if (!s.fidalApproved) {
-                throw new ForbiddenException('Codice FIDAL in attesa di approvazione da parte di TimingRun');
+                throw new ForbiddenException(`Codice FIDAL in attesa di approvazione da parte della segreteria ${siteName()}`);
             }
         }
         return this.fidal.listBySociety(codice.trim());

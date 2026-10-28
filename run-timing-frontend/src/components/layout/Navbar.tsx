@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Timer, LayoutDashboard, LogOut, ChevronDown, User } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 import { useAthleteAuth } from '../../context/useAthleteAuth';
+import { BrandName } from '../../components/BrandName';
 
 const navLinks = [
     { label: 'Home',          href: '/' },
@@ -63,7 +64,7 @@ export default function Navbar() {
                             <Timer className="w-4 h-4 text-white" />
                         </div>
                         <span className="font-display font-700 text-lg text-slate-800 tracking-wide">
-                            Run<span className="text-brand-600">Timing</span>
+                            <BrandName />
                         </span>
                     </Link>
 

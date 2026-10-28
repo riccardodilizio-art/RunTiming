@@ -197,7 +197,7 @@ export async function registerSocietyApi(
         captchaToken: takeCaptchaToken(),
     });
     setAuthToken(r.accessToken);
-    // Il roster FIDAL si importa dalla dashboard dopo che TimingRun ha approvato il codice
+    // Il roster FIDAL si importa dalla dashboard dopo che la segreteria ha approvato il codice
     await api.put('/societies/me', societyBody({ ...data, roster: data.roster ?? [] }));
     return fetchSociety();
 }

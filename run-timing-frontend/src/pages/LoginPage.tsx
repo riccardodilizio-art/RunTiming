@@ -5,6 +5,7 @@ import { useAuth } from '../context/useAuth';
 import { loadUsers } from '../hooks/useAdminStore';
 import { USE_API } from '../lib/api';
 import { ForgotPasswordLink } from './PasswordResetPages';
+import { SITE_NAME } from '../lib/brand';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -41,7 +42,7 @@ export default function LoginPage() {
                         <LogIn className="w-7 h-7 text-white" />
                     </div>
                     <h1 className="font-display font-700 text-2xl text-slate-800">Accesso area riservata</h1>
-                    <p className="text-slate-500 text-sm mt-1">RunTiming — pannello di gestione</p>
+                    <p className="text-slate-500 text-sm mt-1">{SITE_NAME} — pannello di gestione</p>
                 </div>
 
                 <form

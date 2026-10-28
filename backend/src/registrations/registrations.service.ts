@@ -29,6 +29,7 @@ import {
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newPaymentRef } from '../payments/payment-ref';
+import { siteName } from '../common/brand';
 
 /** Chiavi di catalogo che vengono dal profilo atleta, non dal modulo extra. */
 const PROFILE_KEYS = new Set([
@@ -510,8 +511,8 @@ export class RegistrationsService {
 
     /**
      * Cambio stato pagamento dallo staff.
-     * - PayPal/carta e bonifico: i soldi arrivano a TimingRun → li conferma SOLO l'admin
-     *   (un organizzatore non può "confermare" denaro che TimingRun non ha ricevuto).
+     * - PayPal/carta e bonifico: i soldi arrivano alla segreteria del sito → li conferma SOLO l'admin
+     *   (un organizzatore non può "confermare" denaro che la segreteria non ha ricevuto).
      *   L'organizzatore può però ANNULLARE un'iscrizione online ancora non pagata
      *   (es. posti occupati da iscrizioni mai pagate).
      * - Riattivare un'iscrizione annullata ricontrolla i posti e il codice sconto.
@@ -524,15 +525,15 @@ export class RegistrationsService {
         if (user.role !== Role.ADMIN && online) {
             const rejectUnpaid = reg.paymentStatus === PaymentStatus.PENDING && paymentStatus === PaymentStatus.REJECTED;
             if (!rejectUnpaid) {
-                throw new ForbiddenException('I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria TimingRun');
+                throw new ForbiddenException(`I pagamenti PayPal/carta e bonifico li gestisce solo la segreteria ${siteName()}`);
             }
             // Solo dopo il termine per il bonifico (+2 giorni di accredito): prima il
-            // pagamento potrebbe essere già partito e arrivare a TimingRun
+            // pagamento potrebbe essere già partito e arrivare alla segreteria
             const p = await this.settings.payments();
             const termine = reg.submittedAt.getTime() + (p.bankDays + 2) * 24 * 60 * 60_000;
             if (Date.now() < termine) {
                 throw new ForbiddenException(
-                    `Pagamento ancora nei termini: potrai annullarla dal ${new Date(termine).toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' })} (oppure chiedi alla segreteria TimingRun)`,
+                    `Pagamento ancora nei termini: potrai annullarla dal ${new Date(termine).toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' })} (oppure chiedi alla segreteria ${siteName()})`,
                 );
             }
         }
