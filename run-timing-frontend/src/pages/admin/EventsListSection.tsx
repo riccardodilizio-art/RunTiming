@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { allRaces, eventStartDate } from '../../utils/event';
 import {
-    Plus, Edit2, Trash2, Calendar, MapPin, Image, Search,
+    Plus, Edit2, Trash2, CopyPlus, Calendar, MapPin, Image, Search,
     LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
 } from 'lucide-react';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
@@ -10,11 +10,12 @@ import type { Event, SportCategory } from '../../types';
 // ─── Admin event cards ────────────────────────────────────────────────────────
 
 function AdminEventRow({
-    event, onEdit, onDelete,
+    event, onEdit, onDelete, onCopy,
 }: {
     event: Event;
     onEdit: () => void;
     onDelete?: () => void;
+    onCopy?: () => void;
 }) {
     const prices = allRaces(event).map(r => r.price);
     const minP = Math.min(...prices);
@@ -81,6 +82,12 @@ function AdminEventRow({
                     >
                         <Edit2 className="h-3.5 w-3.5" /> Gestisci
                     </button>
+                    {onCopy && (
+                        <button type="button" onClick={onCopy} title="Nuova edizione (copia per l'anno dopo)"
+                            aria-label="Nuova edizione" className="p-1.5 rounded hover:bg-brand-50 transition-colors">
+                            <CopyPlus className="h-4 w-4 text-brand-600" />
+                        </button>
+                    )}
                     {onDelete && (
                         <button
                             type="button"
@@ -97,11 +104,12 @@ function AdminEventRow({
 }
 
 function AdminEventGridCard({
-    event, onEdit, onDelete,
+    event, onEdit, onDelete, onCopy,
 }: {
     event: Event;
     onEdit: () => void;
     onDelete?: () => void;
+    onCopy?: () => void;
 }) {
     const prices = allRaces(event).map(r => r.price);
     const minP = prices.length ? Math.min(...prices) : 0;
@@ -168,6 +176,12 @@ function AdminEventGridCard({
                     >
                         <Edit2 className="h-3.5 w-3.5" /> Gestisci
                     </button>
+                    {onCopy && (
+                        <button type="button" onClick={onCopy} title="Nuova edizione (copia per l'anno dopo)"
+                            aria-label="Nuova edizione" className="p-2 rounded-lg hover:bg-brand-50 border border-slate-200 transition-colors">
+                            <CopyPlus className="h-4 w-4 text-brand-600" />
+                        </button>
+                    )}
                     {onDelete && (
                         <button
                             type="button"
@@ -217,12 +231,15 @@ export default function EventsListSection({
     isAdmin,
     onEdit,
     onDelete,
+    onCopy,
     onCreate,
 }: {
     events: Event[];
     isAdmin: boolean;
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
+    /** Nuova edizione (solo admin). */
+    onCopy?: (id: string) => void;
     onCreate: () => void;
 }) {
     const [query,    setQuery]    = useState('');
@@ -453,6 +470,7 @@ export default function EventsListSection({
                             event={e}
                             onEdit={() => onEdit(e.id)}
                             onDelete={isAdmin ? () => onDelete(e.id) : undefined}
+                            onCopy={onCopy ? () => onCopy(e.id) : undefined}
                         />
                     ))}
                 </div>
@@ -464,6 +482,7 @@ export default function EventsListSection({
                             event={e}
                             onEdit={() => onEdit(e.id)}
                             onDelete={isAdmin ? () => onDelete(e.id) : undefined}
+                            onCopy={onCopy ? () => onCopy(e.id) : undefined}
                         />
                     ))}
                 </div>

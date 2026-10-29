@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
 import { todayRome } from '../registrations/rules';
+import { daysBetween, nextEditionDate, nextEditionTitle, shiftPriceSteps } from './copy';
 import { DayDto, EventDto, EventInfoDto, EventsQueryDto, RaceDto } from './events.dto';
 
 type Tx = Prisma.TransactionClient;
@@ -217,6 +218,76 @@ export class EventsService {
         await this.access.assert(user, id, ev.createdById);
         await this.prisma.event.update({ where: { id }, data: infoData(dto) });
         return this.byId(id);
+    }
+
+    /**
+     * Nuova edizione dell'evento (admin): tutto come l'anno prima, date alla stessa
+     * domenica dell'anno dopo, scaglioni spostati di conseguenza. Non si copiano
+     * iscritti, classifiche, chiavi semi-live e codici sconto. Le gare partono
+     * chiuse: si aprono dopo aver controllato l'evento. Gli organizzatori
+     * assegnati restano assegnati anche alla nuova edizione.
+     */
+    async copy(id: string) {
+        const src = await this.prisma.event.findUnique({
+            where: { id },
+            include: { days: { orderBy: { date: 'asc' }, include: { races: { orderBy: { id: 'asc' } } } } },
+        });
+        if (!src) throw new NotFoundException('Evento non trovato');
+        if (!src.days.length) throw new ConflictException("L'evento non ha giornate da copiare");
+        const first = src.days[0].date;
+        const firstNew = nextEditionDate(first);
+        const shift = daysBetween(first, firstNew);
+        const fromYear = first.getUTCFullYear();
+        const title = nextEditionTitle(src.title, fromYear, fromYear + 1);
+
+        const newId = await this.prisma.$transaction(async tx => {
+            const { id: _i, slug: _s, createdAt: _c, days, ...info } = src;
+            void _i; void _s; void _c;
+            const ev = await tx.event.create({
+                data: {
+                    ...info,
+                    title,
+                    slug: await this.uniqueSlug(tx, title),
+                    isLive: false,
+                    isFeatured: false,
+                    commission: J(info.commission),
+                    routeInfo: J(info.routeInfo),
+                },
+            });
+            for (const d of days) {
+                const day = await tx.eventDay.create({
+                    data: {
+                        eventId: ev.id,
+                        // Stessa distanza dalla prima giornata (es. sabato + domenica restano tali)
+                        date: new Date(d.date.getTime() + shift * 86_400_000),
+                        label: d.label,
+                    },
+                });
+                for (const r of d.races) {
+                    const { id: _r, dayId: _d, syncKey: _k, ...race } = r;
+                    void _r; void _d; void _k;
+                    await tx.race.create({
+                        data: {
+                            ...race,
+                            dayId: day.id,
+                            isOpen: false,
+                            formSchema: J(race.formSchema),
+                            priceSteps: J(shiftPriceSteps(race.priceSteps, shift)),
+                            categories: J(race.categories),
+                            commission: J(race.commission),
+                            certificateTemplate: J(race.certificateTemplate),
+                        },
+                    });
+                }
+            }
+            // Organizzatori assegnati all'evento: anche alla nuova edizione
+            const orgs = await tx.account.findMany({ where: { assignedEventIds: { has: id } }, select: { id: true } });
+            for (const o of orgs) {
+                await tx.account.update({ where: { id: o.id }, data: { assignedEventIds: { push: ev.id } } });
+            }
+            return ev.id;
+        });
+        return this.byId(newId);
     }
 
     async remove(id: string) {

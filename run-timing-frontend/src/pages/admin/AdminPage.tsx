@@ -18,11 +18,12 @@ import type { Event } from '../../types';
 type AdminSection = 'gare' | 'pagamenti' | 'account' | 'societa' | 'sconti' | 'utenti' | 'fidal';
 
 export default function AdminPage() {
-    const { events, saveEvent, deleteEvent } = useAdminStore();
+    const { events, saveEvent, copyEvent, deleteEvent } = useAdminStore();
     const { currentUser, isAdmin, logout, canManageEvent } = useAuth();
     const [section, setSection] = useState<AdminSection>('gare');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
+    const [notice, setNotice] = useState('');
     // Dopo un salvataggio l'editor riparte dai dati del server (id definitivi)
     const [editorVersion, setEditorVersion] = useState(0);
 
@@ -79,6 +80,16 @@ export default function AdminPage() {
         if (created) setEditingId(created.id);
     }
 
+    async function handleCopy(id: string) {
+        const src = events.find(e => e.id === id);
+        if (!confirm(`Creare la nuova edizione di "${src?.title ?? 'evento'}"?\n\nSi copia tutto (gare, categorie, quote, modulo); le date passano alla stessa domenica dell'anno dopo e le iscrizioni restano chiuse finché non le apri.`)) return;
+        const ev = await copyEvent(id);
+        if (!ev) return;
+        setNotice(`Nuova edizione creata: controlla date e quote, poi apri le iscrizioni.`);
+        setTimeout(() => setNotice(''), 8000);
+        setEditingId(ev.id);
+    }
+
     async function handleSave(event: Event) {
         const ok = await saveEvent(event);
         if (!ok) return;
@@ -98,6 +109,11 @@ export default function AdminPage() {
             onLogout={logout}
         >
             <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+                {notice && (
+                    <div className="mb-4 flex items-center gap-1.5 text-sm text-brand-700 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2 font-medium">
+                        <Check className="h-4 w-4" /> {notice}
+                    </div>
+                )}
                 {saved && (
                     <div className="mb-4 flex items-center gap-1.5 text-sm text-green-600 font-medium">
                         <Check className="h-4 w-4" /> Salvato
@@ -131,6 +147,7 @@ export default function AdminPage() {
                         isAdmin={isAdmin}
                         onEdit={id => setEditingId(id)}
                         onDelete={id => { if (confirm(`Eliminare questo evento?`)) deleteEvent(id); }}
+                        onCopy={isAdmin ? handleCopy : undefined}
                         onCreate={createEvent}
                     />
                 )}
