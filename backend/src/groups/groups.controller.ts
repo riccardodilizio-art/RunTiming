@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PaymentStatus, Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto, GroupListDto, GroupPaymentDto, GroupPreviewDto } from './groups.dto';
@@ -19,6 +20,7 @@ export class GroupsController {
     /** Società: iscrive più atleti con un solo pagamento. */
     @Post('groups')
     @Roles(Role.SOCIETY)
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
     create(@CurrentUser() user: AuthUser, @Body() dto: CreateGroupDto) {
         return this.groups.create(user, dto);
     }

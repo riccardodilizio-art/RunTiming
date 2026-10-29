@@ -23,12 +23,18 @@ export function configureApp(app: NestExpressApplication): void {
     // server 25 MB per volta. I permessi precisi li controllano poi le guardie.
     const tokens = app.get(TokenVerifier, { strict: false });
     const prisma = app.get(PrismaService, { strict: false });
-    const needsCredential = async (req: Request, res: Response, next: NextFunction) => {
+    // Solo i ruoli che possono davvero usare quella rotta: un account atleta
+    // (gratuito) non deve poter far leggere al server 25 MB per volta.
+    const needsCredential = (roles: string[]) => async (req: Request, res: Response, next: NextFunction) => {
         if (req.method === 'GET' || req.method === 'OPTIONS') return next(); // OPTIONS = preflight CORS
         try {
             const auth = req.headers.authorization;
             if (auth?.startsWith('Bearer ')) {
                 const u = await tokens.verify(auth.slice(7));
+                if (!roles.includes(u.role)) {
+                    res.status(403).json({ statusCode: 403, message: 'Non autorizzato' });
+                    return;
+                }
                 (req as Request & { __throttleUser?: unknown }).__throttleUser = u;
                 return next();
             }
@@ -38,9 +44,18 @@ export function configureApp(app: NestExpressApplication): void {
         } catch { /* credenziale non valida */ }
         res.status(401).json({ statusCode: 401, message: 'Accesso richiesto' });
     };
-    app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, needsCredential, json({ limit: '25mb' }));
-    app.use('/api/societies/me', needsCredential, json({ limit: '5mb' }));
-    app.use(json({ limit: '1mb' }));
+    // Niente caratteri NUL nell'indirizzo o nei testi (Postgres li rifiuta: errore 500)
+    app.use((req: Request, res: Response, next: NextFunction) => {
+        if (/%00|\0/.test(req.originalUrl)) { res.status(400).json({ statusCode: 400, message: 'Richiesta non valida' }); return; }
+        next();
+    });
+    const reviver = (_k: string, v: unknown) => {
+        if (typeof v === 'string' && v.includes('\0')) throw new SyntaxError('Carattere non valido');
+        return v;
+    };
+    app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, needsCredential(['ADMIN', 'ORGANIZER']), json({ limit: '25mb', reviver }));
+    app.use('/api/societies/me', needsCredential(['SOCIETY']), json({ limit: '5mb', reviver }));
+    app.use(json({ limit: '1mb', reviver }));
 
     app.setGlobalPrefix('api');
 

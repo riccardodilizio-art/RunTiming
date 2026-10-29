@@ -28,6 +28,7 @@ interface Statement {
         incassatoSegreteria: number; maggiorazioni: number; commissioni: number; daGirareOrganizzatore: number;
         commissioniDaOrganizzatore?: number;
         quoteSegreteria?: number;
+        creditiEmessi?: { count: number; total: number };
         inAttesa: { count: number; total: number };
     };
     byMethod: { method: string; count: number; total: number; fees: number }[];
@@ -190,6 +191,11 @@ function StatementCard() {
                             <p className="text-xs text-slate-500">Da girare all'organizzatore</p>
                             <p className="text-xl font-bold text-brand-700">{euro(st.totals.daGirareOrganizzatore)}</p>
                             <p className="text-xs text-slate-500">in attesa: {st.totals.inAttesa.count} iscrizioni ({euro(st.totals.inAttesa.total)})</p>
+                            {st.totals.creditiEmessi?.count ? (
+                                <p className="text-xs text-amber-700">
+                                    {st.totals.creditiEmessi.count} trasferite all'anno dopo: credito {euro(st.totals.creditiEmessi.total)} (resta alla segreteria, non si gira)
+                                </p>
+                            ) : null}
                         </div>
                     </div>
                     <table className="w-full text-sm">

@@ -10,6 +10,7 @@ import { api } from '../lib/api';
 interface Options {
     iscrizione: { id: string; cognome: string; nome: string; gara: string; evento: string; data: string; pagato: number; pettorale: number | null };
     chiuso: string | null;
+    nonPagata?: boolean;
     chiusura: string | null;
     cambioGara: { id: string; name: string; distance: string; quota: number; differenza: number; completa: boolean }[] | null;
     cessione: number | null;
@@ -133,7 +134,11 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
             ) : o.chiuso ? (
                 <p className="text-sm text-slate-600">{o.chiuso}.</p>
             ) : available.length === 0 ? (
-                <p className="text-sm text-slate-600">Per questo evento non sono previsti cambi dopo l'iscrizione: per richieste scrivi alla segreteria.</p>
+                <p className="text-sm text-slate-600">
+                    {o.nonPagata
+                        ? "Il cambio gara e il rinvio all'anno prossimo si possono fare dopo aver pagato l'iscrizione."
+                        : "Per questo evento non sono previsti cambi dopo l'iscrizione"}: per richieste scrivi alla segreteria.
+                </p>
             ) : (
                 <form onSubmit={submit} className="space-y-4">
                     <div className="flex flex-wrap gap-2">

@@ -264,6 +264,7 @@ export class EventsService {
                     commission: J(info.commission),
                     routeInfo: J(info.routeInfo),
                     quoteCambi: J(info.quoteCambi),
+                    edizionePrecedenteId: id, // i crediti da trasferimento valgono qui
                     combinate: Prisma.JsonNull, // impostate sotto, con gli id delle gare nuove
                 },
             });

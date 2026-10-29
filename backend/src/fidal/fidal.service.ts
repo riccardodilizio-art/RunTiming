@@ -59,7 +59,9 @@ export class FidalService {
             dto = this.rowToDto(row);
             await this.enrich([dto]);
         }
-        if (this.recent.size > 5000) this.recent.clear();
+        // Cache piena: si toglie la voce più vecchia (non si svuota tutto)
+        if (this.recent.size >= 5000) this.recent.delete(this.recent.keys().next().value as string);
+        this.recent.delete(key);
         this.recent.set(key, { at: Date.now(), atleta: dto && { ...dto } });
         return { tessera: key, tesserato: !!dto, atleta: dto };
     }

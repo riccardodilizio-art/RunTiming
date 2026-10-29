@@ -17,6 +17,7 @@ import {
 import { allineaCombinata } from '../registrations/combinata';
 import { ChangesModule } from '../changes/changes.module';
 import { ChangesService } from '../changes/changes.service';
+import { senzaToken } from '../registrations/registrations.service';
 import { PaymentStatus, Prisma, Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
@@ -117,6 +118,8 @@ export class PaymentsService {
         const c = await this.changeByRef(ref);
         if (c.paymentStatus === PaymentStatus.CONFIRMED) return this.changeInfo(ref);
         if (c.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Cambio annullato: pagamento non possibile');
+        // Iscrizione annullata nel frattempo: non si incassa
+        if (c.registration.paymentStatus === PaymentStatus.REJECTED) throw new ConflictException('Iscrizione annullata: pagamento non possibile');
         if (c.paypalOrderId !== orderId) throw new BadRequestException('Ordine PayPal non corrispondente');
         const expected = c.paypalAmount ?? c.totale;
         const cap = await this.paypal.capture(orderId);
@@ -132,7 +135,9 @@ export class PaymentsService {
         });
         if (r.count) {
             try { await this.changes.apply(c.id); }
-            catch (e) { this.log.error(`Cambio ${c.id} pagato ma non applicato: ${e instanceof Error ? e.message : e} — verificare`); }
+            catch (e) { this.log.error(`Cambio ${c.id} pagato ma non applicato: ${e instanceof Error ? e.message : e} — verificare/rimborsare`); }
+        } else {
+            this.log.error(`Pagamento PayPal ${orderId} incassato sul cambio ${c.id} non più in attesa: verificare/rimborsare`);
         }
         return this.changeInfo(ref);
     }
@@ -362,10 +367,14 @@ export class PaymentsService {
         const cs = (f: (c: (typeof cambi)[number]) => number) => round2(cambi.reduce((a, c) => a + f(c), 0));
         const differenzeGara = cs(c => (c.tipo === 'gara' ? c.importo : 0));
         const quoteSegreteria = cs(c => (c.tipo === 'gara' ? 0 : c.importo));
+        // Trasferite all'anno dopo: i soldi restano alla segreteria (coprono il credito
+        // dell'edizione successiva), non si girano all'organizzatore di quest'anno
+        const trasferite = regs.filter(r => r.trasferitoAt && (r.paymentMethod === 'paypal' || r.paymentMethod === 'bank'));
         const totals = {
-            incassatoSegreteria: round2(sum(collected, r => r.pricePaid) + cs(c => c.totale)),
-            maggiorazioni: round2(sum(collected, r => r.paymentFee) + cs(c => c.paymentFee)),
-            commissioni: sum(collected, r => r.commissionAmount),
+            incassatoSegreteria: round2(sum(collected, r => r.pricePaid) + cs(c => c.totale) + sum(trasferite, r => r.pricePaid)),
+            maggiorazioni: round2(sum(collected, r => r.paymentFee) + cs(c => c.paymentFee) + sum(trasferite, r => r.paymentFee)),
+            commissioni: round2(sum(collected, r => r.commissionAmount) + sum(trasferite, r => r.commissionAmount)),
+            creditiEmessi: { count: regs.filter(r => r.trasferitoAt).length, total: sum(regs.filter(r => r.trasferitoAt), r => r.basePrice - r.discountAmount) },
             daGirareOrganizzatore: round2(sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount) + differenzeGara),
             quoteSegreteria,
             cambi: { count: cambi.length, differenzeGara, quoteSegreteria },
@@ -374,7 +383,7 @@ export class PaymentsService {
             commissioniDaOrganizzatore: sum(ok.filter(r => r.paymentMethod === 'onsite' || r.paymentMethod === 'manual'), r => r.commissionAmount),
             inAttesa: { count: pending.length, total: sum(pending, r => r.pricePaid) },
         };
-        return { event, totals, byMethod, rows: regs };
+        return { event, totals, byMethod, rows: regs.map(senzaToken) };
     }
 
     async statementXlsx(eventId: string): Promise<{ name: string; buffer: Buffer }> {
