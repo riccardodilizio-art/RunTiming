@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { allRaces, eventStartDate } from '../../utils/event';
+import { allRaces, eventStartDate, iscrizioniAperte } from '../../utils/event';
 import {
     Plus, Edit2, Trash2, CopyPlus, Calendar, MapPin, Image, Search,
     LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
@@ -21,7 +21,7 @@ function AdminEventRow({
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
     const priceStr = prices.length === 0 ? '—' : minP === maxP ? `€${minP}` : `€${minP} – €${maxP}`;
-    const hasOpenRaces = allRaces(event).some(r => r.isOpen);
+    const hasOpenRaces = allRaces(event).some(r => iscrizioniAperte(r));
     const isPast = new Date(eventStartDate(event)) < new Date();
 
     return (
@@ -114,7 +114,7 @@ function AdminEventGridCard({
     const prices = allRaces(event).map(r => r.price);
     const minP = prices.length ? Math.min(...prices) : 0;
     const maxP = prices.length ? Math.max(...prices) : 0;
-    const hasOpenRaces = allRaces(event).some(r => r.isOpen);
+    const hasOpenRaces = allRaces(event).some(r => iscrizioniAperte(r));
     const isPast = new Date(eventStartDate(event)) < new Date();
 
     return (
@@ -263,7 +263,7 @@ export default function EventsListSection({
                 const matchesTab  = tab === 'all' ? true
                     : tab === 'upcoming' ? new Date(eventStartDate(e)) >= now
                     : new Date(eventStartDate(e)) < now;
-                const matchesOpen = !onlyOpen || allRaces(e).some(r => r.isOpen);
+                const matchesOpen = !onlyOpen || allRaces(e).some(r => iscrizioniAperte(r));
                 return matchesQuery && matchesCat && matchesTab && matchesOpen;
             })
             .sort((a, b) => {

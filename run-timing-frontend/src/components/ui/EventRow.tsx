@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { allRaces, eventStartDate } from '../../utils/event';
+import { allRaces, eventStartDate, iscrizioniAperte } from '../../utils/event';
 import { Calendar, MapPin, Users } from 'lucide-react';
 import type { Event } from '../../types';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
@@ -19,7 +19,7 @@ function priceRange(event: Event): string {
 export default function EventRow({ event }: { event: Event }) {
     const races = allRaces(event);
     const isPast = new Date(eventStartDate(event)) < new Date();
-    const hasOpenRaces = races.some(r => r.isOpen);
+    const hasOpenRaces = races.some(r => iscrizioniAperte(r));
     const participants = races.reduce((sum, r) => sum + r.participants, 0);
     const distances = races.map(r => r.distance).filter(Boolean).join(' · ');
 

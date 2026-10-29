@@ -172,6 +172,24 @@ export function normName(s: string | null | undefined): string {
     return (s ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 }
 
+// ─── Chiusura iscrizioni e limite per società ───────────────────────────────
+
+/** Iscrizioni chiuse per data/ora (null = aperte). Dopo la chiusura iscrive solo l'admin. */
+export function chiusuraProblem(chiusura: Date | null | undefined, now = new Date()): string | null {
+    if (!chiusura || now.getTime() < chiusura.getTime()) return null;
+    const quando = new Intl.DateTimeFormat('it-IT', {
+        weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome',
+    }).format(chiusura);
+    return `Iscrizioni chiuse (${quando}): per richieste scrivi alla segreteria`;
+}
+
+/** Messaggio se la società supera il massimo di atleti per la gara (0 = nessun limite). */
+export function limiteSocietaProblem(max: number, giaIscritti: number, nuovi: number): string | null {
+    if (!max || giaIscritti + nuovi <= max) return null;
+    const restano = Math.max(0, max - giaIscritti);
+    return `Limite di ${max} atleti per società su questa gara: ${restano ? `potete iscriverne ancora ${restano}` : 'già raggiunto'}`;
+}
+
 // ─── Tesseramenti ammessi ───────────────────────────────────────────────────
 
 /** Come si è tesserato l'atleta: FIDAL, Runcard, EPS o altro ente, non tesserato. */

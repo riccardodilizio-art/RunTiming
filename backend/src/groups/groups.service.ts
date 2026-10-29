@@ -6,7 +6,9 @@ import { MailService } from '../mail/mail.service';
 import { GroupMailData, groupPaymentReceivedMail, groupRegistrationMail } from '../mail/templates';
 import { AuthUser } from '../common/auth';
 import { newPaymentRef } from '../payments/payment-ref';
-import { PreparedRegistration, RegistrationsService, findDuplicate, snapshotData } from '../registrations/registrations.service';
+import {
+    PreparedRegistration, RegistrationsService, assertSocietyLimit, findDuplicate, snapshotData,
+} from '../registrations/registrations.service';
 import { allowedMethods } from '../registrations/rules';
 import { omaggiNelGruppo, regolaOmaggi, riepilogoGruppo } from './group.rules';
 import { CreateGroupDto, GroupPreviewDto } from './groups.dto';
@@ -122,6 +124,7 @@ export class GroupsService {
                     throw new ConflictException(`Posti insufficienti: ne restano ${Math.max(0, race.maxParticipants - count)}`);
                 }
             }
+            await assertSocietyLimit(tx, race, s.id, list.length);
             const dups: string[] = [];
             for (const p of list) if (await findDuplicate(tx, race.id, p.athlete)) dups.push(`${p.athlete.cognome} ${p.athlete.nome}`);
             if (dups.length) throw new ConflictException({ message: 'Alcuni atleti risultano già iscritti a questa gara', errori: dups });

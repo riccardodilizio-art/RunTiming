@@ -22,6 +22,8 @@ import {
     RaceCategory,
     assignCategory,
     checkAge,
+    chiusuraProblem,
+    limiteSocietaProblem,
     ammessiGara,
     checkTesseramento,
     richiedeFidalVerificato,
@@ -114,6 +116,16 @@ export function snapshotData(race: { id: string; day: { event: { id: string } } 
         fidalVerified: a.fidalVerified,
         certStatus: p.certStatus,
     };
+}
+
+/** Massimo di atleti per società sulla gara (iscrizioni fatte dalla società). */
+export async function assertSocietyLimit(
+    tx: Prisma.TransactionClient, race: { id: string; maxPerSocieta: number }, societyId: string | undefined | null, nuovi: number,
+) {
+    if (!societyId || !race.maxPerSocieta) return;
+    const gia = await tx.registration.count({ where: { raceId: race.id, societyId, paymentStatus: { not: PaymentStatus.REJECTED } } });
+    const msg = limiteSocietaProblem(race.maxPerSocieta, gia, nuovi);
+    if (msg) throw new ConflictException(msg);
 }
 
 /** Stessa persona già iscritta (attiva) alla gara. */
@@ -293,6 +305,7 @@ export class RegistrationsService {
                     const count = await tx.registration.count({ where: { raceId: p.race.id, paymentStatus: { not: PaymentStatus.REJECTED } } });
                     if (count >= p.race.maxParticipants) throw new ConflictException(`${p.race.name}: gara al completo, combinata non disponibile`);
                 }
+                await assertSocietyLimit(tx, p.race, p.societyId, 1);
             }
             const giaPagato = [...existing.values()].reduce((t, r) => t + r.basePrice - r.discountAmount, 0);
             const q = quote({
@@ -354,6 +367,9 @@ export class RegistrationsService {
         const isStaff = !!user && (user.role === Role.ADMIN || user.role === Role.ORGANIZER);
         if (isStaff) await this.assertCanManage(user!, event.id, event.createdById);
         if (!race.isOpen && !isStaff) throw new BadRequestException('Iscrizioni chiuse per questa gara');
+        // Chiusura a data e ora: dopo, le iscrizioni le fa solo l'admin
+        const chiusa = chiusuraProblem(race.chiusuraIscrizioni);
+        if (chiusa && user?.role !== Role.ADMIN) throw new BadRequestException(chiusa);
         // Gara già disputata: niente iscrizioni (lo staff può ancora registrare a posteriori)
         if (!isStaff && race.day.date.toISOString().slice(0, 10) < todayRome()) {
             throw new BadRequestException('La gara si è già svolta: iscrizioni chiuse');
@@ -452,6 +468,7 @@ export class RegistrationsService {
 
             const dup = await findDuplicate(tx, race.id, athlete);
             if (dup) throw new ConflictException('Atleta già iscritto a questa gara');
+            await assertSocietyLimit(tx, race, societyId, 1);
 
             if (q.discountCode) {
                 // Incremento atomico: fallisce se nel frattempo il codice si è esaurito

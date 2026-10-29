@@ -43,3 +43,15 @@ export function isMultiDay(e: Event): boolean {
 export function findRaceInEvent(e: Event, raceId: string): Race | undefined {
     return allRaces(e).find(r => r.id === raceId);
 }
+
+/** Iscrizioni aperte adesso: aperte a mano e non ancora passata la chiusura automatica. */
+export function iscrizioniAperte(r: Pick<Race, 'isOpen' | 'chiusuraIscrizioni'>, now = Date.now()): boolean {
+    return r.isOpen && (!r.chiusuraIscrizioni || now < new Date(r.chiusuraIscrizioni).getTime());
+}
+
+/** "giovedì 22 ottobre, 23:59" (ora italiana). */
+export function formatChiusura(iso: string): string {
+    return new Intl.DateTimeFormat('it-IT', {
+        weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome',
+    }).format(new Date(iso));
+}

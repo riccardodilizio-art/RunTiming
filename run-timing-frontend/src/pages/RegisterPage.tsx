@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ammessiGara, ammesso, descriviAmmessi, tesseramentoDaEnte } from '../lib/tesseramenti';
-import { allRaces, eventStartDate } from '../utils/event';
+import { allRaces, eventStartDate, iscrizioniAperte } from '../utils/event';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, ChevronRight, Check, Download, AlertCircle, Tag,
@@ -94,14 +94,14 @@ function StepBar({ current }: { current: number }) {
 
 /** Combinate disponibili: tutte le gare incluse con iscrizioni aperte. */
 function openCombinate(event: { combinate?: Combinata[] } | undefined, races: Race[]): Combinata[] {
-    return (event?.combinate ?? []).filter(c => c.raceIds.length >= 2 && c.raceIds.every(id => races.some(r => r.id === id && r.isOpen)));
+    return (event?.combinate ?? []).filter(c => c.raceIds.length >= 2 && c.raceIds.every(id => races.some(r => r.id === id && iscrizioniAperte(r))));
 }
 
 function RacePicker({ races, selectedId, onSelect, combinate = [], comboId = '', onSelectCombo }: {
     races: Race[]; selectedId: string; onSelect: (id: string) => void;
     combinate?: Combinata[]; comboId?: string; onSelectCombo?: (c: Combinata) => void;
 }) {
-    const openRaces = races.filter(r => r.isOpen);
+    const openRaces = races.filter(r => iscrizioniAperte(r));
     if (openRaces.length === 0) {
         return (
             <div className="text-center py-10">
@@ -758,7 +758,7 @@ export default function RegisterPage() {
     const searchParamCombo = searchParams.get('combinata') ?? '';
     const initialRaceId = raceParam ?? eventRaces[0]?.id ?? '';
     // Se si arriva con una gara già scelta e valida, salta lo step "Scelta gara".
-    const startAtData = !!raceParam && eventRaces.some(r => r.id === raceParam && r.isOpen);
+    const startAtData = !!raceParam && eventRaces.some(r => r.id === raceParam && iscrizioniAperte(r));
 
     const [step, setStep] = useState(startAtData ? 1 : 0);
     const [selectedRaceId, setSelectedRaceId] = useState(initialRaceId);

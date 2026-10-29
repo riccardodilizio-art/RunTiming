@@ -60,6 +60,8 @@ function raceData(r: RaceDto) {
         price: r.price ?? 0,
         maxParticipants: r.maxParticipants ?? 0,
         isOpen: r.isOpen ?? true,
+        chiusuraIscrizioni: r.chiusuraIscrizioni ? new Date(r.chiusuraIscrizioni) : null,
+        maxPerSocieta: r.maxPerSocieta ?? 0,
         formSchema: J(r.formSchema ?? null),
         priceSteps: J(r.priceSteps ?? null),
         publicFields: r.publicFields ?? [],
@@ -278,6 +280,8 @@ export class EventsService {
                             ...race,
                             dayId: day.id,
                             isOpen: false,
+                            chiusuraIscrizioni: race.chiusuraIscrizioni
+                                ? new Date(race.chiusuraIscrizioni.getTime() + shift * 86_400_000) : null,
                             formSchema: J(race.formSchema),
                             priceSteps: J(shiftPriceSteps(race.priceSteps, shift)),
                             categories: J(race.categories),

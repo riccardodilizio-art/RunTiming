@@ -183,6 +183,10 @@ model Race {
   price               Float          @default(0)
   maxParticipants     Int            @default(0)
   isOpen              Boolean        @default(true)
+  /// Chiusura automatica delle iscrizioni (es. giovedì 23:59 prima della gara); dopo, solo l'admin
+  chiusuraIscrizioni  DateTime?
+  /// Massimo di atleti che una società può iscrivere a questa gara (0 = nessun limite)
+  maxPerSocieta       Int            @default(0)
   formSchema          Json?
   priceSteps          Json?
   publicFields        String[]

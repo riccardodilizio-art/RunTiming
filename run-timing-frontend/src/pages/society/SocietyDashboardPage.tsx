@@ -6,7 +6,7 @@ import {
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration, loadMyRegistrationsApi, reportApiError, ensureEventApi } from '../../hooks/useAdminStore';
 import { USE_API, api } from '../../lib/api';
-import { allRaces, eventStartDate, eventEndDate } from '../../utils/event';
+import { allRaces, eventStartDate, eventEndDate, iscrizioniAperte } from '../../utils/event';
 import { pickAffiliationForEnte, resolveCertStatus } from '../../utils/cert';
 import { assignCategory } from '../../types';
 import AffiliationsEditor from '../../components/athlete/AffiliationsEditor';
@@ -441,7 +441,7 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
     );
     const event = useMemo(() => openEvents.find(e => e.id === eventId), [openEvents, eventId]);
     // Solo gare con iscrizioni aperte.
-    const races = useMemo(() => (event ? allRaces(event).filter(r => r.isOpen) : []), [event]);
+    const races = useMemo(() => (event ? allRaces(event).filter(r => iscrizioniAperte(r)) : []), [event]);
     const race = useMemo(() => races.find(r => r.id === raceId), [races, raceId]);
 
     function toggle(id: string) {

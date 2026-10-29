@@ -11,6 +11,7 @@ import { USE_API, ApiError, api, download } from '../../lib/api';
 import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
 import { formatPrice, inputCls, downloadCSV } from './adminShared';
+import { formatChiusura } from '../../utils/event';
 import { exportEntrantsXlsx } from './exportEntrants';
 import CommissionOverrideEditor from './CommissionOverrideEditor';
 import PriceStepEditor from './PriceStepEditor';
@@ -27,12 +28,15 @@ type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati' | 'atte
 export default function RaceEditor({
     race,
     eventId,
+    raceDate,
     onChange,
     onBack,
     isAdmin = true,
 }: {
     race: Race;
     eventId: string;
+    /** Data della giornata della gara (per proporre la chiusura iscrizioni). */
+    raceDate?: string;
     onChange: (r: Race) => void;
     onBack: () => void;
     isAdmin?: boolean;
@@ -233,6 +237,13 @@ export default function RaceEditor({
                             className="accent-brand-600 h-4 w-4"
                         />
                         <label htmlFor="isOpen" className="text-sm text-slate-700">Iscrizioni aperte</label>
+                    </div>
+                    <ChiusuraEditor race={race} raceDate={raceDate} onChange={patch => onChange({ ...race, ...patch })} />
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Max atleti per società</label>
+                        <input type="number" min={0} value={race.maxPerSocieta || ''} placeholder="Nessun limite"
+                            onChange={e => set('maxPerSocieta', parseInt(e.target.value) || 0)} className={inputCls} />
+                        <p className="text-xs text-slate-400 mt-1">Vale per le iscrizioni fatte dall'area società.</p>
                     </div>
                     <CategoryEditor
                         categories={race.categories ?? []}
@@ -851,6 +862,54 @@ function GruppoOmaggiEditor({ value, onChange }: {
             <p className="text-xs text-slate-400 mt-1">
                 La società iscrive i suoi atleti e paga con un solo bonifico. Si contano tutte le sue iscrizioni a questa gara:
                 con "ogni 10, 1 gratis" sono in omaggio il 10°, il 20°… La maggiorazione del bonifico vale per ogni pagante.
+            </p>
+        </div>
+    );
+}
+
+/** ISO → valore per <input type="datetime-local"> nell'ora del browser (Italia). */
+function toLocalInput(iso: string): string {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Il giovedì prima della gara alle 23:59 (per le gare di domenica: 3 giorni prima). */
+function giovediPrima(raceDate: string): string {
+    const d = new Date(raceDate);
+    const back = ((d.getDay() - 4 + 7) % 7) || 7; // giorni da tornare indietro fino al giovedì precedente
+    d.setDate(d.getDate() - back);
+    d.setHours(23, 59, 0, 0);
+    return d.toISOString();
+}
+
+/** Chiusura automatica delle iscrizioni: dopo, iscrive e modifica solo l'admin. */
+function ChiusuraEditor({ race, raceDate, onChange }: {
+    race: Race; raceDate?: string; onChange: (patch: Partial<Race>) => void;
+}) {
+    return (
+        <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Chiusura iscrizioni</label>
+            <input type="datetime-local" className={inputCls}
+                value={race.chiusuraIscrizioni ? toLocalInput(race.chiusuraIscrizioni) : ''}
+                onChange={e => onChange({ chiusuraIscrizioni: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+            <div className="flex flex-wrap gap-3 mt-1 text-xs">
+                {raceDate && (
+                    <button type="button" className="text-brand-600 hover:underline"
+                        onClick={() => onChange({ chiusuraIscrizioni: giovediPrima(raceDate) })}>
+                        Giovedì prima della gara, 23:59
+                    </button>
+                )}
+                {race.chiusuraIscrizioni && (
+                    <button type="button" className="text-slate-500 hover:underline" onClick={() => onChange({ chiusuraIscrizioni: null })}>
+                        Togli
+                    </button>
+                )}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+                {race.chiusuraIscrizioni
+                    ? `Chiusura: ${formatChiusura(race.chiusuraIscrizioni)}. Dopo, le iscrizioni le fa solo l'admin.`
+                    : 'Vuoto = si chiudono solo a mano (casella "Iscrizioni aperte").'}
             </p>
         </div>
     );
