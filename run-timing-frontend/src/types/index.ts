@@ -212,6 +212,7 @@ export type RaceType =
 /** Ente di riferimento della gara. Determina il tesseramento richiesto all'iscrizione. */
 export type RaceEnte =
     | 'fidal'
+    | 'runcard'
     | 'uisp' | 'csi' | 'acsi' | 'aics' | 'libertas' | 'altro'
     | 'non_competitiva';
 
@@ -231,6 +232,8 @@ export interface Race {
     raceType: RaceType;
     /** Ente della gara: se 'fidal' impone il tesseramento FIDAL all'iscrizione. */
     ente?: RaceEnte;
+    /** Tesseramenti ammessi: fidal, runcard, eps, libero (vuoto = tutti). Vedi lib/tesseramenti. */
+    ammessi?: ('fidal' | 'runcard' | 'eps' | 'libero')[];
     /** Modalità di pagamento (online / in loco / entrambe / nessun pagamento). */
     paymentMode?: PaymentMode;
     lapDistanceKm?: number;

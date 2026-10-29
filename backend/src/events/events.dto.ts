@@ -32,6 +32,8 @@ export class RaceDto {
     @IsString() @MaxLength(40) distance!: string;
     @IsIn(['linear', 'laps_fixed', 'laps_timed']) raceType!: string;
     @IsOptional() @IsString() ente?: string;
+    /** Tesseramenti ammessi (vuoto = tutti). */
+    @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(['fidal', 'runcard', 'eps', 'libero'], { each: true }) ammessi?: string[];
     @IsOptional() @IsIn(['none', 'online', 'onsite', 'both']) paymentMode?: string;
     @IsOptional() @IsBoolean() requiresMedicalCert?: boolean;
     @IsOptional() @IsInt() @Min(0) minAge?: number;

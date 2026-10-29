@@ -17,7 +17,7 @@ import {
     ValidateNested,
 } from 'class-validator';
 
-export const ENTI = ['fidal', 'uisp', 'csi', 'acsi', 'aics', 'libertas', 'altro', 'non_competitiva'];
+export const ENTI = ['fidal', 'runcard', 'uisp', 'csi', 'acsi', 'aics', 'libertas', 'altro', 'non_competitiva'];
 
 export class AffiliationDto {
     @IsIn(ENTI) ente!: string;

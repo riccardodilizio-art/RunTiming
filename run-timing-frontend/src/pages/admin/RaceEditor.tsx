@@ -17,6 +17,7 @@ import PriceStepEditor from './PriceStepEditor';
 import CategoryEditor from './CategoryEditor';
 import { RaceStatsBar, PaymentBadge, CertBadge } from './RegistrationBadges';
 import ManualRegModal from './ManualRegModal';
+import { PRESET_AMMESSI, TESSERAMENTI, TESSERAMENTO_LABEL, ammessiGara, type Tesseramento } from '../../lib/tesseramenti';
 import type {
     Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, PublicColumn,
 } from '../../types';
@@ -185,8 +186,9 @@ export default function RaceEditor({
                             <option value="altro">Altro ente</option>
                             <option value="non_competitiva">Non competitiva</option>
                         </select>
-                        <p className="text-xs text-slate-400 mt-1">Se FIDAL, l'atleta dovrà iscriversi col tesseramento FIDAL.</p>
+                        <p className="text-xs text-slate-400 mt-1">Ente che organizza o approva la gara. Chi può iscriversi si sceglie qui accanto.</p>
                     </div>
+                    <AmmessiEditor race={race} onChange={patch => onChange({ ...race, ...patch })} />
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Modalità pagamento</label>
                         <select value={race.paymentMode ?? 'both'} onChange={e => set('paymentMode', e.target.value as Race['paymentMode'])} className={inputCls}>
@@ -762,6 +764,58 @@ export default function RaceEditor({
                     })()}
                 </div>
             )}
+        </div>
+    );
+}
+
+/** Chi può iscriversi: tesseramenti ammessi (+ età minima per i master). */
+function AmmessiEditor({ race, onChange }: { race: Race; onChange: (patch: Partial<Race>) => void }) {
+    const current = ammessiGara(race);
+    const same = (a: Tesseramento[], b: Tesseramento[]) => a.length === b.length && a.every(x => b.includes(x));
+    // Prima le scelte con età minima (es. master 35+), poi le altre
+    const preset = PRESET_AMMESSI.find(p => p.minAge && same(p.ammessi, current) && race.minAge === p.minAge)
+        ?? PRESET_AMMESSI.find(p => !p.minAge && same(p.ammessi, current));
+    const [custom, setCustom] = useState(!preset);
+    const value = custom || !preset ? 'custom' : preset.id;
+    function choose(id: string) {
+        if (id === 'custom') { setCustom(true); return; }
+        setCustom(false);
+        const p = PRESET_AMMESSI.find(x => x.id === id)!;
+        const patch: Partial<Race> = { ammessi: p.ammessi };
+        if (p.minAge) patch.minAge = p.minAge;
+        else if (preset?.minAge && race.minAge === preset.minAge) patch.minAge = undefined;
+        onChange(patch);
+    }
+    function toggle(t: Tesseramento) {
+        const base = current.length ? current : TESSERAMENTI;
+        const next = base.includes(t) ? base.filter(x => x !== t) : [...base, t];
+        if (!next.length) return; // almeno uno
+        // Tutti selezionati = nessuna restrizione
+        onChange({ ammessi: next.length === TESSERAMENTI.length ? [] : TESSERAMENTI.filter(x => next.includes(x)) });
+    }
+    return (
+        <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Chi può iscriversi</label>
+            <select value={value} onChange={e => choose(e.target.value)} className={inputCls}>
+                {PRESET_AMMESSI.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                <option value="custom">Personalizzato…</option>
+            </select>
+            {value === 'custom' && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    {TESSERAMENTI.map(t => (
+                        <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
+                            <input type="checkbox" className="accent-brand-600" checked={!current.length || current.includes(t)}
+                                onChange={() => toggle(t)} />
+                            {TESSERAMENTO_LABEL[t]}
+                        </label>
+                    ))}
+                </div>
+            )}
+            <p className="text-xs text-slate-400 mt-1">
+                {current.includes('fidal') && !current.includes('runcard')
+                    ? 'La tessera FIDAL viene controllata (cognome e data di nascita). Stranieri tesserati FIDAL ammessi.'
+                    : 'L\'età si calcola sull\'anno di nascita, come per le categorie FIDAL.'}
+            </p>
         </div>
     );
 }

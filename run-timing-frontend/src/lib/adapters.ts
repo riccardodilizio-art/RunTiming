@@ -14,6 +14,7 @@ export interface ApiRace {
     distance: string;
     raceType?: string;
     ente?: string | null;
+    ammessi?: string[] | null;
     paymentMode?: string | null;
     requiresMedicalCert?: boolean;
     minAge?: number | null;
@@ -107,6 +108,7 @@ export function toRace(r: ApiRace): Race {
         distance: r.distance,
         raceType: (r.raceType ?? 'linear') as Race['raceType'],
         ente: opt(r.ente) as Race['ente'],
+        ammessi: (r.ammessi ?? []) as Race['ammessi'],
         paymentMode: opt(r.paymentMode) as Race['paymentMode'],
         requiresMedicalCert: r.requiresMedicalCert ?? false,
         minAge: opt(r.minAge),
@@ -221,6 +223,7 @@ export function fromEvent(e: Event, days: EventDay[]) {
                 distance: r.distance,
                 raceType: r.raceType,
                 ente: r.ente,
+                ammessi: r.ammessi ?? [],
                 paymentMode: r.paymentMode,
                 requiresMedicalCert: r.requiresMedicalCert,
                 minAge: r.minAge,

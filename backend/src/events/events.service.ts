@@ -48,6 +48,7 @@ function raceData(r: RaceDto) {
         distance: r.distance,
         raceType: r.raceType,
         ente: r.ente ?? null,
+        ammessi: [...new Set(r.ammessi ?? [])],
         paymentMode: r.paymentMode ?? null,
         requiresMedicalCert: r.requiresMedicalCert ?? false,
         minAge: r.minAge ?? null,

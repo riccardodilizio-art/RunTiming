@@ -170,6 +170,8 @@ model Race {
   distance            String
   raceType            String
   ente                String?
+  /// Tesseramenti ammessi: fidal, runcard, eps, libero (vuoto = tutti)
+  ammessi             String[]       @default([])
   paymentMode         String?
   requiresMedicalCert Boolean        @default(false)
   minAge              Int?
@@ -221,6 +223,8 @@ model Registration {
   societa          String?
   codiceSocieta    String?
   tessera          String?
+  /// Tesseramento con cui l'atleta si è iscritto: fidal, runcard, eps, libero
+  tesseramento     String?
   email            String?
   formData         Json
   basePrice        Float           @default(0)

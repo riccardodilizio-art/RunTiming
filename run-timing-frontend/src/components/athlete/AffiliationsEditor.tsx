@@ -5,6 +5,7 @@ import type { Affiliation, RaceEnte } from '../../types';
 
 const ENTI: { value: RaceEnte; label: string }[] = [
     { value: 'fidal',    label: 'FIDAL' },
+    { value: 'runcard',  label: 'Runcard' },
     { value: 'uisp',     label: 'UISP' },
     { value: 'csi',      label: 'CSI' },
     { value: 'acsi',     label: 'ACSI' },

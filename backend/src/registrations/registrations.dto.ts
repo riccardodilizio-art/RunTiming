@@ -25,6 +25,8 @@ export class AthleteDataDto {
     @IsOptional() @IsString() @MaxLength(20) codiceSocieta?: string;
     @IsOptional() @IsString() @MaxLength(30) tessera?: string;
     @IsOptional() @IsEmail() email?: string;
+    /** Con quale tesseramento si iscrive (se assente lo ricava il server). */
+    @IsOptional() @IsIn(['fidal', 'runcard', 'eps', 'libero']) tesseramento?: string;
     /** Tesserato verificato su FIDAL/WISE (certificato valido in automatico). */
     @IsOptional() @IsBoolean() fidalVerified?: boolean;
 }

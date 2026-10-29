@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { ammessiGara, ammesso, descriviAmmessi, tesseramentoDaEnte } from '../lib/tesseramenti';
 import { allRaces, eventStartDate } from '../utils/event';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -783,12 +784,19 @@ export default function RegisterPage() {
         [currentAthlete]
     );
     const raceEnte = selectedRace?.ente;
+    // Gara riservata (es. solo FIDAL, FIDAL + Runcard): solo i tesseramenti ammessi, FIDAL per primo
+    const restricted = ammessiGara(selectedRace).length > 0;
     const eligibleAffs = useMemo(() => {
-        if (!currentAthlete || !raceEnte || raceEnte === 'non_competitiva') return [];
-        if (raceEnte === 'fidal') return athleteAffiliations.filter(a => a.ente === 'fidal');
-        return athleteAffiliations; // altri enti: scelta libera tra i tesseramenti
-    }, [currentAthlete, raceEnte, athleteAffiliations]);
-    const needsFidalAff = !!currentAthlete && raceEnte === 'fidal';
+        if (!currentAthlete) return [];
+        if (restricted) {
+            return athleteAffiliations
+                .filter(a => ammesso(selectedRace, tesseramentoDaEnte(a.ente, a.societaNome)))
+                .sort((a, b) => Number(b.ente === 'fidal') - Number(a.ente === 'fidal'));
+        }
+        if (!raceEnte || raceEnte === 'non_competitiva') return [];
+        return athleteAffiliations; // gara aperta: scelta libera tra i tesseramenti
+    }, [currentAthlete, raceEnte, athleteAffiliations, restricted, selectedRace]);
+    const needsFidalAff = !!currentAthlete && restricted && !ammesso(selectedRace, 'libero');
     const [selectedAffId, setSelectedAffId] = useState('');
     // reset alla prima opzione quando cambia la gara o l'atleta
     useEffect(() => {
@@ -1159,6 +1167,11 @@ export default function RegisterPage() {
                     {step === 1 && selectedRace && (
                         <div>
                             <h2 className="font-semibold text-slate-700 text-base mb-4">{selectedRace.name}</h2>
+                            {descriviAmmessi(selectedRace) && (
+                                <p className="-mt-2 mb-4 inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-200 px-3 py-1 text-xs font-semibold text-brand-700">
+                                    <ShieldCheck className="h-3.5 w-3.5" /> {descriviAmmessi(selectedRace)}
+                                </p>
+                            )}
 
                             {/* ── Logica FIDAL/cert solo per gare competitive ── */}
                             {selectedRace.requiresMedicalCert && (
@@ -1172,12 +1185,13 @@ export default function RegisterPage() {
                                                     className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition-all">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <ShieldCheck className="h-5 w-5 text-brand-600" />
-                                                        <span className="font-semibold text-slate-800">Sono tesserato FIDAL / RunCard</span>
+                                                        <span className="font-semibold text-slate-800">{ammesso(selectedRace, 'fidal') && restricted && !ammesso(selectedRace, 'runcard') ? 'Sono tesserato FIDAL' : 'Sono tesserato FIDAL / RunCard'}</span>
                                                     </div>
                                                     <p className="text-xs text-slate-500">
                                                         Inserisci il numero tessera o cerca per nome — il sistema caricherà automaticamente i tuoi dati e il certificato medico.
                                                     </p>
                                                 </button>
+                                                {(ammesso(selectedRace, 'libero') || ammesso(selectedRace, 'eps')) && (
                                                 <button type="button" onClick={() => setIsFidal(false)}
                                                     className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition-all">
                                                     <div className="flex items-center gap-2 mb-1">
@@ -1188,6 +1202,7 @@ export default function RegisterPage() {
                                                         Ti chiediamo di registrarti sulla piattaforma per inserire i tuoi dati e il certificato medico una volta sola.
                                                     </p>
                                                 </button>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -1288,36 +1303,36 @@ export default function RegisterPage() {
                                     )}
 
                                     {/* Blocco 2 — tesseramento richiesto/scelto per l'ente della gara */}
-                                    {currentAthlete && raceEnte && raceEnte !== 'non_competitiva' && (
+                                    {currentAthlete && (restricted || (raceEnte && raceEnte !== 'non_competitiva')) && (
                                         <div className="mb-4">
-                                            {raceEnte === 'fidal' ? (
+                                            {restricted && eligibleAffs.length <= 1 ? (
                                                 chosenAff ? (
                                                     <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 flex items-center gap-2">
                                                         <ShieldCheck className="h-4 w-4 shrink-0" />
-                                                        <span>Gara FIDAL · tesseramento <strong>{chosenAff.numeroTessera || '—'}</strong>{chosenAff.societaNome ? ` (${chosenAff.societaNome})` : ''} — certificato valido automaticamente.</span>
+                                                        <span>Tesseramento <strong>{chosenAff.ente.toUpperCase()} {chosenAff.numeroTessera || ''}</strong>{chosenAff.societaNome ? ` (${chosenAff.societaNome})` : ''}{chosenAff.ente === 'fidal' ? ' — certificato valido automaticamente.' : ''}</span>
                                                     </div>
-                                                ) : (
+                                                ) : needsFidalAff ? (
                                                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                                        <p className="font-semibold mb-0.5">Tesseramento FIDAL richiesto</p>
+                                                        <p className="font-semibold mb-0.5">Tesseramento richiesto</p>
                                                         <p className="text-xs">
-                                                            Questa gara è FIDAL: aggiungi un tesseramento FIDAL nel tuo profilo per poterti iscrivere.{' '}
+                                                            {descriviAmmessi(selectedRace)}: aggiungi il tesseramento nel tuo profilo per poterti iscrivere.{' '}
                                                             <Link to="/profilo" className="underline">Vai al profilo</Link>
                                                         </p>
                                                     </div>
-                                                )
+                                                ) : null
                                             ) : (
                                                 <div>
                                                     <label className="block text-sm font-medium text-slate-700 mb-1">Tesseramento per questa gara</label>
                                                     <select value={selectedAffId} onChange={e => setSelectedAffId(e.target.value)}
                                                         className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                                                        <option value="">Nessun tesseramento / non competitivo</option>
+                                                        {!needsFidalAff && <option value="">Nessun tesseramento / non competitivo</option>}
                                                         {eligibleAffs.map(a => (
                                                             <option key={a.id} value={a.id}>
                                                                 {a.ente.toUpperCase()} — {a.societaNome || 'senza società'}{a.numeroTessera ? ` (${a.numeroTessera})` : ''}
                                                             </option>
                                                         ))}
                                                     </select>
-                                                    <p className="text-xs text-slate-400 mt-1">Per gare non FIDAL puoi scegliere liberamente con quale tesseramento presentarti.</p>
+                                                    <p className="text-xs text-slate-400 mt-1">{restricted ? 'Scegli con quale tesseramento ammesso ti iscrivi.' : 'Puoi scegliere liberamente con quale tesseramento presentarti.'}</p>
                                                 </div>
                                             )}
                                         </div>
