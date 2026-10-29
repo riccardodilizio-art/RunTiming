@@ -365,7 +365,16 @@ export class PaymentsService {
             where: { eventId, paymentStatus: PaymentStatus.CONFIRMED, paymentMethod: { in: ['paypal', 'bank'] } },
         });
         const cs = (f: (c: (typeof cambi)[number]) => number) => round2(cambi.reduce((a, c) => a + f(c), 0));
-        const differenzeGara = cs(c => (c.tipo === 'gara' ? c.importo : 0));
+        // Differenze di gara all'organizzatore, tranne per chi poi si è trasferito (sono nel credito)
+        const trasferiteIds = new Set(regs.filter(r => r.trasferitoAt).map(r => r.id));
+        const differenzeGara = cs(c => (c.tipo === 'gara' && !trasferiteIds.has(c.registrationId) ? c.importo : 0));
+        // Crediti dell'edizione precedente usati qui: li paga la segreteria (ha tenuto quei soldi)
+        const codiciUsati = [...new Set(ok.map(r => r.discountCode).filter((x): x is string => !!x))];
+        const crediti = codiciUsati.length
+            ? await this.prisma.discountCode.findMany({ where: { code: { in: codiciUsati }, creditoDaEventoId: { not: null } }, select: { code: true } })
+            : [];
+        const codiciCredito = new Set(crediti.map(c => c.code));
+        const creditiUsati = sum(ok.filter(r => r.discountCode && codiciCredito.has(r.discountCode)), r => r.discountAmount);
         const quoteSegreteria = cs(c => (c.tipo === 'gara' ? 0 : c.importo));
         // Trasferite all'anno dopo: i soldi restano alla segreteria (coprono il credito
         // dell'edizione successiva), non si girano all'organizzatore di quest'anno
@@ -375,7 +384,8 @@ export class PaymentsService {
             maggiorazioni: round2(sum(collected, r => r.paymentFee) + cs(c => c.paymentFee) + sum(trasferite, r => r.paymentFee)),
             commissioni: round2(sum(collected, r => r.commissionAmount) + sum(trasferite, r => r.commissionAmount)),
             creditiEmessi: { count: regs.filter(r => r.trasferitoAt).length, total: sum(regs.filter(r => r.trasferitoAt), r => r.basePrice - r.discountAmount) },
-            daGirareOrganizzatore: round2(sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount) + differenzeGara),
+            daGirareOrganizzatore: round2(sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount) + differenzeGara + creditiUsati),
+            creditiUsati,
             quoteSegreteria,
             cambi: { count: cambi.length, differenzeGara, quoteSegreteria },
             // Quote incassate direttamente dall'organizzatore (sul posto / a mano):
@@ -398,6 +408,9 @@ export class PaymentsService {
             [`di cui commissioni (${siteName()})`, s.totals.commissioni],
             ["Da girare all'organizzatore", s.totals.daGirareOrganizzatore],
             ["Commissioni dovute dall'organizzatore (quote incassate da lui)", s.totals.commissioniDaOrganizzatore],
+            ['Quote di segreteria (cessioni, trasferimenti)', s.totals.quoteSegreteria],
+            ["Crediti emessi per l'anno dopo (restano alla segreteria)", `${s.totals.creditiEmessi.count} · ${s.totals.creditiEmessi.total} €`],
+            ['Crediti dell\'anno prima usati qui (compresi nel da girare)', s.totals.creditiUsati],
             ['In attesa di pagamento', `${s.totals.inAttesa.count} iscrizioni · ${s.totals.inAttesa.total} €`],
             [],
             ['Metodo', 'Pagate', 'Totale €', 'Maggiorazioni €'],

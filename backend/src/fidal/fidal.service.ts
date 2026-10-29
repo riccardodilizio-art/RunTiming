@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { WiseClient } from './wise.client';
@@ -34,6 +34,17 @@ export class FidalService {
 
     /** Risposte recenti (10 minuti): meno chiamate al gestionale FIDAL a parità di tessera. */
     private readonly recent = new Map<string, { at: number; atleta: FidalAthleteDto | null }>();
+    /** Chiamate a WISE nell'ultimo minuto: oltre il limite si usa solo l'archivio locale (FIDAL non va sommersa). */
+    private wiseCalls: number[] = [];
+    private static readonly WISE_PER_MIN = Number(process.env.WISE_MAX_PER_MIN) || 120;
+
+    private allowWise(): boolean {
+        const now = Date.now();
+        this.wiseCalls = this.wiseCalls.filter(t => now - t < 60_000);
+        if (this.wiseCalls.length >= FidalService.WISE_PER_MIN) return false;
+        this.wiseCalls.push(now);
+        return true;
+    }
 
     /**
      * Verifica tesseramento per numero tessera: prima WISE (dato in tempo reale),
@@ -47,6 +58,7 @@ export class FidalService {
         if (hit && Date.now() - hit.at < 10 * 60_000) return { tessera: key, tesserato: !!hit.atleta, atleta: hit.atleta && { ...hit.atleta } };
         let dto: FidalAthleteDto | null;
         try {
+            if (!this.allowWise()) throw new ServiceUnavailableException('Troppe verifiche FIDAL in questo momento');
             const raw = await this.wise.getJson<unknown>(this.atletaPath, { [this.atletaParam]: tessera });
             dto = extractAtleti(raw).map(mapAtleta).find(a => a.tessera) ?? null;
             if (dto) {

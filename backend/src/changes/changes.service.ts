@@ -269,7 +269,14 @@ export class ChangesService {
             });
         });
         if (aspetta) return { applicato: false, paymentRef: change.paymentRef, totale: change.totale, descrizione };
-        const done = await this.apply(change.id);
+        let done: Awaited<ReturnType<ChangesService['apply']>>;
+        try {
+            done = await this.apply(change.id);
+        } catch (e) {
+            // Cambio non fatto: niente richiesta "confermata" rimasta a metà
+            await this.prisma.regChange.delete({ where: { id: change.id } }).catch(() => undefined);
+            throw e;
+        }
         return { applicato: true, descrizione, ...done };
     }
 
@@ -437,12 +444,14 @@ export class ChangesService {
         if (paymentStatus === PaymentStatus.REJECTED && c.appliedAt) {
             throw new ConflictException('Cambio già fatto: non si può annullare da qui');
         }
+        // Prima si fa il cambio (se non è più possibile, es. iscrizione annullata, si ferma
+        // qui e il pagamento resta da sistemare a mano), poi si segna come incassato
+        if (paymentStatus === PaymentStatus.CONFIRMED && !c.appliedAt) await this.apply(id);
         const r = await this.prisma.regChange.updateMany({
             where: { id, paymentStatus: c.paymentStatus },
             data: { paymentStatus, paidAt: paymentStatus === PaymentStatus.CONFIRMED ? c.paidAt ?? new Date() : null },
         });
         if (r.count === 0) throw new ConflictException('Il cambio è cambiato nel frattempo: ricarica la pagina');
-        if (paymentStatus === PaymentStatus.CONFIRMED && !c.appliedAt) await this.apply(id);
         return { ok: true };
     }
 }

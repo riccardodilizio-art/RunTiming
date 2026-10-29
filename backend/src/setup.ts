@@ -54,7 +54,7 @@ export function configureApp(app: NestExpressApplication): void {
         return v;
     };
     app.use(/^\/api\/(sync\/races\/[^/]+\/results|races\/[^/]+\/results)$/, needsCredential(['ADMIN', 'ORGANIZER']), json({ limit: '25mb', reviver }));
-    app.use('/api/societies/me', needsCredential(['SOCIETY']), json({ limit: '5mb', reviver }));
+    app.use('/api/societies/me', needsCredential(['SOCIETY']), json({ limit: '2mb', reviver }));
     app.use(json({ limit: '1mb', reviver }));
 
     app.setGlobalPrefix('api');

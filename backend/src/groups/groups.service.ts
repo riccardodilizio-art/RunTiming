@@ -287,6 +287,7 @@ export class GroupsService {
                     const count = await tx.registration.count({ where: { raceId: g.raceId, paymentStatus: { not: PaymentStatus.REJECTED } } });
                     if (count + members.length > g.race.maxParticipants) throw new ConflictException('Gara al completo: impossibile riattivare il gruppo');
                 }
+                await assertSocietyLimit(tx, g.race, g.societyId, members.filter(m => m.raceId === g.raceId).length);
                 const dups: string[] = [];
                 for (const m of members) if (await findDuplicate(tx, m.raceId, m)) dups.push(`${m.cognome} ${m.nome}`);
                 if (dups.length) throw new ConflictException({ message: 'Impossibile riattivare: atleti già iscritti di nuovo', errori: dups });

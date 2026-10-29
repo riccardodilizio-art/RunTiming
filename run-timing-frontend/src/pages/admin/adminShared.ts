@@ -26,7 +26,7 @@ export const categoryOptions: { value: SportCategory; label: string }[] = [
 
 /** Testo che Excel eseguirebbe come formula (=, +, -, @…): si apre con un apice e resta testo. */
 function csvSafe(v: string): string {
-    return /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+    return /^[=+\-@\t\r]/.test(v) && !/^-?\d+([.,]\d+)?$/.test(v) ? `'${v}` : v;
 }
 
 export function downloadCSV(race: Race, regs: RegistrationSubmission[]) {

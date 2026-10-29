@@ -827,7 +827,7 @@ export class RegistrationsService {
                 );
             }
         }
-        if (reg.paymentStatus === paymentStatus) return reg;
+        if (reg.paymentStatus === paymentStatus) return senzaToken(reg);
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
         const updated = await this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;
