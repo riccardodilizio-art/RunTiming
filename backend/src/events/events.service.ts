@@ -6,6 +6,7 @@ import { EventAccess } from '../common/access';
 import { todayRome } from '../registrations/rules';
 import { regolaOmaggi } from '../groups/group.rules';
 import { combinateEvento, rimappaCombinate } from '../registrations/combinata';
+import { quoteCambi } from '../changes/change.rules';
 import { daysBetween, nextEditionDate, nextEditionTitle, shiftPriceSteps } from './copy';
 import { DayDto, EventDto, EventInfoDto, EventsQueryDto, RaceDto } from './events.dto';
 
@@ -195,6 +196,7 @@ export class EventsService {
             });
             const ids = await this.syncDays(tx, ev.id, dto.days);
             await this.saveCombinate(tx, ev.id, dto.combinate, ids);
+            if (dto.quoteCambi !== undefined) await tx.event.update({ where: { id: ev.id }, data: { quoteCambi: J(quoteCambi(dto.quoteCambi)) } });
             return ev.id;
         }).then(id => this.byId(id));
     }
@@ -215,6 +217,7 @@ export class EventsService {
             });
             const ids = await this.syncDays(tx, id, dto.days);
             await this.saveCombinate(tx, id, dto.combinate, ids);
+            if (dto.quoteCambi !== undefined) await tx.event.update({ where: { id }, data: { quoteCambi: J(quoteCambi(dto.quoteCambi)) } });
         });
         return this.byId(id);
     }
@@ -260,6 +263,7 @@ export class EventsService {
                     isFeatured: false,
                     commission: J(info.commission),
                     routeInfo: J(info.routeInfo),
+                    quoteCambi: J(info.quoteCambi),
                     combinate: Prisma.JsonNull, // impostate sotto, con gli id delle gare nuove
                 },
             });

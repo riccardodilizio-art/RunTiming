@@ -149,6 +149,8 @@ model Event {
   routeInfo     Json?
   /// Combinate: [{ id, nome, raceIds, prezzo }] — iscrizione a più gare con una quota sua
   combinate     Json?
+  /// Cambi dopo l'iscrizione: { cambioGara, cessione (€ o null = no), trasferimento (€ o null = no) }
+  quoteCambi    Json?
   createdBy     Account?   @relation("OrganizerEvents", fields: [createdById], references: [id])
   createdById   String?
   days          EventDay[]
@@ -274,6 +276,9 @@ model Registration {
   combinataParentId String?
   /// Pettorale (unico nell'evento)
   pettorale        Int?
+  /// Codice segreto del link "gestisci iscrizione" (anche senza account)
+  manageToken      String?         @unique
+  changes          RegChange[]
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])
@@ -282,6 +287,38 @@ model Registration {
   @@index([groupId])
   @@index([combinataParentId])
   @@unique([eventId, pettorale])
+}
+
+/// Cambio dopo l'iscrizione (cambio gara, cessione del pettorale, trasferimento all'anno dopo).
+/// Se c'è da pagare si applica quando il pagamento arriva; altrimenti subito.
+model RegChange {
+  id             String        @id @default(cuid())
+  registration   Registration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  registrationId String
+  eventId        String
+  /// gara | cessione | trasferimento
+  tipo           String
+  /// Dati del cambio (gara di arrivo, nuovo atleta…)
+  dati           Json
+  descrizione    String
+  /// Differenza di quota o quota di segreteria (senza maggiorazione del metodo)
+  importo        Float
+  paymentFee     Float         @default(0)
+  totale         Float
+  paymentMethod  String?
+  paymentStatus  PaymentStatus @default(PENDING)
+  paymentRef     String?       @unique
+  paypalOrderId  String?       @unique
+  paypalAmount   Float?
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  paidAt         DateTime?
+  appliedAt      DateTime?
+  /// Risultato (es. codice del credito per l'anno dopo)
+  esito          String?
+
+  @@index([registrationId])
+  @@index([paymentStatus])
 }
 
 /// Pagamento di gruppo: la società iscrive più atleti e paga con un solo bonifico.

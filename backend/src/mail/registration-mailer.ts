@@ -60,6 +60,7 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
                 : null,
             certificatoMancante: reg.certStatus === CertStatus.IN_ATTESA,
             siteUrl: MailService.siteUrl(),
+            manageToken: reg.manageToken,
         };
     }
 

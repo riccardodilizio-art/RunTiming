@@ -1,4 +1,4 @@
-import { randomInt } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 
 // Alfabeto senza caratteri ambigui (0/O, 1/I/L): la causale si copia a mano.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -8,4 +8,9 @@ export function newPaymentRef(): string {
     let s = '';
     for (let i = 0; i < 8; i++) s += ALPHABET[randomInt(ALPHABET.length)];
     return `RT-${s}`;
+}
+
+/** Codice segreto per il link "gestisci iscrizione" (cambi senza account). */
+export function newManageToken(): string {
+    return randomBytes(18).toString('base64url');
 }

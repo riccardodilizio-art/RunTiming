@@ -35,7 +35,7 @@ import {
     todayRome,
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
-import { newPaymentRef } from '../payments/payment-ref';
+import { newManageToken, newPaymentRef } from '../payments/payment-ref';
 import { METODO_COMBINATA, allineaCombinata, combinateEvento, prezzoAggiunta } from './combinata';
 import { siteName } from '../common/brand';
 
@@ -115,6 +115,7 @@ export function snapshotData(race: { id: string; day: { event: { id: string } } 
         assignedCategory: p.category?.name,
         fidalVerified: a.fidalVerified,
         certStatus: p.certStatus,
+        manageToken: newManageToken(),
     };
 }
 
@@ -130,7 +131,7 @@ export async function assertSocietyLimit(
 
 /** Stessa persona già iscritta (attiva) alla gara. */
 export function findDuplicate(
-    tx: Prisma.TransactionClient, raceId: string, a: { cognome: string; nome: string; dataNascita: Date },
+    tx: Prisma.TransactionClient, raceId: string, a: { cognome: string; nome: string; dataNascita: Date | null },
 ) {
     return tx.registration.findFirst({
         where: {

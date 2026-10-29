@@ -4,12 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     User, Trophy, Flag, Timer, TrendingUp,
     Edit3, Check, X, AlertCircle, ChevronRight, Star,
-    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award, LayoutDashboard,
+    Calendar, MapPin, Clock, Trash2, Pencil, AlertTriangle, Award, LayoutDashboard, ArrowRightLeft,
 } from 'lucide-react';
 import { useAthleteAuth } from '../context/useAthleteAuth';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { loadResults, useAdminStore, loadMyRegistrationsApi, reportApiError } from '../hooks/useAdminStore';
 import { USE_API } from '../lib/api';
+import { ManageRegistrationModal } from '../components/ManageRegistration';
 import { fidalFillApi } from '../lib/accounts';
 import { mockEvents } from '../data/mockEvents';
 import DynamicForm from '../components/registration/DynamicForm';
@@ -144,6 +145,7 @@ export default function AthleteDashboardPage() {
     const [editingReg, setEditingReg] = useState<RegistrationSubmission | null>(null);
     const [editFormData, setEditFormData] = useState<Record<string, string | boolean>>({});
     const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
+    const [changingRegId, setChangingRegId] = useState<string | null>(null);
     const [certData, setCertData] = useState<CertData | null>(null);
     const { updateRegistration, deleteRegistration, events, registrations } = useAdminStore();
 
@@ -506,6 +508,15 @@ export default function AthleteDashboardPage() {
                                                         >
                                                             <Pencil className="w-3 h-3" /> Modifica
                                                         </button>
+                                                        {USE_API && (
+                                                            <>
+                                                                <span className="text-slate-200">|</span>
+                                                                <button onClick={() => setChangingRegId(reg.id)}
+                                                                    className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium">
+                                                                    <ArrowRightLeft className="w-3 h-3" /> Cambia gara, cedi o rinvia
+                                                                </button>
+                                                            </>
+                                                        )}
                                                         <span className="text-slate-200">|</span>
                                                         <button
                                                             onClick={() => setDeletingRegId(reg.id)}
@@ -812,6 +823,9 @@ export default function AthleteDashboardPage() {
                         </div>
                     </div>
                 </div>
+            )}
+            {changingRegId && (
+                <ManageRegistrationModal regId={changingRegId} onClose={() => { setChangingRegId(null); if (USE_API) loadMyRegistrationsApi().catch(() => undefined); }} />
             )}
         </DashboardLayout>
     );

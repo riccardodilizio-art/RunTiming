@@ -373,6 +373,8 @@ export interface Event {
     routeInfo?: RouteInfo;
     /** Combinate: iscrizione a più gare dell'evento con una quota sua. */
     combinate?: Combinata[];
+    /** Cambi dopo l'iscrizione: cessione e trasferimento con quota di segreteria (null = non ammessi). */
+    quoteCambi?: { cambioGara: boolean; cessione: number | null; trasferimento: number | null };
     /** Commissione specifica per questo evento (sovrascrive globale) */
     commission?: CommissionConfig;
 }

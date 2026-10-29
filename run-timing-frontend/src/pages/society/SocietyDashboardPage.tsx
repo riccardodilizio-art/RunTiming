@@ -19,6 +19,7 @@ import { ApiError } from '../../lib/api';
 import { ammesso, tesseramentoDaEnte } from '../../lib/tesseramenti';
 import GroupDetails, { BankBox, GroupTotals } from '../../components/GroupDetails';
 import { euro, type PaymentGroupView } from '../../lib/gruppi';
+import { ManageRegistrationModal } from '../../components/ManageRegistration';
 
 type SocietySection = 'roster' | 'storico' | 'pagamenti';
 
@@ -114,6 +115,7 @@ export default function SocietyDashboardPage() {
     const [showRegModal, setShowRegModal] = useState(false);
     const [reimported, setReimported] = useState(0);
     const [section, setSection] = useState<SocietySection>('roster');
+    const [changingRegId, setChangingRegId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!currentSociety) navigate('/societa/accedi', { replace: true });
@@ -314,6 +316,7 @@ export default function SocietyDashboardPage() {
                                         <th className="px-4 py-3">Evento · Gara</th>
                                         <th className="px-4 py-3">Quota</th>
                                         <th className="px-4 py-3">Pagamento</th>
+                                        {USE_API && <th className="px-4 py-3" />}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -332,6 +335,15 @@ export default function SocietyDashboardPage() {
                                                         {paid ? 'Confermato' : 'In attesa'}
                                                     </span>
                                                 </td>
+                                                {USE_API && (
+                                                    <td className="px-4 py-3 text-right">
+                                                        {reg.paymentStatus !== 'rejected' && (
+                                                            <button onClick={() => setChangingRegId(reg.id)} className="text-xs text-brand-600 hover:underline whitespace-nowrap">
+                                                                Cambia gara / cedi
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })}
@@ -343,6 +355,9 @@ export default function SocietyDashboardPage() {
               )}
             </div>
 
+            {changingRegId && (
+                <ManageRegistrationModal regId={changingRegId} onClose={() => { setChangingRegId(null); loadMyRegistrationsApi().catch(() => undefined); }} />
+            )}
             {editing && (
                 <AthleteModal athlete={editing} onSave={saveAthlete} onClose={() => setEditing(null)} />
             )}
