@@ -11,6 +11,7 @@ import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import ResultsPage from './pages/ResultsPage';
 import ContactsPage from './pages/ContactsPage';
+import ManageRegistrationPage from './pages/ManageRegistrationPage';
 import PaymentPage from './pages/PaymentPage';
 import RegisterPage from './pages/RegisterPage';
 import ParticipantsPage from './pages/ParticipantsPage';
@@ -49,6 +50,7 @@ function Shell() {
                     <Route path="/events/:slug/register" element={<RegisterPage />} />
                     <Route path="/events/:slug/partecipanti" element={<ParticipantsPage />} />
                     <Route path="/pagamento/:ref" element={<PaymentPage />} />
+                    <Route path="/iscrizione/:token" element={<ManageRegistrationPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/accedi" element={<AthleteLoginPage />} />
                     <Route path="/password-dimenticata" element={<ForgotPasswordPage />} />

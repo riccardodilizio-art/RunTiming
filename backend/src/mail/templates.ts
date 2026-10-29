@@ -66,6 +66,8 @@ export interface RegMailData {
     bank?: { iban: string; intestatario: string; banca?: string; giorni: number } | null;
     certificatoMancante?: boolean;
     siteUrl: string;
+    /** Codice del link "gestisci iscrizione" (cambio gara, cessione, trasferimento). */
+    manageToken?: string | null;
 }
 
 const payUrl = (d: RegMailData) => `${d.siteUrl}/pagamento/${encodeURIComponent(d.paymentRef ?? '')}`;
@@ -123,6 +125,11 @@ ${button(payUrl(d), 'Paga ora')}`;
         ? `<p style="background:#fef3c7;border-radius:8px;padding:10px 12px">Per questa gara serve il <strong>certificato medico</strong>: non risulta ancora verificato. Portalo al ritiro del pettorale (se hai un account puoi anche caricarlo dalla tua area atleta).</p>`
         : '';
     const certText = d.certificatoMancante ? '\n\nPer questa gara serve il certificato medico: non risulta ancora verificato.' : '';
+    const manage = d.manageToken ? `${d.siteUrl}/iscrizione/${encodeURIComponent(d.manageToken)}` : '';
+    const manageHtml = manage
+        ? `<p style="color:#64748b;font-size:13px">Devi cambiare gara, cedere il pettorale o rinviare all'anno prossimo? <a href="${esc(manage)}">Gestisci la tua iscrizione</a> (non inoltrare questa email: il link è personale).</p>`
+        : '';
+    const manageText = manage ? `\n\nGestisci la tua iscrizione (link personale): ${manage}` : '';
 
     const subject = oneLine(
         d.stato === 'CONFIRMED'
@@ -131,8 +138,8 @@ ${button(payUrl(d), 'Paga ora')}`;
     );
     return {
         subject,
-        html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>abbiamo ricevuto la tua iscrizione.</p>${rows(summary)}${payHtml}${cert}`),
-        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto la tua iscrizione.\n\n${textRows(summary)}\n\n${payText}${certText}\n\n${signature()}`,
+        html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>abbiamo ricevuto la tua iscrizione.</p>${rows(summary)}${payHtml}${cert}${manageHtml}`),
+        text: `Ciao ${title(d.nome)},\nabbiamo ricevuto la tua iscrizione.\n\n${textRows(summary)}\n\n${payText}${certText}${manageText}\n\n${signature()}`,
     };
 }
 
@@ -262,5 +269,45 @@ export function groupPaymentReceivedMail(d: GroupMailData): MailContent {
         subject,
         html: layout(subject, `<p>Ciao ${esc(d.societa)},</p><p>abbiamo ricevuto il bonifico: le iscrizioni del gruppo sono <strong>confermate</strong>.</p>${rows(summary)}`),
         text: `Ciao ${d.societa},\nabbiamo ricevuto il bonifico: le iscrizioni del gruppo sono confermate.\n\n${textRows(summary)}\n\n${signature()}`,
+    };
+}
+
+// ─── Cambi dopo l'iscrizione ─────────────────────────────────────────────────
+
+export interface ChangeMailData {
+    nome: string;
+    evento: string;
+    descrizione: string;
+    /** Per il trasferimento: codice e valore del credito per l'anno dopo. */
+    credito?: { codice: string; importo: number; scadenza: Date } | null;
+    manageUrl?: string | null;
+}
+
+/** Cambio fatto (gara cambiata, pettorale ceduto, quota trasferita). */
+export function changeAppliedMail(d: ChangeMailData): MailContent {
+    const subject = oneLine(`Modifica dell'iscrizione – ${d.evento}`);
+    const credito = d.credito
+        ? `<p>Il tuo credito per la prossima edizione: <strong>${esc(euro(d.credito.importo))}</strong>. Al momento dell'iscrizione inserisci il codice:</p>
+<p style="font-size:22px;font-weight:bold;letter-spacing:2px">${esc(d.credito.codice)}</p>
+<p style="color:#64748b;font-size:13px">Valido una volta, entro il ${esc(giorno(d.credito.scadenza))}.</p>`
+        : '';
+    const creditoText = d.credito
+        ? `\n\nCredito per la prossima edizione: ${euro(d.credito.importo)}. Codice da inserire all'iscrizione: ${d.credito.codice} (valido una volta, entro il ${giorno(d.credito.scadenza)}).`
+        : '';
+    const link = d.manageUrl ? button(d.manageUrl, 'Vedi la tua iscrizione') : '';
+    return {
+        subject,
+        html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>${esc(d.descrizione)}.</p>${credito}${link}`),
+        text: `Ciao ${title(d.nome)},\n${d.descrizione}.${creditoText}${d.manageUrl ? `\n\nLa tua iscrizione: ${d.manageUrl}` : ''}\n\n${signature()}`,
+    };
+}
+
+/** Cessione: il pettorale non è più a nome di chi lo ha ceduto. */
+export function changeCededMail(d: { nome: string; evento: string; gara: string }): MailContent {
+    const subject = oneLine(`Pettorale ceduto – ${d.evento}`);
+    return {
+        subject,
+        html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>il tuo pettorale per <strong>${esc(d.gara)}</strong> è stato ceduto a un altro atleta: l'iscrizione non è più a tuo nome.</p>`),
+        text: `Ciao ${title(d.nome)},\nil tuo pettorale per ${d.gara} è stato ceduto a un altro atleta: l'iscrizione non è più a tuo nome.\n\n${signature()}`,
     };
 }

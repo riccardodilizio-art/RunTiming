@@ -15,6 +15,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { allineaCombinata } from '../registrations/combinata';
+import { ChangesModule } from '../changes/changes.module';
+import { ChangesService } from '../changes/changes.service';
 import { PaymentStatus, Prisma, Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
@@ -55,7 +57,85 @@ export class PaymentsService {
         private readonly paypal: PaypalClient,
         private readonly access: EventAccess,
         private readonly mailer: RegistrationMailer,
+        private readonly changes: ChangesService,
     ) {}
+
+    /** Il codice è di un cambio dopo l'iscrizione (cambio gara, cessione, trasferimento)? */
+    private async changeByRef(ref: string) {
+        const c = await this.prisma.regChange.findUnique({
+            where: { paymentRef: normRef(ref) },
+            include: { registration: { include: { race: { include: { day: { include: { event: true } } } } } } },
+        });
+        if (!c) throw new NotFoundException('Codice pagamento non trovato');
+        return c;
+    }
+
+    private isRegRef(ref: string) {
+        return this.prisma.registration.count({ where: { paymentRef: normRef(ref) } }).then(n => n > 0);
+    }
+
+    private async changeInfo(ref: string) {
+        const c = await this.changeByRef(ref);
+        const reg = c.registration;
+        const p = await this.settings.payments();
+        const methods = allowedMethods(reg.race.paymentMode).filter(m => m === 'paypal' || m === 'bank');
+        return {
+            ref: c.paymentRef,
+            tipo: 'cambio',
+            descrizione: c.descrizione,
+            atleta: `${reg.nome} ${reg.cognome.charAt(0)}.`,
+            evento: reg.race.day.event.title,
+            gara: reg.race.name,
+            data: reg.race.day.date,
+            status: c.paymentStatus,
+            method: c.paymentMethod,
+            amount: c.totale,
+            paymentFee: c.paymentFee,
+            paidAt: c.paidAt,
+            obbligatorio: true,
+            options: methods.map(m => ({ method: m, fee: paymentFee(m, c.importo, p), total: round2(c.importo + paymentFee(m, c.importo, p)) })),
+            bank: c.paymentMethod === 'bank'
+                ? { iban: p.iban, intestatario: p.intestatario, banca: p.banca, causale: `${c.paymentRef} ${reg.cognome}`, giorni: p.bankDays }
+                : null,
+            paypalReady: this.paypal.configured,
+        };
+    }
+
+    private async changeSwitch(ref: string, method: 'paypal' | 'bank') {
+        const c = await this.changeByRef(ref);
+        if (c.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Cambio già pagato o annullato');
+        if (!allowedMethods(c.registration.race.paymentMode).includes(method)) throw new BadRequestException('Metodo non ammesso per questa gara');
+        const fee = paymentFee(method, c.importo, await this.settings.payments());
+        await this.prisma.regChange.updateMany({
+            where: { id: c.id, paymentStatus: PaymentStatus.PENDING },
+            data: { paymentMethod: method, paymentFee: fee, totale: round2(c.importo + fee) },
+        });
+        return this.changeByRef(ref);
+    }
+
+    private async changePaypalCapture(ref: string, orderId: string) {
+        const c = await this.changeByRef(ref);
+        if (c.paymentStatus === PaymentStatus.CONFIRMED) return this.changeInfo(ref);
+        if (c.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Cambio annullato: pagamento non possibile');
+        if (c.paypalOrderId !== orderId) throw new BadRequestException('Ordine PayPal non corrispondente');
+        const expected = c.paypalAmount ?? c.totale;
+        const cap = await this.paypal.capture(orderId);
+        if (cap.status === 'PENDING') throw new ConflictException('Pagamento in verifica da parte di PayPal: la segreteria confermerà appena arriva');
+        if (cap.status !== 'COMPLETED' || cap.customId !== c.id) throw new BadRequestException('Pagamento PayPal non completato');
+        if (cap.currency !== 'EUR' || round2(cap.amount ?? 0) !== round2(expected)) {
+            this.log.error(`Pagamento PayPal ${orderId} sul cambio ${c.id}: incassati ${cap.amount} ${cap.currency}, attesi ${expected} EUR — verificare`);
+            throw new ConflictException('Pagamento ricevuto ma l\'importo non corrisponde: la segreteria verificherà e ti contatterà');
+        }
+        const r = await this.prisma.regChange.updateMany({
+            where: { id: c.id, paymentStatus: PaymentStatus.PENDING },
+            data: { paymentStatus: PaymentStatus.CONFIRMED, paidAt: new Date(), paymentMethod: 'paypal' },
+        });
+        if (r.count) {
+            try { await this.changes.apply(c.id); }
+            catch (e) { this.log.error(`Cambio ${c.id} pagato ma non applicato: ${e instanceof Error ? e.message : e} — verificare`); }
+        }
+        return this.changeInfo(ref);
+    }
 
     private async byRef(ref: string): Promise<RegWithRace> {
         const reg = await this.prisma.registration.findUnique({
@@ -71,6 +151,7 @@ export class PaymentsService {
      * pagare, niente dati personali oltre al nome abbreviato.
      */
     async info(ref: string) {
+        if (!(await this.isRegRef(ref))) return this.changeInfo(ref);
         const reg = await this.byRef(ref);
         const p = await this.settings.payments();
         const subtotal = round2(reg.pricePaid - reg.paymentFee);
@@ -113,6 +194,7 @@ export class PaymentsService {
     }
 
     async chooseBank(ref: string) {
+        if (!(await this.isRegRef(ref))) { await this.changeSwitch(ref, 'bank'); return this.changeInfo(ref); }
         const reg = await this.byRef(ref);
         if (reg.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Iscrizione già pagata o annullata');
         await this.switchMethod(reg, 'bank');
@@ -120,6 +202,15 @@ export class PaymentsService {
     }
 
     async paypalOrder(ref: string) {
+        if (!(await this.isRegRef(ref))) {
+            const c = await this.changeSwitch(ref, 'paypal');
+            const orderId = await this.paypal.createOrder({
+                registrationId: c.id, paymentRef: c.paymentRef!,
+                description: `${c.descrizione} – ${c.registration.race.day.event.title}`.slice(0, 120), amount: c.totale,
+            });
+            await this.prisma.regChange.update({ where: { id: c.id }, data: { paypalOrderId: orderId, paypalAmount: c.totale } });
+            return { orderId, amount: c.totale };
+        }
         let reg = await this.byRef(ref);
         if (reg.paymentStatus !== PaymentStatus.PENDING) throw new ConflictException('Iscrizione già pagata o annullata');
         reg = await this.switchMethod(reg, 'paypal');
@@ -138,6 +229,7 @@ export class PaymentsService {
 
     /** Incasso: conferma l'iscrizione solo se PayPal ha davvero incassato l'importo giusto. */
     async paypalCapture(ref: string, orderId: string) {
+        if (!(await this.isRegRef(ref))) return this.changePaypalCapture(ref, orderId);
         const reg = await this.byRef(ref);
         if (reg.paymentStatus === PaymentStatus.CONFIRMED) return this.info(ref);
         // Annullata (es. scadenza del pagamento anticipato): NON si incassa, il posto non c'è più
@@ -262,11 +354,21 @@ export class PaymentsService {
             return { method: m, count: xs.length, total: sum(xs, r => r.pricePaid), fees: sum(xs, r => r.paymentFee) };
         });
         const pending = regs.filter(r => r.paymentStatus === PaymentStatus.PENDING);
+        // Cambi dopo l'iscrizione pagati online: differenze di gara (all'organizzatore)
+        // e quote di segreteria (cessione, trasferimento)
+        const cambi = await this.prisma.regChange.findMany({
+            where: { eventId, paymentStatus: PaymentStatus.CONFIRMED, paymentMethod: { in: ['paypal', 'bank'] } },
+        });
+        const cs = (f: (c: (typeof cambi)[number]) => number) => round2(cambi.reduce((a, c) => a + f(c), 0));
+        const differenzeGara = cs(c => (c.tipo === 'gara' ? c.importo : 0));
+        const quoteSegreteria = cs(c => (c.tipo === 'gara' ? 0 : c.importo));
         const totals = {
-            incassatoSegreteria: sum(collected, r => r.pricePaid),
-            maggiorazioni: sum(collected, r => r.paymentFee),
+            incassatoSegreteria: round2(sum(collected, r => r.pricePaid) + cs(c => c.totale)),
+            maggiorazioni: round2(sum(collected, r => r.paymentFee) + cs(c => c.paymentFee)),
             commissioni: sum(collected, r => r.commissionAmount),
-            daGirareOrganizzatore: sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount),
+            daGirareOrganizzatore: round2(sum(collected, r => r.pricePaid - r.paymentFee - r.commissionAmount) + differenzeGara),
+            quoteSegreteria,
+            cambi: { count: cambi.length, differenzeGara, quoteSegreteria },
             // Quote incassate direttamente dall'organizzatore (sul posto / a mano):
             // la commissione della segreteria su queste la deve l'organizzatore
             commissioniDaOrganizzatore: sum(ok.filter(r => r.paymentMethod === 'onsite' || r.paymentMethod === 'manual'), r => r.commissionAmount),
@@ -372,6 +474,7 @@ export class PaymentsController {
 }
 
 @Module({
+    imports: [ChangesModule],
     controllers: [PaymentsController],
     providers: [PaymentsService, PaypalClient],
 })

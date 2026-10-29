@@ -13,6 +13,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     const prisma: any = {
         registration: {
             findUnique: async () => reg,
+            count: async () => 1,
             update: async ({ data }: any) => Object.assign(reg, data),
             // Aggiornamento condizionato: si applica solo se lo stato combacia
             updateMany: async ({ where, data }: any) => {
@@ -29,7 +30,7 @@ function setup(overrides: Record<string, unknown> = {}) {
         capture: jest.fn(),
     };
     const mailer: any = { paymentReceived: jest.fn(async () => undefined), cancelled: jest.fn(async () => undefined) };
-    const svc = new PaymentsService(prisma, settings, paypal, {} as any, mailer);
+    const svc = new PaymentsService(prisma, settings, paypal, {} as any, mailer, {} as any);
     return { svc, reg, paypal, mailer };
 }
 
@@ -104,7 +105,7 @@ describe('pagamenti', () => {
 
     it('annulla non paganti: solo per gare a pagamento anticipato', async () => {
         const prisma: any = { race: { findUnique: async () => ({ id: 'r1', paymentMode: 'both', day: { event: { id: 'e1', createdById: null } } }) } };
-        const svc = new PaymentsService(prisma, {} as any, {} as any, { assert: async () => undefined } as any, {} as any);
+        const svc = new PaymentsService(prisma, {} as any, {} as any, { assert: async () => undefined } as any, {} as any, {} as any);
         await expect(svc.cancelUnpaid({ sub: 'a', role: 'ADMIN' } as any, 'r1')).rejects.toThrow(/pagamento anticipato/);
     });
 

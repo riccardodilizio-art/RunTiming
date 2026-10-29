@@ -63,6 +63,7 @@ export interface ApiEvent {
     commission?: unknown;
     routeInfo?: unknown;
     combinate?: unknown;
+    quoteCambi?: unknown;
     createdById?: string | null;
     days: ApiDay[];
 }
@@ -163,6 +164,7 @@ export function toEvent(e: ApiEvent): Event {
         commission: opt(e.commission) as Event['commission'],
         routeInfo: opt(e.routeInfo) as Event['routeInfo'],
         combinate: Array.isArray(e.combinate) ? e.combinate as Event['combinate'] : [],
+        quoteCambi: (e.quoteCambi ?? undefined) as Event['quoteCambi'],
         days: (e.days ?? []).map(toDay),
     };
 }
@@ -225,6 +227,7 @@ export function fromEvent(e: Event, days: EventDay[]) {
         isLive: e.isLive,
         commission: nn(e.commission),
         combinate: e.combinate ?? [],
+        quoteCambi: e.quoteCambi,
         days: days.map(d => ({
             // id locali generati dal browser (non ancora salvati) vengono ignorati dal server
             id: d.id,

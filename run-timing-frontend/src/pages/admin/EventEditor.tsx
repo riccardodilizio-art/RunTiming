@@ -9,6 +9,7 @@ import CommissionOverrideEditor from './CommissionOverrideEditor';
 import RouteInfoEditor from './RouteInfoEditor';
 import RaceEditor from './RaceEditor';
 import CombinateEditor from './CombinateEditor';
+import CambiEditor from './CambiEditor';
 import type { Event, EventDay, Race, SportCategory } from '../../types';
 
 export default function EventEditor({ event, onSave, onBack, isAdmin = true }: { event: Event; onSave: (e: Event) => void; onBack: () => void; isAdmin?: boolean }) {
@@ -393,6 +394,10 @@ export default function EventEditor({ event, onSave, onBack, isAdmin = true }: {
                             </div>
                         )}
                     </div>
+
+                    {isAdmin && (
+                        <CambiEditor value={draft.quoteCambi} onChange={v => set('quoteCambi', v)} />
+                    )}
 
                     {isAdmin && (
                         <CombinateEditor

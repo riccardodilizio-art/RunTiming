@@ -27,6 +27,7 @@ interface Statement {
     totals: {
         incassatoSegreteria: number; maggiorazioni: number; commissioni: number; daGirareOrganizzatore: number;
         commissioniDaOrganizzatore?: number;
+        quoteSegreteria?: number;
         inAttesa: { count: number; total: number };
     };
     byMethod: { method: string; count: number; total: number; fees: number }[];
@@ -182,7 +183,8 @@ function StatementCard() {
                         <div className="rounded-xl bg-slate-50 p-3">
                             <p className="text-xs text-slate-500">Incassato dalla segreteria ({SITE_NAME})</p>
                             <p className="text-xl font-bold text-slate-800">{euro(st.totals.incassatoSegreteria)}</p>
-                            <p className="text-xs text-slate-500">di cui tue maggiorazioni {euro(st.totals.maggiorazioni)} · commissioni {euro(st.totals.commissioni)}</p>
+                            <p className="text-xs text-slate-500">di cui tue maggiorazioni {euro(st.totals.maggiorazioni)} · commissioni {euro(st.totals.commissioni)}
+                                {st.totals.quoteSegreteria ? ` · quote cessioni/trasferimenti ${euro(st.totals.quoteSegreteria)}` : ''}</p>
                         </div>
                         <div className="rounded-xl bg-brand-50 p-3">
                             <p className="text-xs text-slate-500">Da girare all'organizzatore</p>
@@ -286,6 +288,65 @@ function GroupsCard() {
     );
 }
 
+interface ChangeRow {
+    id: string; tipo: string; descrizione: string; totale: number; paymentMethod: string | null; paymentStatus: string;
+    paymentRef: string | null; createdAt: string; paidAt: string | null; applicato: boolean; atleta: string; evento: string; gara: string;
+}
+
+/** Cambi dopo l'iscrizione da incassare (cambio gara, cessione, trasferimento). */
+function ChangesCard() {
+    const [status, setStatus] = useState<'PENDING' | 'CONFIRMED'>('PENDING');
+    const [rows, setRows] = useState<ChangeRow[]>([]);
+    const load = useCallback(() => { api.get<ChangeRow[]>(`/admin/changes?status=${status}`).then(setRows).catch(reportApiError); }, [status]);
+    useEffect(load, [load]);
+    async function mark(c: ChangeRow, paymentStatus: 'CONFIRMED' | 'REJECTED') {
+        const msg = paymentStatus === 'CONFIRMED' ? `Pagamento di ${euro(c.totale)} ricevuto? ${c.applicato ? '' : 'Il cambio verrà fatto subito.'}` : 'Annullare questa richiesta di cambio?';
+        if (!window.confirm(msg)) return;
+        try { await api.patch(`/admin/changes/${c.id}/payment`, { paymentStatus }); load(); } catch (e) { reportApiError(e); }
+    }
+    return (
+        <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Banknote className="h-4 w-4" /> Cambi dopo l'iscrizione</h3>
+                <div className="flex gap-1 text-xs">
+                    {(['PENDING', 'CONFIRMED'] as const).map(s => (
+                        <button key={s} type="button" onClick={() => setStatus(s)}
+                            className={`px-3 py-1 rounded-full ${status === s ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            {s === 'PENDING' ? 'Da incassare' : 'Incassati'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {rows.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">Nessun cambio {status === 'PENDING' ? 'da incassare' : 'incassato'}.</p>
+            ) : (
+                <div className="divide-y">
+                    {rows.map(c => (
+                        <div key={c.id} className="py-2.5 flex items-center gap-3 flex-wrap">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 truncate">{c.descrizione}</p>
+                                <p className="text-xs text-slate-500 truncate">
+                                    {c.paymentRef && <span className="font-mono">{c.paymentRef} · </span>}{c.atleta} · {c.evento} · {c.gara}
+                                    {' · '}{METHOD[c.paymentMethod ?? ''] ?? c.paymentMethod}{c.applicato ? ' · già fatto' : ''}
+                                </p>
+                            </div>
+                            <span className="font-semibold text-sm">{euro(c.totale)}</span>
+                            {status === 'PENDING' && (
+                                <span className="whitespace-nowrap">
+                                    <button type="button" onClick={() => mark(c, 'CONFIRMED')} className="text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 mr-1">Ricevuto</button>
+                                    {!c.applicato && (
+                                        <button type="button" onClick={() => mark(c, 'REJECTED')} title="Annulla la richiesta" className="text-xs p-1 rounded-lg text-slate-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+                                    )}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
 export default function PaymentsSection() {
     if (!USE_API) {
         return <p className="text-sm text-slate-500">I pagamenti sono disponibili solo con il backend attivo.</p>;
@@ -294,6 +355,7 @@ export default function PaymentsSection() {
         <div className="space-y-5">
             <BankCard />
             <GroupsCard />
+            <ChangesCard />
             <StatementCard />
             <SettingsCard />
         </div>

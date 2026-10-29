@@ -22,6 +22,9 @@ interface PayInfo {
     options: { method: 'paypal' | 'bank' | 'onsite'; fee: number; total: number }[];
     bank: { iban: string; intestatario: string; banca: string; causale: string; giorni: number } | null;
     paypalReady: boolean;
+    /** Pagamento di un cambio dopo l'iscrizione (cambio gara, cessione, trasferimento). */
+    tipo?: 'cambio';
+    descrizione?: string;
 }
 
 interface PaypalConfig { paypalClientId: string | null }
@@ -169,7 +172,8 @@ export default function PaymentPage() {
             <div className="max-w-lg mx-auto space-y-4">
                 <div>
                     <p className="text-sm text-slate-400">{info.evento}</p>
-                    <h1 className="text-2xl font-bold text-slate-800">Pagamento iscrizione</h1>
+                    <h1 className="text-2xl font-bold text-slate-800">{info.tipo === 'cambio' ? 'Pagamento modifica iscrizione' : 'Pagamento iscrizione'}</h1>
+                    {info.descrizione && <p className="text-sm text-slate-700 mt-1">{info.descrizione}</p>}
                     <p className="text-sm text-slate-500">{info.gara} · {info.atleta} · codice <span className="font-mono">{info.ref}</span></p>
                 </div>
 

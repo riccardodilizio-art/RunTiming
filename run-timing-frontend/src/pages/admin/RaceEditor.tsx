@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Users, UserCheck, Eye, EyeOff, CheckCircle2, UserPlus, Search,
-    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet, Award,
+    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet, Award, ArrowRightLeft,
 } from 'lucide-react';
 import ImportClassificaModal from './ImportClassificaModal';
 import CertificateEditor from './CertificateEditor';
@@ -12,6 +12,7 @@ import FormBuilder from '../../components/admin/FormBuilder';
 import DynamicForm from '../../components/registration/DynamicForm';
 import { formatPrice, inputCls, downloadCSV } from './adminShared';
 import { formatChiusura } from '../../utils/event';
+import { ManageRegistrationModal } from '../../components/ManageRegistration';
 import { exportEntrantsXlsx } from './exportEntrants';
 import CommissionOverrideEditor from './CommissionOverrideEditor';
 import PriceStepEditor from './PriceStepEditor';
@@ -65,6 +66,7 @@ export default function RaceEditor({
     const [certFilter, setCertFilter] = useState<'all' | 'in_attesa'>('all');
     const [regSearch, setRegSearch] = useState('');
     const [editingAdminReg, setEditingAdminReg] = useState<RegistrationSubmission | null>(null);
+    const [changingRegId, setChangingRegId] = useState<string | null>(null);
     const [editAdminFormData, setEditAdminFormData] = useState<Record<string, string | boolean>>({});
 
     function set<K extends keyof Race>(key: K, value: Race[K]) {
@@ -713,6 +715,12 @@ export default function RaceEditor({
                                                             >
                                                                 <Edit2 className="h-3.5 w-3.5" />
                                                             </button>
+                                                            {USE_API && isAdmin && reg.paymentStatus !== 'rejected' && (
+                                                                <button type="button" onClick={() => setChangingRegId(reg.id)}
+                                                                    className="p-1 rounded hover:bg-brand-50 text-slate-400 hover:text-brand-600" title="Cambia gara, cessione, trasferimento">
+                                                                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 onClick={() => { if (confirm('Eliminare questa iscrizione?')) handleDeleteReg(reg.id); }}
@@ -787,6 +795,9 @@ export default function RaceEditor({
                         );
                     })()}
                 </div>
+            )}
+            {changingRegId && (
+                <ManageRegistrationModal regId={changingRegId} onClose={() => { setChangingRegId(null); loadRaceRegistrationsApi(race.id, true).catch(() => undefined); }} />
             )}
         </div>
     );
