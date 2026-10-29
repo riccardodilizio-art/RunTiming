@@ -371,6 +371,25 @@ export function useAdminStore() {
         }
     }
 
+    /**
+     * Nuova edizione di un evento (solo con il backend): stessa configurazione,
+     * date alla stessa domenica dell'anno dopo, gare chiuse. Restituisce il nuovo evento.
+     */
+    async function copyEvent(id: string): Promise<Event | null> {
+        if (!USE_API) {
+            reportApiError(new Error('La copia evento è disponibile solo sul sito online.'));
+            return null;
+        }
+        try {
+            const ev = toEvent(await api.post<ApiEvent>(`/events/${id}/copy`, {}));
+            upsertEvent(ev, true);
+            return ev;
+        } catch (e) {
+            reportApiError(e);
+            return null;
+        }
+    }
+
     async function deleteEvent(id: string) {
         if (USE_API) {
             try { await api.del(`/events/${id}`); }
@@ -545,7 +564,7 @@ export function useAdminStore() {
 
     return {
         // events
-        events, saveEvent, deleteEvent, getEvent,
+        events, saveEvent, copyEvent, deleteEvent, getEvent,
         // athletes
         athletes, saveAthlete, deleteAthlete,
         // discounts

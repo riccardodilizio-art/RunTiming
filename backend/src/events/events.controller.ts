@@ -48,6 +48,14 @@ export class EventsController {
         return this.events.updateInfo(user, id, dto);
     }
 
+    /** Nuova edizione: copia dell'evento con le date all'anno dopo (gare chiuse). */
+    @Post('events/:id/copy')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN)
+    copy(@Param('id') id: string) {
+        return this.events.copy(id);
+    }
+
     @Delete('events/:id')
     @UseGuards(AuthGuard)
     @Roles(Role.ADMIN)
