@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import EventCover from '../components/ui/EventCover';
-import { allRaces, eventStartDate, eventEndDate, eventDays, isMultiDay } from '../utils/event';
+import { allRaces, eventStartDate, eventEndDate, eventDays, isMultiDay, iscrizioniAperte, formatChiusura } from '../utils/event';
 import {
     Calendar, MapPin, ChevronLeft, Clock, Building2, ShieldCheck, Users,
     TrendingUp, Mountain, Download, Layers, UserPlus,
@@ -183,7 +183,7 @@ export default function EventDetailPage() {
     const totalParticipants = allRaces(event).reduce((s, r) => s + r.participants, 0);
     const totalMax = allRaces(event).reduce((s, r) => s + r.maxParticipants, 0);
     const fillPercent = Math.round((totalParticipants / totalMax) * 100);
-    const openRaces = allRaces(event).filter(r => r.isOpen);
+    const openRaces = allRaces(event).filter(r => iscrizioniAperte(r));
 
     // OSM embed URL — bbox: west,south,east,north
     const delta = 0.018;
@@ -292,7 +292,7 @@ export default function EventDetailPage() {
                                     const raceFill = Math.round((race.participants / race.maxParticipants) * 100);
                                     const raceAlmostFull = raceFill >= 85;
                                     return (
-                                        <div key={race.id} className={`p-5 ${!race.isOpen ? 'opacity-60' : ''}`}>
+                                        <div key={race.id} className={`p-5 ${!iscrizioniAperte(race) ? 'opacity-60' : ''}`}>
                                             <div className="flex items-start justify-between gap-4">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -300,9 +300,14 @@ export default function EventDetailPage() {
                                                         <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
                                                             <Clock className="w-3 h-3" /> {race.distance}
                                                         </span>
-                                                        {!race.isOpen && (
+                                                        {!iscrizioniAperte(race) && (
                                                             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">
                                                                 Iscrizioni chiuse
+                                                            </span>
+                                                        )}
+                                                        {iscrizioniAperte(race) && race.chiusuraIscrizioni && (
+                                                            <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                                                                Iscrizioni fino a {formatChiusura(race.chiusuraIscrizioni)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -338,7 +343,7 @@ export default function EventDetailPage() {
 
                                                 <div className="flex-shrink-0 text-right">
                                                     <p className="font-bold text-brand-700 text-lg">€{race.price}</p>
-                                                    {!isPast && race.isOpen && (
+                                                    {!isPast && (iscrizioniAperte(race) || staffEnroll) && (
                                                         staffEnroll ? (
                                                             <button
                                                                 onClick={() => setEnrollRace(race)}

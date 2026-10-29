@@ -23,6 +23,8 @@ export interface ApiRace {
     price: number;
     maxParticipants: number;
     isOpen: boolean;
+    chiusuraIscrizioni?: string | null;
+    maxPerSocieta?: number;
     formSchema?: unknown;
     priceSteps?: unknown;
     publicFields?: string[];
@@ -121,6 +123,8 @@ export function toRace(r: ApiRace): Race {
         participants: r._count?.registrations ?? 0,
         resultsCount: r._count?.resultRows,
         isOpen: r.isOpen,
+        chiusuraIscrizioni: r.chiusuraIscrizioni ?? null,
+        maxPerSocieta: r.maxPerSocieta ?? 0,
         formSchema: opt(r.formSchema) as Race['formSchema'],
         priceSteps: opt(r.priceSteps) as Race['priceSteps'],
         publicFields: r.publicFields,
@@ -237,6 +241,8 @@ export function fromEvent(e: Event, days: EventDay[]) {
                 price: Number(r.price) || 0,
                 maxParticipants: Number(r.maxParticipants) || 0,
                 isOpen: r.isOpen,
+                chiusuraIscrizioni: r.chiusuraIscrizioni || null,
+                maxPerSocieta: Number(r.maxPerSocieta) || 0,
                 formSchema: r.formSchema,
                 priceSteps: r.priceSteps,
                 publicFields: r.publicFields,

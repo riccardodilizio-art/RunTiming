@@ -15,6 +15,7 @@ import {
     MaxLength,
     Min,
     MinLength,
+    ValidateIf,
     ValidateNested,
 } from 'class-validator';
 
@@ -43,6 +44,9 @@ export class RaceDto {
     @IsOptional() @IsNumber() @Min(0) price?: number;
     @IsOptional() @IsInt() @Min(0) maxParticipants?: number;
     @IsOptional() @IsBoolean() isOpen?: boolean;
+    /** Chiusura automatica delle iscrizioni (ISO); null = solo a mano. */
+    @IsOptional() @ValidateIf((_, v) => v !== null) @IsDateString() chiusuraIscrizioni?: string | null;
+    @IsOptional() @IsInt() @Min(0) @Max(10000) maxPerSocieta?: number;
     @IsOptional() @IsArray() formSchema?: unknown[];
     @IsOptional() @IsArray() priceSteps?: unknown[];
     @IsOptional() @IsArray() @IsString({ each: true }) publicFields?: string[];

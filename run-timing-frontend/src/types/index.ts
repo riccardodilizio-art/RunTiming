@@ -250,6 +250,10 @@ export interface Race {
     /** Righe di classifica pubblicate (dal backend): > 0 = classifica disponibile. */
     resultsCount?: number;
     isOpen: boolean;
+    /** Chiusura automatica delle iscrizioni (ISO). Usare iscrizioniAperte() per sapere se sono aperte. */
+    chiusuraIscrizioni?: string | null;
+    /** Massimo di atleti per società (0 = nessun limite). */
+    maxPerSocieta?: number;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
     publicFields?: string[];

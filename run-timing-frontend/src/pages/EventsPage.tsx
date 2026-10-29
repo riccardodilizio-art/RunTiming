@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import EventCover from '../components/ui/EventCover';
-import { allRaces, eventStartDate } from '../utils/event';
+import { allRaces, eventStartDate, iscrizioniAperte } from '../utils/event';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
     Search, LayoutList, LayoutGrid, X, SlidersHorizontal, ChevronDown,
@@ -323,7 +323,7 @@ export default function EventsPage() {
             const matchesCategory = category === 'all' || e.category === category;
             const matchesTab      = tab === 'all' ? true : tab === 'upcoming'
                 ? new Date(eventStartDate(e)) >= now : new Date(eventStartDate(e)) < now;
-            const matchesOpen     = !onlyOpen || allRaces(e).some(r => r.isOpen);
+            const matchesOpen     = !onlyOpen || allRaces(e).some(r => iscrizioniAperte(r));
             const matchesRegion   = region === 'all' || regionOf(e.province) === region;
             const matchesMonth    = month === 'all' || eventStartDate(e).slice(0, 7) === month;
             const matchesEnte     = ente === 'all' || allRaces(e).some(r => r.ente === ente);

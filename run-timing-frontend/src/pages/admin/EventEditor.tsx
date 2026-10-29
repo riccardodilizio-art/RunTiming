@@ -100,6 +100,7 @@ export default function EventEditor({ event, onSave, onBack, isAdmin = true }: {
                 <RaceEditor
                     race={editingRace}
                     eventId={draft.id}
+                    raceDate={days.find(d => d.races.some(r => r.id === editingRace.id))?.date}
                     onChange={updateRace}
                     onBack={() => setEditingRaceId(null)}
                     isAdmin={isAdmin}

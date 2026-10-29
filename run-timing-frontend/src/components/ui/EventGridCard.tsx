@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { allRaces, eventStartDate } from '../../utils/event';
+import { allRaces, eventStartDate, iscrizioniAperte } from '../../utils/event';
 import { Calendar, MapPin, Users } from 'lucide-react';
 import type { Event } from '../../types';
 import { categoryLabels, categoryColors } from '../../data/mockEvents';
@@ -15,7 +15,7 @@ export default function EventGridCard({ event }: { event: Event }) {
     const prices = races.map(r => r.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const hasOpenRaces = races.some(r => r.isOpen);
+    const hasOpenRaces = races.some(r => iscrizioniAperte(r));
     const participants = races.reduce((s, r) => s + r.participants, 0);
     const distances = races.map(r => r.distance).filter(Boolean);
 
