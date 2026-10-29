@@ -8,6 +8,7 @@ import { eventDays } from '../../utils/event';
 import CommissionOverrideEditor from './CommissionOverrideEditor';
 import RouteInfoEditor from './RouteInfoEditor';
 import RaceEditor from './RaceEditor';
+import CombinateEditor from './CombinateEditor';
 import type { Event, EventDay, Race, SportCategory } from '../../types';
 
 export default function EventEditor({ event, onSave, onBack, isAdmin = true }: { event: Event; onSave: (e: Event) => void; onBack: () => void; isAdmin?: boolean }) {
@@ -391,6 +392,14 @@ export default function EventEditor({ event, onSave, onBack, isAdmin = true }: {
                             </div>
                         )}
                     </div>
+
+                    {isAdmin && (
+                        <CombinateEditor
+                            races={eventDays(draft).flatMap(d => d.races)}
+                            value={draft.combinate ?? []}
+                            onChange={c => set('combinate', c)}
+                        />
+                    )}
                 </div>
             )}
         </div>

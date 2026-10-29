@@ -42,6 +42,8 @@ export class CreateRegistrationDto {
     @IsOptional() @IsString() affiliationId?: string;
     /** Società / organizzatore / admin: dati dell'atleta da iscrivere. */
     @IsOptional() @ValidateNested() @Type(() => AthleteDataDto) athlete?: AthleteDataDto;
+    /** Iscrizione a una combinata dell'evento (raceId = una delle sue gare). */
+    @IsOptional() @IsString() @MaxLength(40) combinataId?: string;
     /** Solo admin / organizzatore: segna subito come pagata (es. contanti). */
     @IsOptional() @IsBoolean() markPaid?: boolean;
     /** Token anti-robot (Turnstile) per le iscrizioni da ospite, se configurato. */

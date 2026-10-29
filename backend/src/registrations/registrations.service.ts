@@ -34,6 +34,7 @@ import {
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newPaymentRef } from '../payments/payment-ref';
+import { METODO_COMBINATA, allineaCombinata, combinateEvento, prezzoAggiunta } from './combinata';
 import { siteName } from '../common/brand';
 
 /** Chiavi di catalogo che vengono dal profilo atleta, non dal modulo extra. */
@@ -220,6 +221,128 @@ export class RegistrationsService {
 
     // ─── Creazione ──────────────────────────────────────────────────────────
 
+    /**
+     * Metodo di pagamento: lo staff registra a mano (contanti, già pagato…);
+     * l'atleta sceglie tra quelli ammessi dalla gara ("online" = PayPal/carta).
+     */
+    private chooseMethod(race: { paymentMode: string | null }, isStaff: boolean, wantedRaw?: string): PayMethod {
+        if (isStaff) return 'manual';
+        const allowed = allowedMethods(race.paymentMode);
+        // "manual" ha senso solo per lo staff: per gli altri vale il metodo predefinito della gara
+        const raw = wantedRaw === 'manual' ? undefined : wantedRaw;
+        const wanted = (raw === 'online' ? 'paypal' : raw) as PayMethod | undefined;
+        const method = wanted ?? allowed[0];
+        if (!allowed.includes(method)) throw new BadRequestException('Metodo di pagamento non ammesso per questa gara');
+        return method;
+    }
+
+    /**
+     * Iscrizione a una combinata: una quota sola per più gare dell'evento. Si
+     * paga sull'iscrizione "principale" (prima gara nuova); le altre la seguono.
+     * Chi è già iscritto ad alcune gare della combinata paga solo la differenza.
+     * Stessi controlli dell'iscrizione singola, gara per gara.
+     */
+    private async createCombinata(user: AuthUser | undefined, dto: CreateRegistrationDto, race: RaceWithEvent, isStaff: boolean) {
+        const event = race.day.event;
+        const combo = combinateEvento(event.combinate).find(c => c.id === dto.combinataId);
+        if (!combo || !combo.raceIds.includes(race.id)) throw new BadRequestException('Combinata non trovata per questa gara');
+        if (dto.discountCode?.trim()) throw new BadRequestException('I codici sconto non valgono sulla combinata');
+        const races = await Promise.all(combo.raceIds.map(id => this.race(id)));
+        if (races.some(r => r.day.event.id !== event.id)) throw new BadRequestException('Combinata non valida');
+        for (const r of races) await this.assertCanRegister(user, r);
+
+        // Controlli gara per gara (età, tesseramenti, modulo, certificato)
+        const prep = [] as (Awaited<ReturnType<RegistrationsService['prepare']>> & { race: RaceWithEvent })[];
+        for (const r of races) {
+            try {
+                prep.push({ ...(await this.prepare(user, r, { ...dto, raceId: r.id }, isStaff)), race: r });
+            } catch (e) {
+                if (e instanceof BadRequestException) throw new BadRequestException(`${r.name}: ${e.message}`);
+                throw e;
+            }
+        }
+        const method = this.chooseMethod(races[0], isStaff, dto.paymentMethod);
+        const commissions = {
+            global: await this.settings.commission(),
+            event: json<CommissionConfig>(event.commission),
+            race: json<CommissionConfig>(races[0].commission),
+        };
+        const fees = await this.settings.payments();
+
+        const created = await this.prisma.$transaction(async tx => {
+            for (const id of [...combo.raceIds].sort()) {
+                await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))::text`;
+            }
+            // Gare a cui la persona è già iscritta: si paga la differenza
+            const existing = new Map<string, { id: string; basePrice: number; discountAmount: number }>();
+            for (const p of prep) {
+                const d = await tx.registration.findFirst({
+                    where: {
+                        raceId: p.race.id, cognome: p.athlete.cognome, nome: p.athlete.nome, dataNascita: p.athlete.dataNascita,
+                        paymentStatus: { not: PaymentStatus.REJECTED },
+                    },
+                    select: { id: true, basePrice: true, discountAmount: true, combinataId: true },
+                });
+                if (d?.combinataId === combo.id) throw new ConflictException('Atleta già iscritto a questa combinata');
+                if (d) existing.set(p.race.id, d);
+            }
+            const nuove = prep.filter(p => !existing.has(p.race.id));
+            if (!nuove.length) throw new ConflictException('Atleta già iscritto a tutte le gare della combinata');
+            for (const p of nuove) {
+                if (p.race.maxParticipants > 0) {
+                    const count = await tx.registration.count({ where: { raceId: p.race.id, paymentStatus: { not: PaymentStatus.REJECTED } } });
+                    if (count >= p.race.maxParticipants) throw new ConflictException(`${p.race.name}: gara al completo, combinata non disponibile`);
+                }
+            }
+            const giaPagato = [...existing.values()].reduce((t, r) => t + r.basePrice - r.discountAmount, 0);
+            const q = quote({
+                basePrice: prezzoAggiunta(combo.prezzo, giaPagato), steps: null, discount: null,
+                commissions, today: todayRome(), method, fees,
+            });
+            let paymentStatus: PaymentStatus = PaymentStatus.PENDING;
+            let paymentMethod: string = method;
+            if (q.total === 0) { paymentStatus = PaymentStatus.CONFIRMED; paymentMethod = 'free'; }
+            else if (isStaff && dto.markPaid) paymentStatus = PaymentStatus.CONFIRMED;
+            const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? new Date() : null;
+            const needsRef = paymentStatus === PaymentStatus.PENDING && paymentMethod !== 'manual';
+
+            const [first, ...rest] = nuove;
+            const parent = await tx.registration.create({
+                data: {
+                    ...snapshotData(first.race, first),
+                    basePrice: q.price, discountAmount: 0, commissionAmount: q.commission, paymentFee: q.paymentFee, pricePaid: q.total,
+                    paymentRef: needsRef ? newPaymentRef() : null,
+                    paymentMethod, paymentStatus, paidAt,
+                    combinataId: combo.id,
+                    addedByOrganizer: isStaff, createdById: user?.sub,
+                },
+            });
+            for (const p of rest) {
+                await tx.registration.create({
+                    data: {
+                        ...snapshotData(p.race, p),
+                        basePrice: 0, discountAmount: 0, commissionAmount: 0, paymentFee: 0, pricePaid: 0,
+                        paymentMethod: paymentMethod === 'free' ? 'free' : METODO_COMBINATA,
+                        paymentStatus, paidAt,
+                        combinataId: combo.id, combinataParentId: parent.id,
+                        addedByOrganizer: isStaff, createdById: user?.sub,
+                    },
+                });
+            }
+            if (existing.size) {
+                await tx.registration.updateMany({ where: { id: { in: [...existing.values()].map(r => r.id) } }, data: { combinataId: combo.id } });
+            }
+            return {
+                registration: parent, quote: q,
+                combinata: { id: combo.id, nome: combo.nome, gare: nuove.map(p => p.race.name), giaIscritto: existing.size > 0 },
+                ageWarning: prep.map(p => p.ageProblem).find(Boolean) ?? undefined,
+                tesseramentoWarning: prep.map(p => p.tessProblem).find(Boolean) ?? undefined,
+            };
+        });
+        await this.mailer.confirmation(created.registration.id);
+        return created;
+    }
+
     /** Gara letta con evento (per altri moduli, es. iscrizioni di gruppo). */
     getRace(raceId: string): Promise<RaceWithEvent> {
         return this.race(raceId);
@@ -297,22 +420,10 @@ export class RegistrationsService {
         const race = await this.race(dto.raceId);
         const event = race.day.event;
         const isStaff = await this.assertCanRegister(user, race);
+        if (dto.combinataId) return this.createCombinata(user, dto, race, isStaff);
         const { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus } =
             await this.prepare(user, race, dto, isStaff);
-
-        // Metodo di pagamento: lo staff registra a mano (contanti, già pagato…);
-        // l'atleta sceglie tra quelli ammessi dalla gara ("online" = PayPal/carta).
-        const allowed = allowedMethods(race.paymentMode);
-        let method: PayMethod;
-        if (isStaff) {
-            method = 'manual';
-        } else {
-            // "manual" ha senso solo per lo staff: per gli altri vale il metodo predefinito della gara
-            const raw = dto.paymentMethod === 'manual' ? undefined : dto.paymentMethod;
-            const wanted = (raw === 'online' ? 'paypal' : raw) as PayMethod | undefined;
-            method = wanted ?? allowed[0];
-            if (!allowed.includes(method)) throw new BadRequestException('Metodo di pagamento non ammesso per questa gara');
-        }
+        const method = this.chooseMethod(race, isStaff, dto.paymentMethod);
 
         // Prezzo calcolato dal server (con l'eventuale maggiorazione del metodo)
         const q = await this.quote(race.id, dto.discountCode, method);
@@ -649,6 +760,9 @@ export class RegistrationsService {
         if (reg.groupId) {
             throw new ConflictException('Iscrizione di un pagamento di gruppo della società: confermala o annullala dal gruppo (Pagamenti → Gruppi società)');
         }
+        if (reg.combinataParentId) {
+            throw new ConflictException('Iscrizione compresa in una combinata: si gestisce dall\'iscrizione principale della combinata');
+        }
         const online = reg.paymentMethod === 'paypal' || reg.paymentMethod === 'bank';
         if (user.role !== Role.ADMIN && online) {
             const rejectUnpaid = reg.paymentStatus === PaymentStatus.PENDING && paymentStatus === PaymentStatus.REJECTED;
@@ -696,6 +810,7 @@ export class RegistrationsService {
                 data: { paymentStatus, paidAt },
             });
             if (r.count === 0) throw new ConflictException('L\'iscrizione è cambiata nel frattempo: ricarica la pagina e riprova');
+            await allineaCombinata(tx, [id], paymentStatus, paidAt);
             return tx.registration.findUniqueOrThrow({ where: { id } });
         });
         if (paymentStatus === PaymentStatus.CONFIRMED) await this.mailer.paymentReceived(id);

@@ -34,7 +34,7 @@ interface Statement {
 
 const euro = (n: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
 const inputCls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
-const METHOD: Record<string, string> = { paypal: 'PayPal / carta', bank: 'Bonifico', onsite: 'In loco', manual: 'Manuale (staff)', free: 'Gratuite' };
+const METHOD: Record<string, string> = { paypal: 'PayPal / carta', bank: 'Bonifico', onsite: 'In loco', manual: 'Manuale (staff)', free: 'Gratuite', combinata: 'Comprese in combinata' };
 
 function SettingsCard() {
     const [s, setS] = useState<PaymentSettings | null>(null);

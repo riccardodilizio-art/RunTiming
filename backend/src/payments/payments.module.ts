@@ -14,6 +14,7 @@ import {
     Res,
     UseGuards,
 } from '@nestjs/common';
+import { allineaCombinata } from '../registrations/combinata';
 import { PaymentStatus, Prisma, Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
@@ -171,6 +172,7 @@ export class PaymentsService {
             // Incassato ma l'iscrizione è cambiata nel frattempo: da rimborsare a mano
             this.log.error(`Pagamento PayPal ${orderId} incassato su iscrizione ${reg.id} non più in attesa: verificare/rimborsare`);
         } else {
+            await allineaCombinata(this.prisma, [reg.id], PaymentStatus.CONFIRMED, new Date());
             await this.mailer.paymentReceived(reg.id);
         }
         return this.info(ref);
@@ -230,6 +232,8 @@ export class PaymentsService {
                 });
             }
             const r = await tx.registration.updateMany({ where: { ...where, id: { in: ids } }, data: { paymentStatus: PaymentStatus.REJECTED } });
+            // Combinate: annullate anche le iscrizioni alle altre gare comprese
+            await allineaCombinata(tx, ids, PaymentStatus.REJECTED, null);
             return { cancelled: r.count, ids };
         });
         // Avvisa ciascun atleta (email in coda)
