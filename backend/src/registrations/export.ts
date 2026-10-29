@@ -21,7 +21,7 @@ export async function entrantsXlsx(raceName: string, rows: Registration[]): Prom
     for (const r of rows) {
         const dn = r.dataNascita;
         ws.addRow([
-            '', '', r.cognome, r.nome,
+            r.pettorale ?? '', '', r.cognome, r.nome,
             dn ? dn.getUTCFullYear() : '',
             dn ?? '',
             r.sesso.toLowerCase(),

@@ -456,6 +456,10 @@ export default function RaceEditor({
                     {/* Stats per questa gara */}
                     <RaceStatsBar regs={registrations} />
 
+                    {USE_API && (
+                        <BibsCard race={race} regs={registrations} onChange={patch => onChange({ ...race, ...patch })} />
+                    )}
+
                     {/* Visibilità pubblica campi */}
                     <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
                         <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
@@ -635,6 +639,7 @@ export default function RaceEditor({
                                         <thead>
                                             <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                                                 <th className="px-3 py-2">N°</th>
+                                                {USE_API && <th className="px-3 py-2">Pett.</th>}
                                                 {formFields.filter(f => !f.readOnly).map(f => (
                                                     <th key={f.id} className="px-3 py-2">
                                                         {f.label}
@@ -656,6 +661,11 @@ export default function RaceEditor({
                                             {filtered.map((reg, idx) => (
                                                 <tr key={reg.id} className="hover:bg-slate-50/50">
                                                     <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
+                                                    {USE_API && (
+                                                        <td className="px-1 py-1">
+                                                            <BibInput reg={reg} />
+                                                        </td>
+                                                    )}
                                                     {formFields.filter(f => !f.readOnly).map(f => (
                                                         <td key={f.id} className="px-3 py-2 text-slate-700">
                                                             {typeof reg.formData[f.id] === 'boolean'
@@ -912,5 +922,85 @@ function ChiusuraEditor({ race, raceDate, onChange }: {
                     : 'Vuoto = si chiudono solo a mano (casella "Iscrizioni aperte").'}
             </p>
         </div>
+    );
+}
+
+/** Assegnazione pettorali della gara: per società, poi cognome e nome. */
+function BibsCard({ race, regs, onChange }: {
+    race: Race; regs: RegistrationSubmission[]; onChange: (patch: Partial<Race>) => void;
+}) {
+    const attivi = regs.filter(r => r.paymentStatus !== 'rejected');
+    const conPett = attivi.filter(r => r.pettorale != null);
+    const senza = attivi.length - conPett.length;
+    const [da, setDa] = useState<string>(String(race.pettoraleDa ?? (conPett.length ? Math.min(...conPett.map(r => r.pettorale!)) : 1)));
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState('');
+
+    async function assegna(modo: 'tutti' | 'nuovi') {
+        const from = parseInt(da) || 1;
+        if (modo === 'tutti' && conPett.length
+            && !confirm(`Riassegnare i pettorali a tutti i ${attivi.length} iscritti partendo da ${from}? I pettorali già dati cambieranno.`)) return;
+        setBusy(true);
+        setMsg('');
+        try {
+            const r = await api.post<{ assegnati: number; da: number | null; a: number | null }>(`/races/${race.id}/bibs`, { modo, da: from });
+            setMsg(r.assegnati ? `Assegnati ${r.assegnati} pettorali${r.da ? ` (gara: ${r.da}–${r.a})` : ''}.` : 'Nessun pettorale da assegnare.');
+            onChange({ pettoraleDa: from });
+            await loadRaceRegistrationsApi(race.id, true);
+        } catch (e) {
+            reportApiError(e);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+            <h4 className="text-sm font-semibold text-slate-700">Pettorali</h4>
+            <p className="text-xs text-slate-500">
+                Ordine: società, poi cognome e nome (chi non ha società in fondo). I numeri già usati da altre gare dell'evento si saltano.
+                {attivi.length > 0 && ` Con pettorale: ${conPett.length} su ${attivi.length}${senza ? ` · senza: ${senza}` : ''}.`}
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+                <div>
+                    <label className="block text-xs text-slate-500 mb-1">Primo pettorale</label>
+                    <input type="number" min={1} value={da} onChange={e => setDa(e.target.value)} className={`${inputCls} !w-28`} />
+                </div>
+                <button type="button" disabled={busy || attivi.length === 0} onClick={() => assegna('tutti')}
+                    className="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50">
+                    {conPett.length ? 'Riassegna a tutti' : 'Assegna pettorali'}
+                </button>
+                {conPett.length > 0 && senza > 0 && (
+                    <button type="button" disabled={busy} onClick={() => assegna('nuovi')}
+                        className="px-3 py-2 rounded-lg border border-brand-300 text-brand-700 text-sm font-medium hover:bg-brand-50 disabled:opacity-50">
+                        Solo ai nuovi iscritti ({senza})
+                    </button>
+                )}
+            </div>
+            {msg && <p className="text-xs text-green-700">{msg}</p>}
+        </div>
+    );
+}
+
+/** Pettorale modificabile a mano (Invio o uscita dal campo per salvare). */
+function BibInput({ reg }: { reg: RegistrationSubmission }) {
+    const [v, setV] = useState(reg.pettorale != null ? String(reg.pettorale) : '');
+    useEffect(() => setV(reg.pettorale != null ? String(reg.pettorale) : ''), [reg.pettorale]);
+    async function save() {
+        const next = v.trim() ? parseInt(v) : null;
+        if ((next ?? null) === (reg.pettorale ?? null) || (next !== null && !(next > 0))) { setV(reg.pettorale != null ? String(reg.pettorale) : ''); return; }
+        try {
+            await api.patch(`/registrations/${reg.id}/bib`, { pettorale: next });
+            await loadRaceRegistrationsApi(reg.raceId, true);
+        } catch (e) {
+            reportApiError(e);
+            setV(reg.pettorale != null ? String(reg.pettorale) : '');
+        }
+    }
+    return (
+        <input type="number" min={1} value={v} onChange={e => setV(e.target.value)} onBlur={save}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            disabled={reg.paymentStatus === 'rejected'}
+            className="w-16 rounded border border-slate-200 px-1.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-40" />
     );
 }

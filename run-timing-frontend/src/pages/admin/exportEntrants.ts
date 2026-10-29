@@ -27,7 +27,7 @@ export function exportEntrantsXlsx(race: Race, regs: RegistrationSubmission[]) {
         const sesso = byCatalog(race, reg, 'sesso').toLowerCase();
         const licenza = byCatalog(race, reg, 'tessera_fidal') || byCatalog(race, reg, 'tessera_runcard');
         return [
-            '',                                   // Pettorale (assegnato dal cronometraggio)
+            reg.pettorale ?? '',                  // Pettorale (se già assegnato dalla segreteria)
             '',                                   // Titolo
             byCatalog(race, reg, 'cognome'),
             byCatalog(race, reg, 'nome'),

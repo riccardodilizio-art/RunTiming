@@ -62,6 +62,7 @@ function raceData(r: RaceDto) {
         isOpen: r.isOpen ?? true,
         chiusuraIscrizioni: r.chiusuraIscrizioni ? new Date(r.chiusuraIscrizioni) : null,
         maxPerSocieta: r.maxPerSocieta ?? 0,
+        pettoraleDa: r.pettoraleDa ?? null,
         formSchema: J(r.formSchema ?? null),
         priceSteps: J(r.priceSteps ?? null),
         publicFields: r.publicFields ?? [],

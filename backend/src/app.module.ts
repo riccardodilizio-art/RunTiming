@@ -17,6 +17,7 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { ResultsModule } from './results/results.module';
 import { PaymentsModule } from './payments/payments.module';
 import { GroupsModule } from './groups/groups.module';
+import { BibsModule } from './bibs/bibs.module';
 
 @Module({
     imports: [
@@ -35,6 +36,7 @@ import { GroupsModule } from './groups/groups.module';
         DiscountsModule,
         RegistrationsModule,
         GroupsModule,
+        BibsModule,
         ProfilesModule,
         ResultsModule,
         PaymentsModule,
