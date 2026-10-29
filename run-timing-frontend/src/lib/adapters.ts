@@ -59,6 +59,7 @@ export interface ApiEvent {
     organizer: string;
     commission?: unknown;
     routeInfo?: unknown;
+    combinate?: unknown;
     createdById?: string | null;
     days: ApiDay[];
 }
@@ -154,6 +155,7 @@ export function toEvent(e: ApiEvent): Event {
         organizer: e.organizer,
         commission: opt(e.commission) as Event['commission'],
         routeInfo: opt(e.routeInfo) as Event['routeInfo'],
+        combinate: Array.isArray(e.combinate) ? e.combinate as Event['combinate'] : [],
         days: (e.days ?? []).map(toDay),
     };
 }
@@ -214,6 +216,7 @@ export function fromEvent(e: Event, days: EventDay[]) {
         isFeatured: e.isFeatured,
         isLive: e.isLive,
         commission: nn(e.commission),
+        combinate: e.combinate ?? [],
         days: days.map(d => ({
             // id locali generati dal browser (non ancora salvati) vengono ignorati dal server
             id: d.id,

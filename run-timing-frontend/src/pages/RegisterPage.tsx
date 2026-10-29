@@ -19,7 +19,7 @@ import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { verifyTessera, searchByName, FIDAL_SEARCH_ROLES } from '../data/fidalLookup';
 import { certExpiresBeforeEvent } from '../utils/cert';
 import type { FidalAthlete } from '../data/mockFidal';
-import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey } from '../types';
+import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey, Combinata } from '../types';
 import { assignCategory } from '../types';
 
 // Catalog keys che provengono dal PROFILO atleta: auto-compilati e nascosti
@@ -92,7 +92,15 @@ function StepBar({ current }: { current: number }) {
 
 // ─── Step 1 — Race picker ─────────────────────────────────────────────────────
 
-function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId: string; onSelect: (id: string) => void }) {
+/** Combinate disponibili: tutte le gare incluse con iscrizioni aperte. */
+function openCombinate(event: { combinate?: Combinata[] } | undefined, races: Race[]): Combinata[] {
+    return (event?.combinate ?? []).filter(c => c.raceIds.length >= 2 && c.raceIds.every(id => races.some(r => r.id === id && r.isOpen)));
+}
+
+function RacePicker({ races, selectedId, onSelect, combinate = [], comboId = '', onSelectCombo }: {
+    races: Race[]; selectedId: string; onSelect: (id: string) => void;
+    combinate?: Combinata[]; comboId?: string; onSelectCombo?: (c: Combinata) => void;
+}) {
     const openRaces = races.filter(r => r.isOpen);
     if (openRaces.length === 0) {
         return (
@@ -104,17 +112,40 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
     }
     return (
         <div className="space-y-3">
+            {combinate.map(c => {
+                const nomi = c.raceIds.map(id => races.find(r => r.id === id)?.name).filter(Boolean);
+                const separate = c.raceIds.reduce((t, id) => { const r = races.find(x => x.id === id); return t + (r ? getActivePrice(r).price : 0); }, 0);
+                return (
+                    <button key={c.id} type="button" onClick={() => onSelectCombo?.(c)}
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${comboId === c.id ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-slate-200 hover:border-slate-300 bg-white'}`}>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <span className="text-[10px] font-bold uppercase tracking-wide bg-brand-600 text-white rounded px-1.5 py-0.5">Combinata</span> {c.nome}
+                                </p>
+                                <p className="text-sm text-slate-500 mt-0.5">{nomi.join(' + ')}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                                <p className="font-bold text-brand-700 text-lg">{formatPrice(c.prezzo)}</p>
+                                {separate > c.prezzo && <p className="text-xs text-slate-400 line-through">{formatPrice(separate)}</p>}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">Un'iscrizione e un pagamento per tutte le gare. Già iscritto a una di queste gare? Paghi solo la differenza.</p>
+                    </button>
+                );
+            })}
             {openRaces.map(race => {
                 const { price, label: priceLabel } = getActivePrice(race);
+                const unlimited = !race.maxParticipants; // 0 = senza limite
                 const spotsLeft = race.maxParticipants - race.participants;
-                const pct = race.participants / race.maxParticipants;
+                const pct = unlimited ? 0 : race.participants / race.maxParticipants;
                 return (
                     <button
                         key={race.id}
                         type="button"
                         onClick={() => onSelect(race.id)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                            selectedId === race.id ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            selectedId === race.id && !comboId ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                     >
                         <div className="flex items-start justify-between gap-3">
@@ -130,7 +161,7 @@ function RacePicker({ races, selectedId, onSelect }: { races: Race[]; selectedId
                         <div className="mt-3">
                             <div className="flex justify-between text-xs text-slate-400 mb-1">
                                 <span>{race.participants} iscritti</span>
-                                <span>{spotsLeft} posti rimasti</span>
+                                <span>{unlimited ? 'posti disponibili' : `${spotsLeft} posti rimasti`}</span>
                             </div>
                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                 <div
@@ -358,8 +389,9 @@ function FidalLookup({
 function Summary({
     race, fields, data,
     appliedDiscount, onApplyDiscount, validateCode,
-    assignedCat, fidalVerified,
+    assignedCat, fidalVerified, combo,
 }: {
+    combo?: Combinata;
     race: Race;
     fields: FormField[];
     data: Record<string, string | boolean>;
@@ -369,7 +401,9 @@ function Summary({
     assignedCat: RaceCategory | null;
     fidalVerified: boolean;
 }) {
-    const { price, label: priceLabel } = getActivePrice(race);
+    const active = getActivePrice(race);
+    const price = combo ? combo.prezzo : active.price;
+    const priceLabel = combo ? `Combinata ${combo.nome}` : active.label;
     const [codeInput, setCodeInput] = useState('');
     const [codeError, setCodeError] = useState('');
 
@@ -432,8 +466,8 @@ function Summary({
                 </dl>
             </div>
 
-            {/* Codice sconto */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            {/* Codice sconto (non vale sulle combinate) */}
+            {!combo && <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Codice sconto</p>
                 {appliedDiscount ? (
                     <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
@@ -473,7 +507,7 @@ function Summary({
                         {codeError && <p className="text-xs text-red-500 mt-1">{codeError}</p>}
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* Totale */}
             <div className="rounded-xl border border-slate-200 overflow-hidden">
@@ -721,12 +755,15 @@ export default function RegisterPage() {
     const staffEnroll = !!event && (isAdmin || (isOrganizer && canManageEvent(event.id)));
     const eventRaces = useMemo(() => event ? allRaces(event) : [], [event]);
     const raceParam = searchParams.get('race');
+    const searchParamCombo = searchParams.get('combinata') ?? '';
     const initialRaceId = raceParam ?? eventRaces[0]?.id ?? '';
     // Se si arriva con una gara già scelta e valida, salta lo step "Scelta gara".
     const startAtData = !!raceParam && eventRaces.some(r => r.id === raceParam && r.isOpen);
 
     const [step, setStep] = useState(startAtData ? 1 : 0);
     const [selectedRaceId, setSelectedRaceId] = useState(initialRaceId);
+    // Combinata scelta (selectedRaceId = la sua prima gara: modulo e pagamento)
+    const [comboId, setComboId] = useState(searchParamCombo);
     const [formData, setFormData] = useState<Record<string, string | boolean>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [appliedDiscount, setAppliedDiscount] = useState<DiscountCode | null>(null);
@@ -775,6 +812,8 @@ export default function RegisterPage() {
         () => eventRaces.find(r => r.id === selectedRaceId),
         [eventRaces, selectedRaceId]
     );
+    const combinate = useMemo(() => openCombinate(event, eventRaces), [event, eventRaces]);
+    const combo = useMemo(() => combinate.find(c => c.id === comboId), [combinate, comboId]);
 
     // ── Requisito tesseramento per ente gara ──
     const athleteAffiliations = useMemo(
@@ -882,7 +921,7 @@ export default function RegisterPage() {
 
     // Price calculation
     const activeStep = useMemo(() => selectedRace ? getActivePrice(selectedRace).step : undefined, [selectedRace]);
-    const basePrice  = useMemo(() => selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace]);
+    const basePrice  = useMemo(() => combo ? combo.prezzo : selectedRace ? getActivePrice(selectedRace).price : 0, [selectedRace, combo]);
     const discountAmount = useMemo(
         () => appliedDiscount ? calcDiscount(basePrice, appliedDiscount) : 0,
         [appliedDiscount, basePrice]
@@ -919,11 +958,15 @@ export default function RegisterPage() {
     // Controllo doppia iscrizione: atleta loggato già iscritto a questo evento
     const alreadyRegistered = useMemo(() => {
         if (!currentAthlete || !event) return false;
-        return loadRegistrations().some(
-            r => r.eventId === event.id && r.athleteAccountId === currentAthlete.id
+        // Già iscritto alla gara scelta (o a tutte le gare della combinata):
+        // può comunque iscriversi alle altre gare dell'evento o aggiungere la combinata
+        const mine = loadRegistrations().filter(
+            r => r.eventId === event.id && r.athleteAccountId === currentAthlete.id && r.paymentStatus !== 'rejected'
         );
+        const targets = combo ? combo.raceIds : selectedRaceId ? [selectedRaceId] : [];
+        return targets.length > 0 && targets.every(id => mine.some(r => r.raceId === id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentAthlete?.id, event?.id]);
+    }, [currentAthlete?.id, event?.id, selectedRaceId, combo?.id]);
 
     if (!event) {
         return (
@@ -1014,8 +1057,9 @@ export default function RegisterPage() {
             const asAthlete = tokenRole() === 'ATHLETE' && !!currentAthlete;
             const r = await api.post<{ registration: { id: string; paymentRef?: string | null; paymentMethod?: string } }>('/registrations', {
                 raceId: selectedRace.id,
+                combinataId: combo?.id,
                 formData,
-                discountCode: appliedDiscount?.code,
+                discountCode: combo ? undefined : appliedDiscount?.code,
                 paymentMethod: isFree ? undefined : paymentMethod,
                 // Atleta con account: anagrafica e tesseramento li prende il server dal profilo
                 affiliationId: asAthlete ? selectedAffId || undefined : undefined,
@@ -1161,12 +1205,17 @@ export default function RegisterPage() {
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-7">
                     {step === 0 && (
-                        <RacePicker races={eventRaces} selectedId={selectedRaceId} onSelect={setSelectedRaceId} />
+                        <RacePicker races={eventRaces} selectedId={selectedRaceId}
+                            onSelect={id => { setComboId(''); setSelectedRaceId(id); }}
+                            combinate={combinate} comboId={combo?.id}
+                            onSelectCombo={c => { setComboId(c.id); setSelectedRaceId(c.raceIds[0]); setAppliedDiscount(null); }} />
                     )}
 
                     {step === 1 && selectedRace && (
                         <div>
-                            <h2 className="font-semibold text-slate-700 text-base mb-4">{selectedRace.name}</h2>
+                            <h2 className="font-semibold text-slate-700 text-base mb-4">
+                                {combo ? `Combinata ${combo.nome}: ${combo.raceIds.map(id => eventRaces.find(r => r.id === id)?.name).join(' + ')}` : selectedRace.name}
+                            </h2>
                             {descriviAmmessi(selectedRace) && (
                                 <p className="-mt-2 mb-4 inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-200 px-3 py-1 text-xs font-semibold text-brand-700">
                                     <ShieldCheck className="h-3.5 w-3.5" /> {descriviAmmessi(selectedRace)}
@@ -1363,6 +1412,7 @@ export default function RegisterPage() {
                             validateCode={USE_API ? (c: string) => checkDiscountApi(c, selectedRace.id) : validateDiscountCode}
                             assignedCat={assignedCat}
                             fidalVerified={fidalVerified}
+                            combo={combo}
                         />
                     )}
 
@@ -1380,7 +1430,7 @@ export default function RegisterPage() {
                     {step === 4 && selectedRace && (
                         <Confirmation
                             submissionId={submissionId}
-                            raceName={selectedRace.name}
+                            raceName={combo ? `Combinata ${combo.nome}` : selectedRace.name}
                             eventTitle={event.title}
                             pricePaid={totalPrice}
                             paymentMethod={isFree ? 'free' : paymentMethod}

@@ -5,6 +5,7 @@ import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
 import { todayRome } from '../registrations/rules';
 import { regolaOmaggi } from '../groups/group.rules';
+import { combinateEvento, rimappaCombinate } from '../registrations/combinata';
 import { daysBetween, nextEditionDate, nextEditionTitle, shiftPriceSteps } from './copy';
 import { DayDto, EventDto, EventInfoDto, EventsQueryDto, RaceDto } from './events.dto';
 
@@ -189,7 +190,8 @@ export class EventsService {
                     createdById: user.sub,
                 },
             });
-            await this.syncDays(tx, ev.id, dto.days);
+            const ids = await this.syncDays(tx, ev.id, dto.days);
+            await this.saveCombinate(tx, ev.id, dto.combinate, ids);
             return ev.id;
         }).then(id => this.byId(id));
     }
@@ -208,7 +210,8 @@ export class EventsService {
                     commission: J(dto.commission ?? null),
                 },
             });
-            await this.syncDays(tx, id, dto.days);
+            const ids = await this.syncDays(tx, id, dto.days);
+            await this.saveCombinate(tx, id, dto.combinate, ids);
         });
         return this.byId(id);
     }
@@ -254,8 +257,10 @@ export class EventsService {
                     isFeatured: false,
                     commission: J(info.commission),
                     routeInfo: J(info.routeInfo),
+                    combinate: Prisma.JsonNull, // impostate sotto, con gli id delle gare nuove
                 },
             });
+            const raceMap = new Map<string, string>();
             for (const d of days) {
                 const day = await tx.eventDay.create({
                     data: {
@@ -267,8 +272,8 @@ export class EventsService {
                 });
                 for (const r of d.races) {
                     const { id: _r, dayId: _d, syncKey: _k, ...race } = r;
-                    void _r; void _d; void _k;
-                    await tx.race.create({
+                    void _d; void _k;
+                    const nr = await tx.race.create({
                         data: {
                             ...race,
                             dayId: day.id,
@@ -281,8 +286,11 @@ export class EventsService {
                             gruppoOmaggi: J(race.gruppoOmaggi),
                         },
                     });
+                    raceMap.set(_r, nr.id);
                 }
             }
+            const combinate = rimappaCombinate(combinateEvento(src.combinate), raceMap);
+            if (combinate.length) await tx.event.update({ where: { id: ev.id }, data: { combinate: J(combinate) } });
             // Organizzatori assegnati all'evento: anche alla nuova edizione
             const orgs = await tx.account.findMany({ where: { assignedEventIds: { has: id } }, select: { id: true } });
             for (const o of orgs) {
@@ -327,7 +335,17 @@ export class EventsService {
      * crea le nuove, elimina le mancanti. Una gara con iscrizioni non si
      * elimina mai (errore 409), così non si perdono dati per sbaglio.
      */
-    private async syncDays(tx: Tx, eventId: string, days: DayDto[]) {
+    /** Combinate dell'evento: id provvisori delle gare nuove → id veri; solo gare dell'evento. */
+    private async saveCombinate(tx: Tx, eventId: string, raw: unknown[] | undefined, ids: Map<string, string>) {
+        if (raw === undefined) return;
+        const races = await tx.race.findMany({ where: { day: { eventId } }, select: { id: true } });
+        const list = combinateEvento(rimappaCombinate(combinateEvento(raw), ids), new Set(races.map(r => r.id)));
+        await tx.event.update({ where: { id: eventId }, data: { combinate: J(list.length ? list : null) } });
+    }
+
+    /** Restituisce gli id assegnati alle gare nuove (id inviato → id creato). */
+    private async syncDays(tx: Tx, eventId: string, days: DayDto[]): Promise<Map<string, string>> {
+        const created = new Map<string, string>();
         const existing = await tx.eventDay.findMany({
             where: { eventId },
             include: { races: { include: { _count: { select: { registrations: true } } } } },
@@ -348,7 +366,8 @@ export class EventsService {
                     await tx.race.update({ where: { id: r.id }, data: { ...raceData(r), dayId: day.id } });
                     keptRaces.add(r.id);
                 } else {
-                    await tx.race.create({ data: { ...raceData(r), dayId: day.id } });
+                    const nr = await tx.race.create({ data: { ...raceData(r), dayId: day.id } });
+                    if (r.id) created.set(r.id, nr.id);
                 }
             }
         }
@@ -363,5 +382,6 @@ export class EventsService {
         if (toDelete.length) await tx.race.deleteMany({ where: { id: { in: toDelete.map(r => r.id) } } });
         const daysToDelete = existing.filter(d => !keptDays.has(d.id)).map(d => d.id);
         if (daysToDelete.length) await tx.eventDay.deleteMany({ where: { id: { in: daysToDelete } } });
+        return created;
     }
 }

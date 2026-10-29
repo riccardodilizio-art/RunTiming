@@ -147,6 +147,8 @@ model Event {
   organizer     String
   commission    Json?
   routeInfo     Json?
+  /// Combinate: [{ id, nome, raceIds, prezzo }] — iscrizione a più gare con una quota sua
+  combinate     Json?
   createdBy     Account?   @relation("OrganizerEvents", fields: [createdById], references: [id])
   createdById   String?
   days          EventDay[]
@@ -260,12 +262,17 @@ model Registration {
   groupId          String?
   /// Quota in omaggio (es. ogni 10 iscritti della società, uno gratis)
   omaggio          Boolean         @default(false)
+  /// Combinata dell'evento a cui appartiene l'iscrizione (id in Event.combinate)
+  combinataId      String?
+  /// Iscrizione principale della combinata: si paga lì, le altre la seguono
+  combinataParentId String?
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])
   @@index([societyId])
   @@index([athleteId])
   @@index([groupId])
+  @@index([combinataParentId])
 }
 
 /// Pagamento di gruppo: la società iscrive più atleti e paga con un solo bonifico.

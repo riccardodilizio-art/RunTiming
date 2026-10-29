@@ -363,6 +363,8 @@ export interface Event {
     description?: string;
     regulationUrl?: string;
     routeInfo?: RouteInfo;
+    /** Combinate: iscrizione a più gare dell'evento con una quota sua. */
+    combinate?: Combinata[];
     /** Commissione specifica per questo evento (sovrascrive globale) */
     commission?: CommissionConfig;
 }
@@ -396,4 +398,12 @@ export interface AppUser {
     /** IDs of events the organizer is allowed to manage (ignored for admin) */
     assignedEventIds: string[];
     isActive: boolean;
+}
+
+/** Combinata: l'atleta si iscrive e paga una volta per più gare dello stesso evento. */
+export interface Combinata {
+    id: string;
+    nome: string;
+    raceIds: string[];
+    prezzo: number;
 }

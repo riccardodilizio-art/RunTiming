@@ -84,6 +84,8 @@ export class EventDto extends EventInfoDto {
     @IsOptional() @IsBoolean() isFeatured?: boolean;
     @IsOptional() @IsBoolean() isLive?: boolean;
     @IsOptional() @IsObject() commission?: Record<string, unknown>;
+    /** Combinate [{ id, nome, raceIds, prezzo }]: raceIds possono essere id provvisori di gare nuove. */
+    @IsOptional() @IsArray() @ArrayMaxSize(20) combinate?: unknown[];
     @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => DayDto) days!: DayDto[];
 }
 
