@@ -186,6 +186,7 @@ export class PaymentsService {
             where: {
                 paymentMethod: 'bank',
                 paymentStatus: status,
+                groupId: null, // i gruppi delle società hanno un solo bonifico: elenco a parte
                 ...(t ? {
                     OR: [
                         { paymentRef: { contains: t.toUpperCase() } },
@@ -216,7 +217,8 @@ export class PaymentsService {
         if (race.paymentMode !== 'online') {
             throw new BadRequestException('Annullamento dei non paganti possibile solo per gare a pagamento anticipato');
         }
-        const where = { raceId, paymentStatus: PaymentStatus.PENDING, paymentMethod: { in: ['paypal', 'bank'] } };
+        // Esclusi i gruppi delle società: il loro bonifico lo gestisce la segreteria dal gruppo
+        const where = { raceId, paymentStatus: PaymentStatus.PENDING, paymentMethod: { in: ['paypal', 'bank'] }, groupId: null };
         const res = await this.prisma.$transaction(async tx => {
             const ids = (await tx.registration.findMany({ where, select: { id: true } })).map(r => r.id);
             // Restituisce gli usi dei codici sconto delle iscrizioni annullate

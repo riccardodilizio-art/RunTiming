@@ -234,6 +234,8 @@ export interface Race {
     ente?: RaceEnte;
     /** Tesseramenti ammessi: fidal, runcard, eps, libero (vuoto = tutti). Vedi lib/tesseramenti. */
     ammessi?: ('fidal' | 'runcard' | 'eps' | 'libero')[];
+    /** Iscrizioni di gruppo delle società: ogni N iscritti, M gratis (null = nessun omaggio). */
+    gruppoOmaggi?: { ogni: number; gratis: number } | null;
     /** Modalità di pagamento (online / in loco / entrambe / nessun pagamento). */
     paymentMode?: PaymentMode;
     lapDistanceKm?: number;

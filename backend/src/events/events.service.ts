@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/auth';
 import { EventAccess } from '../common/access';
 import { todayRome } from '../registrations/rules';
+import { regolaOmaggi } from '../groups/group.rules';
 import { daysBetween, nextEditionDate, nextEditionTitle, shiftPriceSteps } from './copy';
 import { DayDto, EventDto, EventInfoDto, EventsQueryDto, RaceDto } from './events.dto';
 
@@ -50,6 +51,7 @@ function raceData(r: RaceDto) {
         raceType: r.raceType,
         ente: r.ente ?? null,
         ammessi: [...new Set(r.ammessi ?? [])],
+        gruppoOmaggi: J(regolaOmaggi(r.gruppoOmaggi)),
         paymentMode: r.paymentMode ?? null,
         requiresMedicalCert: r.requiresMedicalCert ?? false,
         minAge: r.minAge ?? null,
@@ -276,6 +278,7 @@ export class EventsService {
                             categories: J(race.categories),
                             commission: J(race.commission),
                             certificateTemplate: J(race.certificateTemplate),
+                            gruppoOmaggi: J(race.gruppoOmaggi),
                         },
                     });
                 }

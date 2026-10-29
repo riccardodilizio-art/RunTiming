@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Download, Search, X, Banknote, FileSpreadsheet, Settings2 } from 'lucide-react';
+import { Check, Download, Search, X, Banknote, FileSpreadsheet, Settings2, Users } from 'lucide-react';
+import GroupDetails from '../../components/GroupDetails';
+import type { PaymentGroupView } from '../../lib/gruppi';
 import { USE_API, api, download } from '../../lib/api';
 import { useAdminStore, reportApiError } from '../../hooks/useAdminStore';
 import { eventStartDate } from '../../utils/event';
@@ -216,6 +218,74 @@ function StatementCard() {
     );
 }
 
+/** Bonifici dei gruppi delle società: un bonifico conferma tutte le iscrizioni del gruppo. */
+function GroupsCard() {
+    const [status, setStatus] = useState<'PENDING' | 'CONFIRMED' | 'REJECTED'>('PENDING');
+    const [rows, setRows] = useState<PaymentGroupView[]>([]);
+    const [open, setOpen] = useState<string | null>(null);
+    const load = useCallback(() => {
+        api.get<PaymentGroupView[]>(`/admin/groups?status=${status}`).then(setRows).catch(reportApiError);
+    }, [status]);
+    useEffect(load, [load]);
+
+    async function mark(g: PaymentGroupView, paymentStatus: 'PENDING' | 'CONFIRMED' | 'REJECTED') {
+        const msg = paymentStatus === 'REJECTED'
+            ? `Annullare tutte le ${g.iscritti} iscrizioni del gruppo ${g.paymentRef} (${g.societa})?`
+            : paymentStatus === 'CONFIRMED' ? `Bonifico di ${euro(g.totale)} ricevuto da ${g.societa}? Si confermano ${g.iscritti} iscrizioni.`
+                : `Rimettere in attesa il gruppo ${g.paymentRef}?`;
+        if (!window.confirm(msg)) return;
+        try { await api.patch(`/admin/groups/${g.id}/payment`, { paymentStatus }); load(); }
+        catch (e) { reportApiError(e); }
+    }
+
+    return (
+        <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Users className="h-4 w-4" /> Gruppi società</h3>
+                <div className="flex gap-1 text-xs">
+                    {(['PENDING', 'CONFIRMED', 'REJECTED'] as const).map(s => (
+                        <button key={s} type="button" onClick={() => setStatus(s)}
+                            className={`px-3 py-1 rounded-full ${status === s ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            {s === 'PENDING' ? 'Da incassare' : s === 'CONFIRMED' ? 'Incassati' : 'Annullati'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {rows.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">Nessun gruppo.</p>
+            ) : (
+                <div className="divide-y">
+                    {rows.map(g => (
+                        <div key={g.id} className="py-2.5">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <button type="button" onClick={() => setOpen(open === g.id ? null : g.id)} className="flex-1 min-w-0 text-left">
+                                    <p className="text-sm font-semibold text-slate-800 truncate">{g.societa}</p>
+                                    <p className="text-xs text-slate-500 truncate">
+                                        <span className="font-mono">{g.paymentRef}</span> · {g.evento} · {g.gara} · {g.iscritti} atleti{g.omaggi ? `, ${g.omaggi} omaggio` : ''}
+                                        {g.paymentMethod === 'onsite' ? ' · in loco' : ''}
+                                    </p>
+                                </button>
+                                <span className="font-semibold text-sm">{euro(g.totale)}</span>
+                                {status === 'PENDING' ? (
+                                    <span className="whitespace-nowrap">
+                                        <button type="button" onClick={() => mark(g, 'CONFIRMED')}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 mr-1">Ricevuto</button>
+                                        <button type="button" onClick={() => mark(g, 'REJECTED')} title="Annulla il gruppo"
+                                            className="text-xs p-1 rounded-lg text-slate-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+                                    </span>
+                                ) : (
+                                    <button type="button" onClick={() => mark(g, 'PENDING')} className="text-xs text-slate-500 hover:text-brand-600">Rimetti in attesa</button>
+                                )}
+                            </div>
+                            {open === g.id && <GroupDetails group={g} />}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
 export default function PaymentsSection() {
     if (!USE_API) {
         return <p className="text-sm text-slate-500">I pagamenti sono disponibili solo con il backend attivo.</p>;
@@ -223,6 +293,7 @@ export default function PaymentsSection() {
     return (
         <div className="space-y-5">
             <BankCard />
+            <GroupsCard />
             <StatementCard />
             <SettingsCard />
         </div>

@@ -15,8 +15,66 @@ import { listBySociety } from '../../data/fidalLookup';
 import { fidalToRoster, newRosterId } from './rosterUtils';
 import type { RosterAthlete, Race, RegistrationSubmission, Event as EventType } from '../../types';
 import { SITE_NAME } from '../../lib/brand';
+import { ApiError } from '../../lib/api';
+import { ammesso, tesseramentoDaEnte } from '../../lib/tesseramenti';
+import GroupDetails, { BankBox, GroupTotals } from '../../components/GroupDetails';
+import { euro, type PaymentGroupView } from '../../lib/gruppi';
 
-type SocietySection = 'roster' | 'storico';
+type SocietySection = 'roster' | 'storico' | 'pagamenti';
+
+/** Metodi per pagare un gruppo: un bonifico, oppure in loco se la gara lo prevede. */
+function groupMethods(race: Race): ('bank' | 'onsite')[] {
+    if (race.paymentMode === 'online') return ['bank'];
+    if (race.paymentMode === 'both') return ['bank', 'onsite'];
+    return ['onsite'];
+}
+
+/** Tesseramento dell'atleta ammesso dalla gara (FIDAL per primo). */
+function pickAffiliation(race: Race, ath: RosterAthlete) {
+    const ok = ath.affiliations.filter(a => ammesso(race, tesseramentoDaEnte(a.ente, a.societaNome)));
+    return ok.find(a => a.ente === 'fidal') ?? ok[0] ?? pickAffiliationForEnte(ath.affiliations, race.ente);
+}
+
+/** Pagamenti di gruppo della società (con i dati del bonifico da fare). */
+function GroupPayments() {
+    const [rows, setRows] = useState<PaymentGroupView[] | null>(null);
+    const [open, setOpen] = useState<string | null>(null);
+    useEffect(() => { api.get<PaymentGroupView[]>('/groups/me').then(setRows).catch(reportApiError); }, []);
+    if (!rows) return <p className="text-sm text-slate-400">Caricamento…</p>;
+    if (!rows.length) {
+        return (
+            <div className="text-center py-16 bg-white border border-slate-200 rounded-xl">
+                <ClipboardList className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+                <p className="text-slate-600 font-medium">Nessun pagamento di gruppo</p>
+                <p className="text-slate-400 text-sm mt-1">Quando iscrivi più atleti a una gara, qui trovi il riepilogo e i dati del bonifico.</p>
+            </div>
+        );
+    }
+    const label = { PENDING: 'Da pagare', CONFIRMED: 'Pagato', REJECTED: 'Annullato' } as const;
+    const color = { PENDING: 'bg-amber-100 text-amber-700', CONFIRMED: 'bg-emerald-100 text-emerald-700', REJECTED: 'bg-slate-100 text-slate-500' } as const;
+    return (
+        <div className="space-y-2">
+            <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-brand-600" /> Pagamenti di gruppo
+            </h2>
+            {rows.map(g => (
+                <div key={g.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                    <button type="button" onClick={() => setOpen(open === g.id ? null : g.id)} className="w-full flex items-center gap-3 text-left">
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-800 truncate">{g.evento} · {g.gara}</p>
+                            <p className="text-xs text-slate-500">
+                                <span className="font-mono">{g.paymentRef}</span> · {g.iscritti} atleti{g.omaggi ? `, ${g.omaggi} in omaggio` : ''} · {new Date(g.createdAt).toLocaleDateString('it-IT')}
+                            </p>
+                        </div>
+                        <span className="font-semibold">{euro(g.totale)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${color[g.paymentStatus]}`}>{label[g.paymentStatus]}</span>
+                    </button>
+                    {(open === g.id || (g.paymentStatus === 'PENDING' && rows.length === 1)) && <GroupDetails group={g} />}
+                </div>
+            ))}
+        </div>
+    );
+}
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -132,6 +190,7 @@ export default function SocietyDashboardPage() {
             items={[
                 { key: 'roster',  label: 'Roster atleti',      icon: <Users className="h-4 w-4" /> },
                 { key: 'storico', label: 'Storico iscrizioni', icon: <ClipboardList className="h-4 w-4" />, badge: societyRegs.length || undefined },
+                ...(USE_API ? [{ key: 'pagamenti', label: 'Pagamenti di gruppo', icon: <Clock className="h-4 w-4" /> }] : []),
             ]}
             active={section}
             onSelect={k => setSection(k as SocietySection)}
@@ -232,6 +291,8 @@ export default function SocietyDashboardPage() {
                 )}
                 </>
               )}
+
+              {section === 'pagamenti' && USE_API && <GroupPayments />}
 
               {section === 'storico' && (
                 societyRegs.length === 0 ? (
@@ -397,37 +458,57 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
     }, [event]);
     const [sending, setSending] = useState(false);
 
-    /** Con il backend: un'iscrizione per atleta; il server applica tutti i controlli. */
+    // ── Con il backend: iscrizione di gruppo (un solo pagamento, quote in omaggio) ──
+    const methods = race ? groupMethods(race) : [];
+    const [method, setMethod] = useState<'bank' | 'onsite'>('bank');
+    const payMethod = methods.includes(method) ? method : methods[0];
+    const [consensi, setConsensi] = useState(false);
+    const [preview, setPreview] = useState<Pick<PaymentGroupView, 'iscritti' | 'omaggi' | 'paganti' | 'quota' | 'maggiorazione' | 'totale'> & { giaIscritti: number } | null>(null);
+    const [errori, setErrori] = useState<string[]>([]);
+    const [result, setResult] = useState<PaymentGroupView | null>(null);
+    useEffect(() => {
+        setPreview(null);
+        if (!USE_API || !race || selected.size === 0 || !payMethod) return;
+        const t = setTimeout(() => {
+            api.post<typeof preview>('/groups/preview', { raceId: race.id, count: selected.size, paymentMethod: payMethod })
+                .then(setPreview).catch(() => setPreview(null));
+        }, 250);
+        return () => clearTimeout(t);
+    }, [race, selected.size, payMethod]);
+
     async function confirmApi(chosen: RosterAthlete[]) {
-        if (!race) return;
+        if (!race || !payMethod) return;
         setSending(true);
-        const failed: string[] = [];
-        let ok = 0;
-        for (const ath of chosen) {
-            const aff = pickAffiliationForEnte(ath.affiliations, race.ente);
-            try {
-                await api.post('/registrations', {
-                    raceId: race.id,
-                    formData: buildFormData(race, ath, societaNome),
-                    paymentMethod: 'manual',
-                    athlete: {
-                        nome: ath.nome,
-                        cognome: ath.cognome,
-                        dataNascita: ath.dataNascita,
-                        sesso: ath.sesso,
-                        tessera: aff?.numeroTessera || undefined,
-                        codiceSocieta: aff?.codiceSocieta || undefined,
-                    },
-                });
-                ok++;
-            } catch (e) {
-                failed.push(`${ath.cognome} ${ath.nome}: ${e instanceof Error ? e.message : 'errore'}`);
-            }
+        setErrori([]);
+        try {
+            const g = await api.post<PaymentGroupView>('/groups', {
+                raceId: race.id,
+                paymentMethod: payMethod,
+                consensi,
+                athletes: chosen.map(ath => {
+                    const aff = pickAffiliation(race, ath);
+                    return {
+                        formData: buildFormData(race, ath, societaNome),
+                        athlete: {
+                            nome: ath.nome,
+                            cognome: ath.cognome,
+                            dataNascita: ath.dataNascita,
+                            sesso: ath.sesso,
+                            tessera: aff?.numeroTessera || undefined,
+                            codiceSocieta: aff?.codiceSocieta || undefined,
+                            tesseramento: aff ? tesseramentoDaEnte(aff.ente, aff.societaNome) : undefined,
+                        },
+                    };
+                }),
+            });
+            setResult(g);
+            loadMyRegistrationsApi().catch(() => undefined);
+        } catch (e) {
+            const body = e instanceof ApiError ? e.body as { errori?: string[] } | undefined : undefined;
+            setErrori([e instanceof Error ? e.message : 'Iscrizione non riuscita', ...(body?.errori ?? [])]);
+        } finally {
+            setSending(false);
         }
-        setSending(false);
-        loadMyRegistrationsApi().catch(() => undefined);
-        if (failed.length) window.alert(`Non iscritti:\n${failed.join('\n')}`);
-        setDone(ok);
     }
 
     function confirm() {
@@ -475,7 +556,20 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
 
-                {done > 0 ? (
+                {result ? (
+                    <div className="p-6 space-y-4 overflow-y-auto">
+                        <div className="text-center">
+                            <Check className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                            <p className="font-semibold text-slate-800">{result.iscritti} atleti iscritti</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Codice pagamento <span className="font-mono">{result.paymentRef}</span> · riepilogo inviato anche per email</p>
+                        </div>
+                        <GroupTotals g={result} />
+                        {result.paymentStatus === 'PENDING' && result.paymentMethod === 'bank' && <BankBox g={result} />}
+                        {result.paymentMethod === 'onsite' && <p className="text-sm text-slate-600">Il totale si paga sul posto, al ritiro dei pettorali.</p>}
+                        <p className="text-xs text-slate-500">Lo ritrovi in "Pagamenti di gruppo".</p>
+                        <button onClick={onClose} className="w-full px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700">Chiudi</button>
+                    </div>
+                ) : done > 0 ? (
                     <div className="p-8 text-center">
                         <Check className="h-12 w-12 text-green-500 mx-auto mb-3" />
                         <p className="font-semibold text-slate-800">{done} atleti iscritti</p>
@@ -523,11 +617,39 @@ function BulkRegistrationModal({ events, roster, societaNome, societyId, onClose
                                 </div>
                             )}
                         </div>
+                        {USE_API && race && selected.size > 0 && (
+                            <div className="px-6 py-3 border-t border-slate-100 space-y-2 bg-slate-50/60">
+                                {methods.length > 1 && (
+                                    <div className="flex gap-2 text-sm">
+                                        {methods.map(m => (
+                                            <label key={m} className="flex items-center gap-1.5">
+                                                <input type="radio" className="accent-brand-600" checked={payMethod === m} onChange={() => setMethod(m)} />
+                                                {m === 'bank' ? 'Un bonifico' : 'In loco'}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                                {preview && <GroupTotals g={preview} />}
+                                {preview && preview.giaIscritti > 0 && race.gruppoOmaggi && (
+                                    <p className="text-xs text-slate-500">Conteggio omaggi: avete già {preview.giaIscritti} iscritti a questa gara.</p>
+                                )}
+                                <label className="flex items-start gap-2 text-xs text-slate-600">
+                                    <input type="checkbox" className="accent-brand-600 mt-0.5" checked={consensi} onChange={e => setConsensi(e.target.checked)} />
+                                    Dichiaro di aver raccolto dagli atleti i consensi richiesti dal modulo (privacy, regolamento) e che sono in regola con il tesseramento.
+                                </label>
+                                {errori.length > 0 && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700 max-h-32 overflow-y-auto">
+                                        <p className="font-semibold">{errori[0]}</p>
+                                        {errori.slice(1).map(x => <p key={x}>{x}</p>)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-100">
                             <span className="text-sm text-slate-500">
-                                {race ? `${(race.price * selected.size).toFixed(2)} € totali (da saldare)` : ''}
+                                {race && !USE_API ? `${(race.price * selected.size).toFixed(2)} € totali (da saldare)` : ''}
                             </span>
-                            <button disabled={!race || selected.size === 0 || sending} onClick={confirm}
+                            <button disabled={!race || selected.size === 0 || sending || (USE_API && !consensi)} onClick={confirm}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50">
                                 <Plus className="h-4 w-4" /> Iscrivi {selected.size > 0 ? selected.size : ''}
                             </button>
