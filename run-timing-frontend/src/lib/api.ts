@@ -8,9 +8,12 @@ const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 export const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 export class ApiError extends Error {
-    constructor(public status: number, message: string) {
+    /** Corpo della risposta d'errore (es. { errori: [...] } delle iscrizioni di gruppo). */
+    public body?: unknown;
+    constructor(public status: number, message: string, body?: unknown) {
         super(message);
         this.name = 'ApiError';
+        this.body = body;
     }
 }
 
@@ -44,6 +47,8 @@ export function tokenRole(): string | null {
     } catch { return null; }
 }
 
+const parseBody = (text: string): unknown => { try { return JSON.parse(text); } catch { return undefined; } };
+
 /** Estrae il messaggio leggibile dalle risposte d'errore NestJS. */
 function errorMessage(text: string, fallback: string): string {
     try {
@@ -66,7 +71,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         if (res.status === 401 && authToken) setAuthToken(null); // sessione scaduta
-        throw new ApiError(res.status, errorMessage(text, res.statusText));
+        throw new ApiError(res.status, errorMessage(text, res.statusText), parseBody(text));
     }
     if (res.status === 204) return undefined as T;
     const text = await res.text(); // risposta vuota (es. profilo non ancora creato) → null

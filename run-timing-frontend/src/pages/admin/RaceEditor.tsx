@@ -421,6 +421,9 @@ export default function RaceEditor({
                         />
                     </div>
 
+                    {/* Iscrizioni di gruppo delle società */}
+                    <GruppoOmaggiEditor value={race.gruppoOmaggi ?? null} onChange={v => set('gruppoOmaggi', v)} />
+
                     {/* Quote scaglionate */}
                     <div>
                         <h4 className="text-sm font-semibold text-slate-700 mb-2">Quote scaglionate</h4>
@@ -815,6 +818,39 @@ function AmmessiEditor({ race, onChange }: { race: Race; onChange: (patch: Parti
                 {current.includes('fidal') && !current.includes('runcard')
                     ? 'La tessera FIDAL viene controllata (cognome e data di nascita). Stranieri tesserati FIDAL ammessi.'
                     : 'L\'età si calcola sull\'anno di nascita, come per le categorie FIDAL.'}
+            </p>
+        </div>
+    );
+}
+
+/** Omaggi per le iscrizioni di gruppo delle società (es. ogni 10 iscritti, 1 gratis). */
+function GruppoOmaggiEditor({ value, onChange }: {
+    value: { ogni: number; gratis: number } | null;
+    onChange: (v: { ogni: number; gratis: number } | null) => void;
+}) {
+    const num = (v: string, min: number) => Math.max(min, parseInt(v) || min);
+    return (
+        <div>
+            <h4 className="text-sm font-semibold text-slate-700 mb-2">Iscrizioni di gruppo delle società</h4>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" className="accent-brand-600 h-4 w-4" checked={!!value}
+                    onChange={e => onChange(e.target.checked ? { ogni: 10, gratis: 1 } : null)} />
+                Quote in omaggio per le società
+            </label>
+            {value && (
+                <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-slate-700">
+                    ogni
+                    <input type="number" min={2} value={value.ogni} className={`${inputCls} !w-20`}
+                        onChange={e => { const ogni = num(e.target.value, 2); onChange({ ogni, gratis: Math.min(value.gratis, ogni - 1) }); }} />
+                    iscritti della stessa società,
+                    <input type="number" min={1} max={value.ogni - 1} value={value.gratis} className={`${inputCls} !w-16`}
+                        onChange={e => onChange({ ...value, gratis: Math.min(num(e.target.value, 1), value.ogni - 1) })} />
+                    gratis
+                </div>
+            )}
+            <p className="text-xs text-slate-400 mt-1">
+                La società iscrive i suoi atleti e paga con un solo bonifico. Si contano tutte le sue iscrizioni a questa gara:
+                con "ogni 10, 1 gratis" sono in omaggio il 10°, il 20°… La maggiorazione del bonifico vale per ogni pagante.
             </p>
         </div>
     );

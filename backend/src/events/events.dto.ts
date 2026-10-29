@@ -34,6 +34,8 @@ export class RaceDto {
     @IsOptional() @IsString() ente?: string;
     /** Tesseramenti ammessi (vuoto = tutti). */
     @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(['fidal', 'runcard', 'eps', 'libero'], { each: true }) ammessi?: string[];
+    /** Iscrizioni di gruppo: { ogni: 10, gratis: 1 } oppure null. */
+    @IsOptional() @IsObject() gruppoOmaggi?: Record<string, unknown> | null;
     @IsOptional() @IsIn(['none', 'online', 'onsite', 'both']) paymentMode?: string;
     @IsOptional() @IsBoolean() requiresMedicalCert?: boolean;
     @IsOptional() @IsInt() @Min(0) minAge?: number;

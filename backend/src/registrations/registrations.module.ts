@@ -7,5 +7,6 @@ import { RegistrationsService } from './registrations.service';
     imports: [FidalModule],
     controllers: [RegistrationsController],
     providers: [RegistrationsService],
+    exports: [RegistrationsService],
 })
 export class RegistrationsModule {}

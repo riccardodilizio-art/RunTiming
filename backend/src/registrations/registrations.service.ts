@@ -61,7 +61,7 @@ interface FormFieldDef {
 
 type RaceWithEvent = Prisma.RaceGetPayload<{ include: { day: { include: { event: true } } } }>;
 
-interface AthleteSnapshot {
+export interface AthleteSnapshot {
     nome: string;
     cognome: string;
     sesso: string;
@@ -80,6 +80,53 @@ interface AthleteSnapshot {
 }
 
 const json = <T>(v: Prisma.JsonValue | null | undefined): T | undefined => (v ?? undefined) as unknown as T;
+
+/** Dati preparati da RegistrationsService.prepare (senza importi). */
+export interface PreparedRegistration {
+    athlete: AthleteSnapshot;
+    athleteId?: string;
+    societyId?: string;
+    category: RaceCategory | null;
+    formData: Record<string, string | boolean>;
+    certStatus: CertStatus;
+}
+
+/** Anagrafica "fotografata" di un'iscrizione (gli importi li aggiunge chi crea). */
+export function snapshotData(race: { id: string; day: { event: { id: string } } }, p: PreparedRegistration) {
+    const a = p.athlete;
+    return {
+        raceId: race.id,
+        eventId: race.day.event.id,
+        athleteId: p.athleteId,
+        societyId: p.societyId,
+        nome: a.nome,
+        cognome: a.cognome,
+        sesso: a.sesso,
+        dataNascita: a.dataNascita,
+        societa: a.societa,
+        codiceSocieta: a.codiceSocieta,
+        tessera: a.tessera,
+        tesseramento: a.tesseramento,
+        email: a.email,
+        formData: p.formData as Prisma.InputJsonValue,
+        assignedCategory: p.category?.name,
+        fidalVerified: a.fidalVerified,
+        certStatus: p.certStatus,
+    };
+}
+
+/** Stessa persona già iscritta (attiva) alla gara. */
+export function findDuplicate(
+    tx: Prisma.TransactionClient, raceId: string, a: { cognome: string; nome: string; dataNascita: Date },
+) {
+    return tx.registration.findFirst({
+        where: {
+            raceId, cognome: a.cognome, nome: a.nome, dataNascita: a.dataNascita,
+            paymentStatus: { not: PaymentStatus.REJECTED },
+        },
+        select: { id: true },
+    });
+}
 
 /**
  * Tesseramento di chi si iscrive senza profilo atleta (ospite, società, staff):
@@ -173,8 +220,13 @@ export class RegistrationsService {
 
     // ─── Creazione ──────────────────────────────────────────────────────────
 
-    async create(user: AuthUser | undefined, dto: CreateRegistrationDto) {
-        const race = await this.race(dto.raceId);
+    /** Gara letta con evento (per altri moduli, es. iscrizioni di gruppo). */
+    getRace(raceId: string): Promise<RaceWithEvent> {
+        return this.race(raceId);
+    }
+
+    /** Iscrizioni aperte (lo staff può sempre); restituisce se chi iscrive è staff dell'evento. */
+    async assertCanRegister(user: AuthUser | undefined, race: RaceWithEvent): Promise<boolean> {
         const event = race.day.event;
         const isStaff = !!user && (user.role === Role.ADMIN || user.role === Role.ORGANIZER);
         if (isStaff) await this.assertCanManage(user!, event.id, event.createdById);
@@ -183,7 +235,26 @@ export class RegistrationsService {
         if (!isStaff && race.day.date.toISOString().slice(0, 10) < todayRome()) {
             throw new BadRequestException('La gara si è già svolta: iscrizioni chiuse');
         }
+        return isStaff;
+    }
 
+    /**
+     * Controlli e dati di un'iscrizione, senza scrivere nulla: anagrafica, età,
+     * tesseramento, categoria, modulo, certificato. Usato dall'iscrizione singola
+     * e da quella di gruppo, così le regole restano in un punto solo.
+     * `consensiSocieta`: la società dichiara di aver raccolto i consensi (caselle obbligatorie).
+     */
+    async prepare(
+        user: AuthUser | undefined, race: RaceWithEvent, dto: CreateRegistrationDto, isStaff: boolean,
+        opts: { consensiSocieta?: boolean } = {},
+    ) {
+        if (opts.consensiSocieta) {
+            const fd: Record<string, string | boolean> = { ...(dto.formData ?? {}) };
+            for (const f of json<FormFieldDef[]>(race.formSchema) ?? []) {
+                if (f.required && f.type === 'checkbox' && fd[f.id] === undefined) fd[f.id] = true;
+            }
+            dto = { ...dto, formData: fd };
+        }
         const { athlete, athleteId, societyId } = await this.resolveAthlete(user, race, dto);
 
         // Età e categoria (età "sportiva": anno gara − anno nascita)
@@ -218,6 +289,16 @@ export class RegistrationsService {
         if (race.requiresMedicalCert) {
             certStatus = athlete.fidalVerified || athlete.certValid ? CertStatus.VERIFICATO : CertStatus.IN_ATTESA;
         }
+
+        return { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus };
+    }
+
+    async create(user: AuthUser | undefined, dto: CreateRegistrationDto) {
+        const race = await this.race(dto.raceId);
+        const event = race.day.event;
+        const isStaff = await this.assertCanRegister(user, race);
+        const { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus } =
+            await this.prepare(user, race, dto, isStaff);
 
         // Metodo di pagamento: lo staff registra a mano (contanti, già pagato…);
         // l'atleta sceglie tra quelli ammessi dalla gara ("online" = PayPal/carta).
@@ -258,16 +339,7 @@ export class RegistrationsService {
                 if (count >= race.maxParticipants) throw new ConflictException('Gara al completo');
             }
 
-            const dup = await tx.registration.findFirst({
-                where: {
-                    raceId: race.id,
-                    cognome: athlete.cognome,
-                    nome: athlete.nome,
-                    dataNascita: athlete.dataNascita,
-                    paymentStatus: { not: PaymentStatus.REJECTED },
-                },
-                select: { id: true },
-            });
+            const dup = await findDuplicate(tx, race.id, athlete);
             if (dup) throw new ConflictException('Atleta già iscritto a questa gara');
 
             if (q.discountCode) {
@@ -282,20 +354,7 @@ export class RegistrationsService {
 
             const reg = await tx.registration.create({
                 data: {
-                    raceId: race.id,
-                    eventId: event.id,
-                    athleteId,
-                    societyId,
-                    nome: athlete.nome,
-                    cognome: athlete.cognome,
-                    sesso: athlete.sesso,
-                    dataNascita: athlete.dataNascita,
-                    societa: athlete.societa,
-                    codiceSocieta: athlete.codiceSocieta,
-                    tessera: athlete.tessera,
-                    tesseramento: athlete.tesseramento,
-                    email: athlete.email,
-                    formData: formData as Prisma.InputJsonValue,
+                    ...snapshotData(race, { athlete, athleteId, societyId, category, formData, certStatus }),
                     basePrice: q.price,
                     discountAmount: q.discount,
                     commissionAmount: q.commission,
@@ -306,11 +365,8 @@ export class RegistrationsService {
                     discountCode: q.discountCode,
                     paymentMethod,
                     paymentStatus,
-                    assignedCategory: category?.name,
-                    fidalVerified: athlete.fidalVerified,
                     addedByOrganizer: isStaff,
                     createdById: user?.sub,
-                    certStatus,
                 },
             });
             return {
@@ -590,6 +646,9 @@ export class RegistrationsService {
      */
     async setPayment(user: AuthUser, id: string, paymentStatus: PaymentStatus) {
         const reg = await this.regForStaff(user, id);
+        if (reg.groupId) {
+            throw new ConflictException('Iscrizione di un pagamento di gruppo della società: confermala o annullala dal gruppo (Pagamenti → Gruppi società)');
+        }
         const online = reg.paymentMethod === 'paypal' || reg.paymentMethod === 'bank';
         if (user.role !== Role.ADMIN && online) {
             const rejectUnpaid = reg.paymentStatus === PaymentStatus.PENDING && paymentStatus === PaymentStatus.REJECTED;

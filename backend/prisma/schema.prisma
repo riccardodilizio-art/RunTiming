@@ -172,6 +172,8 @@ model Race {
   ente                String?
   /// Tesseramenti ammessi: fidal, runcard, eps, libero (vuoto = tutti)
   ammessi             String[]       @default([])
+  /// Iscrizioni di gruppo delle società: { ogni: 10, gratis: 1 } (vuoto = nessun omaggio)
+  gruppoOmaggi        Json?
   paymentMode         String?
   requiresMedicalCert Boolean        @default(false)
   minAge              Int?
@@ -190,6 +192,7 @@ model Race {
   syncKey             String?        @unique
   registrations       Registration[]
   resultRows          ResultRow[]
+  paymentGroups       PaymentGroup[]
 }
 
 model DiscountCode {
@@ -252,11 +255,44 @@ model Registration {
   submittedAt      DateTime        @default(now())
   /// Promemoria di pagamento già inviato (gare a pagamento anticipato)
   reminderSentAt   DateTime?
+  /// Iscrizione di gruppo della società: si paga con il gruppo (un solo bonifico)
+  group            PaymentGroup?   @relation(fields: [groupId], references: [id])
+  groupId          String?
+  /// Quota in omaggio (es. ogni 10 iscritti della società, uno gratis)
+  omaggio          Boolean         @default(false)
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])
   @@index([societyId])
   @@index([athleteId])
+  @@index([groupId])
+}
+
+/// Pagamento di gruppo: la società iscrive più atleti e paga con un solo bonifico.
+model PaymentGroup {
+  id            String         @id @default(cuid())
+  race          Race           @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  raceId        String
+  eventId       String
+  societyId     String
+  societaNome   String
+  /// Codice per la causale del bonifico (come per le iscrizioni singole)
+  paymentRef    String         @unique
+  paymentMethod String
+  paymentStatus PaymentStatus  @default(PENDING)
+  iscritti      Int
+  omaggi        Int
+  /// Quota di un atleta (scaglione in vigore) e maggiorazione per ogni pagante
+  quota         Float
+  maggiorazione Float
+  totale        Float
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  paidAt        DateTime?
+  registrations Registration[]
+
+  @@index([societyId])
+  @@index([paymentStatus])
 }
 
 // Impostazioni globali (es. commissione di default) come chiave → JSON.

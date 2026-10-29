@@ -16,6 +16,7 @@ import { AccessModule } from './common/access';
 import { ProfilesModule } from './profiles/profiles.module';
 import { ResultsModule } from './results/results.module';
 import { PaymentsModule } from './payments/payments.module';
+import { GroupsModule } from './groups/groups.module';
 
 @Module({
     imports: [
@@ -33,6 +34,7 @@ import { PaymentsModule } from './payments/payments.module';
         FidalModule,
         DiscountsModule,
         RegistrationsModule,
+        GroupsModule,
         ProfilesModule,
         ResultsModule,
         PaymentsModule,

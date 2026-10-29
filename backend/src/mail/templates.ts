@@ -186,3 +186,81 @@ Se non hai chiesto tu di cambiare la password ignora questa email: il tuo accoun
         text: `Ciao,\nabbiamo ricevuto una richiesta per reimpostare la password del tuo account ${siteName()}.\n\nScegli una nuova password: ${link}\n\nIl link vale ${minuti} minuti e si può usare una sola volta. Se non hai chiesto tu di cambiare la password ignora questa email.\n\n${signature()}`,
     };
 }
+
+// ─── Iscrizione di gruppo (società) ─────────────────────────────────────────
+
+export interface GroupMailData {
+    societa: string;
+    evento: string;
+    gara: string;
+    data: Date | string;
+    paymentRef: string;
+    metodo: string;
+    stato: string;
+    iscritti: number;
+    omaggi: number;
+    paganti: number;
+    quota: number;
+    maggiorazione: number;
+    totale: number;
+    atleti: { nome: string; omaggio: boolean }[];
+    bank: { iban: string; intestatario?: string; banca?: string; giorni: number } | null;
+}
+
+function groupSummary(d: GroupMailData): [string, string][] {
+    return [
+        ['Evento', d.evento],
+        ['Gara', d.gara],
+        ['Data', giorno(d.data)],
+        ['Atleti iscritti', String(d.iscritti)],
+        ...(d.omaggi ? [['Quote in omaggio', String(d.omaggi)] as [string, string]] : []),
+        ['Quote da pagare', `${d.paganti} × ${euro(d.quota)}`],
+        ...(d.maggiorazione ? [['Maggiorazione bonifico', `${d.paganti} × ${euro(d.maggiorazione)}`] as [string, string]] : []),
+        ['Totale', euro(d.totale)],
+    ];
+}
+
+/** Riepilogo dell'iscrizione di gruppo con i dati per un solo bonifico. */
+export function groupRegistrationMail(d: GroupMailData): MailContent {
+    const summary = groupSummary(d);
+    let payHtml = '';
+    let payText = '';
+    if (d.stato === 'CONFIRMED') {
+        payHtml = '<p>Le iscrizioni sono <strong>confermate</strong>.</p>';
+        payText = 'Le iscrizioni sono confermate.';
+    } else if (d.metodo === 'bank' && d.bank) {
+        const b: [string, string][] = [
+            ['Importo', euro(d.totale)],
+            ...(d.bank.intestatario ? [['Intestatario', d.bank.intestatario] as [string, string]] : []),
+            ['IBAN', d.bank.iban],
+            ...(d.bank.banca ? [['Banca', d.bank.banca] as [string, string]] : []),
+            ['Causale', `${d.paymentRef} ${d.societa}`],
+        ];
+        payHtml = `<p>Fate <strong>un solo bonifico entro ${d.bank.giorni} giorni</strong> per tutto il gruppo, con questa causale: ci serve per abbinare il pagamento.</p>${rows(b)}`;
+        payText = `Fate un solo bonifico entro ${d.bank.giorni} giorni per tutto il gruppo.\n${textRows(b)}`;
+    } else if (d.metodo === 'onsite') {
+        payHtml = `<p>Il totale di <strong>${esc(euro(d.totale))}</strong> si paga sul posto, al ritiro dei pettorali.</p>`;
+        payText = `Il totale di ${euro(d.totale)} si paga sul posto, al ritiro dei pettorali.`;
+    }
+    const list = d.atleti.map(a => `${title(a.nome)}${a.omaggio ? ' (omaggio)' : ''}`);
+    const subject = oneLine(d.stato === 'CONFIRMED'
+        ? `Iscrizioni confermate – ${d.evento}`
+        : `Iscrizione di gruppo: ${d.iscritti} atleti – ${d.evento}`);
+    return {
+        subject,
+        html: layout(subject, `<p>Ciao ${esc(d.societa)},</p><p>abbiamo ricevuto l'iscrizione di gruppo.</p>${rows(summary)}${payHtml}
+<p style="margin-top:18px"><strong>Atleti</strong></p><p style="font-size:14px">${list.map(esc).join('<br>')}</p>`),
+        text: `Ciao ${d.societa},\nabbiamo ricevuto l'iscrizione di gruppo.\n\n${textRows(summary)}\n\n${payText}\n\nAtleti:\n${list.join('\n')}\n\n${signature()}`,
+    };
+}
+
+/** Bonifico del gruppo ricevuto: iscrizioni confermate. */
+export function groupPaymentReceivedMail(d: GroupMailData): MailContent {
+    const subject = oneLine(`Pagamento ricevuto: ${d.iscritti} iscrizioni confermate – ${d.evento}`);
+    const summary = groupSummary(d);
+    return {
+        subject,
+        html: layout(subject, `<p>Ciao ${esc(d.societa)},</p><p>abbiamo ricevuto il bonifico: le iscrizioni del gruppo sono <strong>confermate</strong>.</p>${rows(summary)}`),
+        text: `Ciao ${d.societa},\nabbiamo ricevuto il bonifico: le iscrizioni del gruppo sono confermate.\n\n${textRows(summary)}\n\n${signature()}`,
+    };
+}
