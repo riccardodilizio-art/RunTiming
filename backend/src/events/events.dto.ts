@@ -47,6 +47,7 @@ export class RaceDto {
     /** Chiusura automatica delle iscrizioni (ISO); null = solo a mano. */
     @IsOptional() @ValidateIf((_, v) => v !== null) @IsDateString() chiusuraIscrizioni?: string | null;
     @IsOptional() @IsInt() @Min(0) @Max(10000) maxPerSocieta?: number;
+    @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(1) @Max(999_999) pettoraleDa?: number | null;
     @IsOptional() @IsArray() formSchema?: unknown[];
     @IsOptional() @IsArray() priceSteps?: unknown[];
     @IsOptional() @IsArray() @IsString({ each: true }) publicFields?: string[];

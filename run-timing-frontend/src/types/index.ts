@@ -77,6 +77,8 @@ export interface RegistrationSubmission {
     /** "COGNOME NOME" fornito dal backend (non dipende dai campi del modulo). */
     athleteName?: string;
     societyId?: string;          // se iscritto da una società (presidente)
+    /** Pettorale (assegnato dalla segreteria). */
+    pettorale?: number;
     certStatus?: CertStatus;
     certInfo?: CertInfo;
     certRejectionReason?: string;
@@ -254,6 +256,8 @@ export interface Race {
     chiusuraIscrizioni?: string | null;
     /** Massimo di atleti per società (0 = nessun limite). */
     maxPerSocieta?: number;
+    /** Primo pettorale della gara. */
+    pettoraleDa?: number | null;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
     publicFields?: string[];

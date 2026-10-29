@@ -25,6 +25,7 @@ export interface ApiRace {
     isOpen: boolean;
     chiusuraIscrizioni?: string | null;
     maxPerSocieta?: number;
+    pettoraleDa?: number | null;
     formSchema?: unknown;
     priceSteps?: unknown;
     publicFields?: string[];
@@ -68,6 +69,7 @@ export interface ApiEvent {
 
 export interface ApiRegistration {
     id: string;
+    pettorale?: number | null;
     raceId: string;
     eventId: string;
     athleteId?: string | null;
@@ -125,6 +127,7 @@ export function toRace(r: ApiRace): Race {
         isOpen: r.isOpen,
         chiusuraIscrizioni: r.chiusuraIscrizioni ?? null,
         maxPerSocieta: r.maxPerSocieta ?? 0,
+        pettoraleDa: r.pettoraleDa ?? null,
         formSchema: opt(r.formSchema) as Race['formSchema'],
         priceSteps: opt(r.priceSteps) as Race['priceSteps'],
         publicFields: r.publicFields,
@@ -190,6 +193,7 @@ export function toRegistration(r: ApiRegistration): RegistrationSubmission {
         athleteAccountId: opt(r.athleteId),
         athleteName: `${r.cognome} ${r.nome}`.trim() || undefined,
         societyId: opt(r.societyId),
+        pettorale: r.pettorale ?? undefined,
         certStatus: r.certStatus ? CERT[r.certStatus] : undefined,
     };
 }
@@ -243,6 +247,7 @@ export function fromEvent(e: Event, days: EventDay[]) {
                 isOpen: r.isOpen,
                 chiusuraIscrizioni: r.chiusuraIscrizioni || null,
                 maxPerSocieta: Number(r.maxPerSocieta) || 0,
+                pettoraleDa: r.pettoraleDa ?? null,
                 formSchema: r.formSchema,
                 priceSteps: r.priceSteps,
                 publicFields: r.publicFields,

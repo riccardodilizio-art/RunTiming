@@ -187,6 +187,8 @@ model Race {
   chiusuraIscrizioni  DateTime?
   /// Massimo di atleti che una società può iscrivere a questa gara (0 = nessun limite)
   maxPerSocieta       Int            @default(0)
+  /// Primo pettorale della gara (assegnazione per società, poi cognome e nome)
+  pettoraleDa         Int?
   formSchema          Json?
   priceSteps          Json?
   publicFields        String[]
@@ -270,6 +272,8 @@ model Registration {
   combinataId      String?
   /// Iscrizione principale della combinata: si paga lì, le altre la seguono
   combinataParentId String?
+  /// Pettorale (unico nell'evento)
+  pettorale        Int?
 
   @@index([raceId, cognome])
   @@index([eventId, cognome])
@@ -277,6 +281,7 @@ model Registration {
   @@index([athleteId])
   @@index([groupId])
   @@index([combinataParentId])
+  @@unique([eventId, pettorale])
 }
 
 /// Pagamento di gruppo: la società iscrive più atleti e paga con un solo bonifico.
