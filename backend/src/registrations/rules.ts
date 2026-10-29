@@ -171,3 +171,46 @@ export function checkAge(age: number, minAge?: number | null, maxAge?: number | 
 export function normName(s: string | null | undefined): string {
     return (s ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 }
+
+// ─── Tesseramenti ammessi ───────────────────────────────────────────────────
+
+/** Come si è tesserato l'atleta: FIDAL, Runcard, EPS o altro ente, non tesserato. */
+export type Tesseramento = 'fidal' | 'runcard' | 'eps' | 'libero';
+export const TESSERAMENTI: Tesseramento[] = ['fidal', 'runcard', 'eps', 'libero'];
+export const TESSERAMENTO_LABEL: Record<Tesseramento, string> = {
+    fidal: 'FIDAL', runcard: 'Runcard', eps: 'EPS e altri enti', libero: 'non tesserati',
+};
+
+/**
+ * Tesseramenti ammessi dalla gara; lista vuota = tutti.
+ * Gare salvate prima di questa regola: "ente FIDAL" voleva dire FIDAL o Runcard.
+ */
+export function ammessiGara(race: { ammessi?: string[] | null; ente?: string | null }): Tesseramento[] {
+    const set = (race.ammessi ?? []).filter((t): t is Tesseramento => (TESSERAMENTI as string[]).includes(t));
+    if (set.length) return set;
+    return (race.ente ?? '').toLowerCase() === 'fidal' ? ['fidal', 'runcard'] : [];
+}
+
+/** Tesseramento corrispondente all'ente di un'affiliazione del profilo. */
+export function tesseramentoDaEnte(ente: string | null | undefined, societaNome?: string | null): Tesseramento {
+    const e = (ente ?? '').toLowerCase();
+    if (e === 'fidal') return 'fidal';
+    if (e === 'runcard' || /run\s*card/i.test(societaNome ?? '')) return 'runcard';
+    if (!e || e === 'non_competitiva') return 'libero';
+    return 'eps';
+}
+
+/** Messaggio d'errore se il tesseramento non è ammesso, altrimenti null. */
+export function checkTesseramento(tipo: Tesseramento, ammessi: Tesseramento[]): string | null {
+    if (!ammessi.length || ammessi.includes(tipo)) return null;
+    const list = ammessi.map(t => TESSERAMENTO_LABEL[t]);
+    const who = ammessi.every(t => t === 'fidal' || t === 'runcard')
+        ? `ai tesserati ${list.join(' e ')}`
+        : `a: ${list.join(', ')}`;
+    return `Questa gara è riservata ${who}`;
+}
+
+/** Solo FIDAL (senza Runcard): la tessera deve risultare a FIDAL con stesso cognome e data di nascita. */
+export function richiedeFidalVerificato(ammessi: Tesseramento[]): boolean {
+    return ammessi.includes('fidal') && !ammessi.includes('runcard');
+}

@@ -22,6 +22,11 @@ import {
     RaceCategory,
     assignCategory,
     checkAge,
+    ammessiGara,
+    checkTesseramento,
+    richiedeFidalVerificato,
+    tesseramentoDaEnte,
+    Tesseramento,
     normName,
     quote,
     sportAge,
@@ -68,9 +73,35 @@ interface AthleteSnapshot {
     fidalVerified: boolean;
     /** Certificato già noto come valido alla data gara (profilo atleta). */
     certValid: boolean;
+    /** Tesseramento con cui si iscrive. */
+    tesseramento: Tesseramento;
+    /** Tessera trovata a FIDAL con lo stesso cognome e data di nascita (anche con certificato scaduto). */
+    fidalTrovato: boolean;
 }
 
 const json = <T>(v: Prisma.JsonValue | null | undefined): T | undefined => (v ?? undefined) as unknown as T;
+
+/**
+ * Tesseramento di chi si iscrive senza profilo atleta (ospite, società, staff):
+ * quello dichiarato, altrimenti ricavato da tessera e campi del modulo.
+ */
+export function guessTesseramento(
+    dichiarato: Tesseramento | undefined,
+    fidalTrovato: boolean,
+    formData: Record<string, unknown> | undefined,
+    schema: { id: string; catalogKey?: string }[],
+    haTessera: boolean,
+    societyEnte?: string,
+): Tesseramento {
+    if (dichiarato) return dichiarato;
+    if (fidalTrovato) return 'fidal';
+    const filled = (key: string) => schema.some(f => f.catalogKey === key && String(formData?.[f.id] ?? '').trim() !== '');
+    if (filled('tessera_fidal')) return 'fidal';
+    if (filled('tessera_runcard')) return 'runcard';
+    if (schema.some(f => f.catalogKey?.startsWith('tessera_') && String(formData?.[f.id] ?? '').trim() !== '')) return 'eps';
+    if (societyEnte) return tesseramentoDaEnte(societyEnte);
+    return haTessera ? 'fidal' : 'libero';
+}
 
 /** Tiene solo i campi del modulo della gara; testi tagliati a 500 caratteri. */
 export function sanitizeFormData(
@@ -159,6 +190,15 @@ export class RegistrationsService {
         const age = sportAge(athlete.dataNascita, race.day.date);
         const ageProblem = checkAge(age, race.minAge, race.maxAge);
         if (ageProblem && !isStaff) throw new BadRequestException(ageProblem);
+
+        // Tesseramenti ammessi dalla gara (es. solo FIDAL, FIDAL + Runcard)
+        const ammessi = ammessiGara(race);
+        let tessProblem = checkTesseramento(athlete.tesseramento, ammessi);
+        if (!tessProblem && athlete.tesseramento === 'fidal' && richiedeFidalVerificato(ammessi) && !athlete.fidalTrovato) {
+            tessProblem = 'Questa gara è riservata ai tesserati FIDAL: la tessera non risulta a FIDAL con questo cognome e '
+                + 'questa data di nascita. Controlla i dati o scrivi alla segreteria.';
+        }
+        if (tessProblem && !isStaff) throw new BadRequestException(tessProblem);
         const category = assignCategory(json<RaceCategory[]>(race.categories), age, athlete.sesso);
 
         // Modulo: si tengono SOLO i campi previsti dalla gara, con lunghezze limitate
@@ -253,6 +293,7 @@ export class RegistrationsService {
                     societa: athlete.societa,
                     codiceSocieta: athlete.codiceSocieta,
                     tessera: athlete.tessera,
+                    tesseramento: athlete.tesseramento,
                     email: athlete.email,
                     formData: formData as Prisma.InputJsonValue,
                     basePrice: q.price,
@@ -272,7 +313,11 @@ export class RegistrationsService {
                     certStatus,
                 },
             });
-            return { registration: reg, quote: q, ageWarning: ageProblem ?? undefined };
+            return {
+                registration: reg, quote: q,
+                ageWarning: ageProblem ?? undefined,
+                tesseramentoWarning: tessProblem ?? undefined,
+            };
         });
         // Email di conferma con i dati per pagare (in coda: non rallenta né blocca l'iscrizione)
         await this.mailer.confirmation(created.registration.id);
@@ -282,22 +327,22 @@ export class RegistrationsService {
     /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */
     private async fidalCheck(
         tessera: string, cognome: string, dataNascita: string, raceDay: Date,
-    ): Promise<{ ok: boolean; societa?: string; codiceSocieta?: string }> {
+    ): Promise<{ ok: boolean; found: boolean; societa?: string; codiceSocieta?: string }> {
         try {
             const r = await this.fidal.verifyByTessera(tessera.trim());
             const at = r.atleta;
-            if (!at || normName(at.cognome) !== normName(cognome) || at.dataNascita !== dataNascita.slice(0, 10)) return { ok: false };
+            if (!at || normName(at.cognome) !== normName(cognome) || at.dataNascita !== dataNascita.slice(0, 10)) return { ok: false, found: false };
             const certOk = !at.certScadenza || at.certScadenza >= raceDay.toISOString().slice(0, 10);
             // La società risulta comunque da FIDAL anche se il certificato è scaduto
-            return { ok: certOk, societa: at.societa || undefined, codiceSocieta: at.codiceSocieta || undefined };
+            return { ok: certOk, found: true, societa: at.societa || undefined, codiceSocieta: at.codiceSocieta || undefined };
         } catch {
-            return { ok: false }; // FIDAL non raggiungibile: non verificato (certificato da controllare)
+            return { ok: false, found: false }; // FIDAL non raggiungibile: non verificato (certificato da controllare)
         }
     }
 
     /** Ricava l'anagrafica in base a chi sta iscrivendo. */
     private async resolveAthlete(user: AuthUser | undefined, race: RaceWithEvent, dto: CreateRegistrationDto) {
-        const ente = (race.ente ?? '').toLowerCase();
+        const ammessi = ammessiGara(race);
 
         if (user?.role === Role.ATHLETE) {
             const p = await this.prisma.athleteProfile.findUnique({
@@ -305,14 +350,20 @@ export class RegistrationsService {
                 include: { affiliations: true },
             });
             if (!p) throw new BadRequestException('Completa il tuo profilo atleta prima di iscriverti');
+            // Tesseramento scelto, altrimenti il primo ammesso dalla gara (FIDAL per primo)
+            const ordered = [...p.affiliations].sort((a, b) =>
+                Number(tesseramentoDaEnte(b.ente) === 'fidal') - Number(tesseramentoDaEnte(a.ente) === 'fidal'));
             const aff = dto.affiliationId
                 ? p.affiliations.find(a => a.id === dto.affiliationId)
-                : p.affiliations.find(a => a.ente.toLowerCase() === ente);
+                : ordered.find(a => !ammessi.length || ammessi.includes(tesseramentoDaEnte(a.ente, a.societaNome)));
             if (dto.affiliationId && !aff) throw new BadRequestException('Tesseramento non trovato nel tuo profilo');
-            if (ente === 'fidal' && aff?.ente.toLowerCase() !== 'fidal') {
-                throw new BadRequestException('Per questa gara serve un tesseramento FIDAL o Runcard nel profilo');
-            }
+            const tesseramento: Tesseramento = aff ? tesseramentoDaEnte(aff.ente, aff.societaNome) : 'libero';
             const raceDay = race.day.date;
+            // Gara solo FIDAL: la tessera deve risultare a FIDAL (già confermata nel profilo o verificata ora)
+            let fidalTrovato = tesseramento === 'fidal' && aff?.source === 'fidal_db';
+            if (tesseramento === 'fidal' && !fidalTrovato && richiedeFidalVerificato(ammessi) && aff?.numeroTessera) {
+                fidalTrovato = (await this.fidalCheck(aff.numeroTessera, p.cognome, p.dataNascita.toISOString(), raceDay)).found;
+            }
             const athlete: AthleteSnapshot = {
                 nome: normName(p.nome),
                 cognome: normName(p.cognome),
@@ -326,6 +377,8 @@ export class RegistrationsService {
                 fidalVerified: aff?.ente.toLowerCase() === 'fidal' && aff.source === 'fidal_db'
                     && (!aff.certScadenza || aff.certScadenza >= raceDay),
                 certValid: p.certStatus === CertStatus.VERIFICATO && !!p.certExpiry && p.certExpiry >= raceDay,
+                tesseramento,
+                fidalTrovato,
             };
             return { athlete, athleteId: p.id, societyId: undefined };
         }
@@ -334,21 +387,24 @@ export class RegistrationsService {
         const a = dto.athlete;
         if (!user && !a.email) throw new BadRequestException("Indica un'email per ricevere la conferma");
         let societyId: string | undefined;
+        let societyEnte: string | undefined;
         let societa = a.societa;
         let codiceSocieta = a.codiceSocieta;
         if (user?.role === Role.SOCIETY) {
             const s = await this.prisma.society.findUnique({ where: { accountId: user.sub } });
             if (!s) throw new BadRequestException('Profilo società non trovato');
             societyId = s.id;
+            societyEnte = s.ente;
             societa = s.societaNome;
             codiceSocieta = s.codiceFidal ?? codiceSocieta;
         }
-        if (ente === 'fidal' && !a.tessera) throw new BadRequestException('Per questa gara serve la tessera FIDAL o Runcard');
         const isStaffUser = user?.role === Role.ADMIN || user?.role === Role.ORGANIZER;
         // Tessera verificata DAL SERVER (WISE/dump): stesso cognome e data di nascita,
         // certificato (se noto) valido alla data gara. Il browser non può dichiararlo.
-        const check = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : { ok: false };
+        const check = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : { ok: false, found: false } as { ok: boolean; found: boolean; societa?: string; codiceSocieta?: string };
         const verified = check.ok;
+        const tesseramento = guessTesseramento(a.tesseramento as Tesseramento | undefined, check.found,
+            dto.formData, json<FormFieldDef[]>(race.formSchema) ?? [], !!a.tessera, societyEnte);
         // Tessera confermata: società come risulta a FIDAL (non come scritta nel modulo)
         if (check.codiceSocieta && user?.role !== Role.SOCIETY) {
             societa = check.societa ?? societa;
@@ -366,6 +422,9 @@ export class RegistrationsService {
             // Verifica del server, oppure dichiarazione dello staff (es. controllo manuale)
             fidalVerified: verified || (!!a.fidalVerified && isStaffUser),
             certValid: false,
+            tesseramento,
+            // Lo staff può confermare la tessera dopo un controllo manuale
+            fidalTrovato: check.found || (!!a.fidalVerified && isStaffUser),
         };
         return { athlete, athleteId: undefined, societyId };
     }
