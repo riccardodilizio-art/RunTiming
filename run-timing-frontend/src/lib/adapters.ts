@@ -28,6 +28,7 @@ export interface ApiRace {
     pettoraleDa?: number | null;
     dichiarazioneMinori?: boolean;
     testoMinori?: string | null;
+    staffetta?: number | null;
     formSchema?: unknown;
     priceSteps?: unknown;
     publicFields?: string[];
@@ -133,6 +134,7 @@ export function toRace(r: ApiRace): Race {
         maxPerSocieta: r.maxPerSocieta ?? 0,
         pettoraleDa: r.pettoraleDa ?? null,
         dichiarazioneMinori: r.dichiarazioneMinori ?? false,
+        staffetta: r.staffetta ?? null,
         testoMinori: r.testoMinori ?? null,
         formSchema: opt(r.formSchema) as Race['formSchema'],
         priceSteps: opt(r.priceSteps) as Race['priceSteps'],
@@ -258,6 +260,7 @@ export function fromEvent(e: Event, days: EventDay[]) {
                 maxPerSocieta: Number(r.maxPerSocieta) || 0,
                 pettoraleDa: r.pettoraleDa ?? null,
                 dichiarazioneMinori: !!r.dichiarazioneMinori,
+                staffetta: r.staffetta && r.staffetta >= 2 ? r.staffetta : null,
                 testoMinori: r.testoMinori?.trim() || null,
                 formSchema: r.formSchema,
                 priceSteps: r.priceSteps,

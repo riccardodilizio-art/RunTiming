@@ -73,10 +73,12 @@ export function creditoTrasferimento(r: {
  */
 export function ritiroProblem(r: {
     paymentStatus: string; paymentMethod: string | null; groupId?: string | null; combinataParentId?: string | null; trasferitoAt?: Date | null;
+    staffettaCapoId?: string | null;
 }): string | null {
     if (r.paymentStatus === 'REJECTED') return 'Iscrizione già annullata';
     if (r.trasferitoAt) return 'Iscrizione già rinviata all\'anno prossimo';
     if (r.combinataParentId) return 'Gara compresa in una combinata: si annulla dall\'iscrizione principale';
+    if (r.staffettaCapoId) return 'Frazionista di una staffetta: l\'iscrizione la gestisce il capitano';
     if (r.groupId) return 'Iscrizione nel pagamento di gruppo della società: chiedi alla tua società';
     // Gara gratuita: nessun soldo in gioco, si può liberare il posto
     if (r.paymentStatus === 'CONFIRMED' && r.paymentMethod !== 'free') {

@@ -1,6 +1,9 @@
 import { IsBirthDate } from '../common/validators';
 import { Type } from 'class-transformer';
 import {
+    ArrayMaxSize,
+    ArrayMinSize,
+    IsArray,
     IsBoolean,
     IsEmail,
     IsIn,
@@ -85,4 +88,26 @@ export class UpdateCertDto {
 export class VerifyDto {
     @IsString() @MinLength(2) @MaxLength(80) cognome!: string;
     @IsBirthDate() dataNascita!: string;
+}
+
+/** Staffetta: il capitano (frazione 1) iscrive tutta la squadra. */
+export class CreateStaffettaDto {
+    @IsString() raceId!: string;
+    @IsString() @MinLength(1) @MaxLength(60) squadra!: string;
+    /** In ordine di frazione: il primo è il capitano. */
+    @IsArray() @ArrayMinSize(2) @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => AthleteDataDto)
+    frazionisti!: AthleteDataDto[];
+    /** Consensi e campi extra del modulo (dati dal capitano per la squadra). */
+    @IsOptional() @IsObject() formData?: Record<string, string | boolean>;
+    @IsOptional() @IsString() @MaxLength(40) discountCode?: string;
+    @IsOptional() @IsIn(['paypal', 'bank', 'onsite', 'online', 'manual']) paymentMethod?: string;
+    @IsOptional() @ValidateNested() @Type(() => GenitoreDto) genitore?: GenitoreDto;
+    @IsOptional() @IsBoolean() markPaid?: boolean;
+    @IsOptional() @IsString() @MaxLength(4096) captchaToken?: string;
+}
+
+/** Staffetta: cambio di un frazionista (frazione 2..n). */
+export class FrazionistaDto {
+    @IsInt() @Min(2) @Max(10) frazione!: number;
+    @ValidateNested() @Type(() => AthleteDataDto) atleta!: AthleteDataDto;
 }

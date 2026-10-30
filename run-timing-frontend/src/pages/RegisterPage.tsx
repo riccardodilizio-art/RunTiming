@@ -21,6 +21,8 @@ import { certExpiresBeforeEvent } from '../utils/cert';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey, Combinata } from '../types';
 import { ETA_MIN_ACCOUNT, TESTO_MINORI_STANDARD, assignCategory, etaAnagrafica } from '../types';
+import StaffettaForm from '../components/StaffettaForm';
+import { erroriSquadra, squadraVuota, type Squadra } from '../lib/staffetta';
 
 // Catalog keys che provengono dal PROFILO atleta: auto-compilati e nascosti
 // quando l'atleta è loggato (form gara = solo campi extra + consensi).
@@ -829,7 +831,14 @@ export default function RegisterPage() {
     })();
     const etaGara = nascita && raceDay ? etaAnagrafica(nascita, raceDay) : NaN;
     const staffRole = ['ADMIN', 'ORGANIZER'].includes(tokenRole() ?? '');
-    const serveGenitore = USE_API && !!selectedRace?.dichiarazioneMinori && !staffRole && etaGara < 18;
+    // ── Staffetta: il capitano iscrive tutta la squadra ──
+    const frazioni = selectedRace?.staffetta && selectedRace.staffetta >= 2 ? selectedRace.staffetta : 0;
+    const [squadra, setSquadra] = useState<Squadra>(() => squadraVuota(2));
+    const [erroriSq, setErroriSq] = useState<string[]>([]);
+    useEffect(() => {
+        if (frazioni && squadra.frazionisti.length !== frazioni) setSquadra(squadraVuota(frazioni));
+    }, [frazioni, squadra.frazionisti.length]);
+    const serveGenitore = USE_API && !frazioni && !!selectedRace?.dichiarazioneMinori && !staffRole && etaGara < 18;
     const combo = useMemo(() => combinate.find(c => c.id === comboId), [combinate, comboId]);
 
     // ── Requisito tesseramento per ente gara ──
@@ -1041,6 +1050,12 @@ export default function RegisterPage() {
     }
 
     function validateForm(): boolean {
+        if (frazioni) {
+            const errs = erroriSquadra(squadra, !tokenRole());
+            const consensi = fields.filter(f => f.type === 'checkbox' && f.required && !formData[f.id]).map(f => `Obbligatorio: ${f.label}`);
+            setErroriSq([...errs, ...consensi]);
+            return errs.length + consensi.length === 0;
+        }
         const newErrors: Record<string, string> = {};
         if (serveGenitore && (!genitore.nome.trim() || !genitore.cognome.trim() || !genitore.consenso)) {
             newErrors.__genitore = 'Indica nome e cognome del genitore e spunta la dichiarazione';
@@ -1074,6 +1089,31 @@ export default function RegisterPage() {
         const dataNascita = byCatalog('data_nascita') || (anno ? `${anno}-01-01` : '');
         const sesso = (byCatalog('sesso') || currentAthlete?.gender || '').toUpperCase();
         setSubmitting(true);
+        if (frazioni) {
+            try {
+                const r = await api.post<{ registration: { id: string; paymentRef?: string | null; paymentMethod?: string } }>('/registrations/staffetta', {
+                    raceId: selectedRace.id,
+                    squadra: squadra.squadra.trim(),
+                    frazionisti: squadra.frazionisti.map(f => ({
+                        nome: f.nome.trim(), cognome: f.cognome.trim(), dataNascita: f.dataNascita, sesso: f.sesso,
+                        tessera: f.tessera.trim() || undefined, email: f.email.trim() || undefined,
+                    })),
+                    formData,
+                    discountCode: appliedDiscount?.code,
+                    paymentMethod: isFree ? undefined : paymentMethod,
+                    captchaToken: tokenRole() ? undefined : takeCaptchaToken(),
+                });
+                const ref = r.registration.paymentRef;
+                if (ref && (r.registration.paymentMethod === 'paypal' || r.registration.paymentMethod === 'bank')) { navigate(`/pagamento/${ref}`); return; }
+                setSubmissionId(r.registration.id);
+                setStep(s => s + 1);
+            } catch (e) {
+                window.alert(e instanceof Error ? e.message : 'Iscrizione non riuscita');
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
         try {
             const asAthlete = tokenRole() === 'ATHLETE' && !!currentAthlete;
             const r = await api.post<{ registration: { id: string; paymentRef?: string | null; paymentMethod?: string } }>('/registrations', {
@@ -1177,7 +1217,7 @@ export default function RegisterPage() {
     // Blocca "Continua" in step 1:
     // - guest su gara competitiva che non ha ancora scelto FIDAL/non-FIDAL;
     // - atleta loggato su gara FIDAL senza un tesseramento FIDAL nel profilo.
-    const step1Blocked = step === 1 && (
+    const step1Blocked = step === 1 && !frazioni && (
         missingFidalAff ||
         (!!selectedRace?.requiresMedicalCert && !currentAthlete && (isFidal === null || isFidal === false))
     );
@@ -1245,6 +1285,14 @@ export default function RegisterPage() {
                                 </p>
                             )}
 
+                            {frazioni ? (
+                                <div className="space-y-5">
+                                    <StaffettaForm value={squadra} onChange={setSquadra} errori={erroriSq} />
+                                    {fields.filter(f => f.type === 'checkbox').length > 0 && (
+                                        <DynamicForm fields={fields.filter(f => f.type === 'checkbox')} data={formData} onChange={handleFormChange} errors={errors} />
+                                    )}
+                                </div>
+                            ) : (<>
                             {/* ── Logica FIDAL/cert solo per gare competitive ── */}
                             {selectedRace.requiresMedicalCert && (
                                 <>
@@ -1426,6 +1474,8 @@ export default function RegisterPage() {
                                 </>
                             )}
 
+                            </>)}
+
                             {serveGenitore && (
                                 <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
                                     <p className="text-sm font-semibold text-amber-900">Atleta minorenne: dichiarazione del genitore</p>
@@ -1446,6 +1496,16 @@ export default function RegisterPage() {
                         </div>
                     )}
 
+                    {step === 2 && selectedRace && frazioni > 0 && (
+                        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Squadra</p>
+                            <p className="font-semibold text-slate-800">{squadra.squadra}</p>
+                            <ol className="mt-1 text-slate-600 list-decimal pl-5">
+                                {squadra.frazionisti.map((f, i) => <li key={i}>{f.cognome.toUpperCase()} {f.nome}{i === 0 ? ' (capitano)' : ''}</li>)}
+                            </ol>
+                            <p className="mt-1 text-xs text-slate-500">La quota è per squadra.</p>
+                        </div>
+                    )}
                     {step === 2 && selectedRace && (
                         <Summary
                             race={selectedRace}

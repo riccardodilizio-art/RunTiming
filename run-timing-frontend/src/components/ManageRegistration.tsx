@@ -21,6 +21,8 @@ interface Options {
     trasferimento: { quota: number; credito: number } | null;
     /** L'atleta può annullare da solo (non pagata o gratuita, prima della chiusura). */
     ritiro?: boolean;
+    /** Staffetta (solo per il capitano): squadra e frazionisti. */
+    staffetta?: { squadra: string; categoria: string | null; membri: { frazione: number; cognome: string; nome: string; sesso: string }[]; modificabile: boolean; chiuso: string | null } | null;
     metodi: ('paypal' | 'bank')[];
     inAttesa: { descrizione: string; totale: number; paymentRef: string | null } | null;
 }
@@ -42,6 +44,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     const base = token ? `/manage/${encodeURIComponent(token)}` : `/registrations/${regId}/changes`;
     const post = token ? `/manage/${encodeURIComponent(token)}/changes` : `/registrations/${regId}/changes`;
     const ritiroUrl = token ? `/manage/${encodeURIComponent(token)}/ritiro` : `/registrations/${regId}/ritiro`;
+    const frazUrl = token ? `/manage/${encodeURIComponent(token)}/frazionista` : `/registrations/${regId}/frazionista`;
     const [o, setO] = useState<Options | null>(null);
     const [error, setError] = useState('');
     const [tab, setTab] = useState<Tab | null>(null);
@@ -53,13 +56,18 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     const [done, setDone] = useState<Result | null>(null);
     const [annullata, setAnnullata] = useState(false);
 
+    const [cambio, setCambio] = useState<number | null>(null);
+    const [fz, setFz] = useState({ nome: '', cognome: '', dataNascita: '', sesso: '', tessera: '', email: '' });
+    const [fzMsg, setFzMsg] = useState('');
+    const [reload, setReload] = useState(0);
+
     useEffect(() => {
         api.get<Options>(base).then(x => {
             setO(x);
             setTab(x.cambioGara?.length ? 'gara' : x.cessione != null ? 'cessione' : x.trasferimento ? 'trasferimento' : null);
             setMethod(x.metodi[0] ?? '');
         }).catch(e => setError(e instanceof Error ? e.message : 'Iscrizione non trovata'));
-    }, [base]);
+    }, [base, reload]);
 
     if (error && !o) return <p className="text-sm text-red-600">{error}</p>;
     if (!o) return <p className="text-sm text-slate-400">Caricamento…</p>;
@@ -86,6 +94,28 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
             onDone?.();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Cambio non riuscito');
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function salvaFrazionista(e: FormEvent) {
+        e.preventDefault();
+        if (cambio == null) return;
+        setBusy(true);
+        setFzMsg('');
+        try {
+            const r = await api.post<{ frazione: number; cognome: string; nome: string; categoria: string }>(frazUrl, {
+                frazione: cambio,
+                atleta: { nome: fz.nome.trim(), cognome: fz.cognome.trim(), dataNascita: fz.dataNascita, sesso: fz.sesso,
+                    tessera: fz.tessera.trim() || undefined, email: fz.email.trim() || undefined },
+            });
+            setFzMsg(`Frazione ${r.frazione}: ora ${r.cognome} ${r.nome} (categoria ${r.categoria}).`);
+            setCambio(null);
+            setFz({ nome: '', cognome: '', dataNascita: '', sesso: '', tessera: '', email: '' });
+            setReload(n => n + 1);
+        } catch (err) {
+            setFzMsg(err instanceof Error ? err.message : 'Cambio non riuscito');
         } finally {
             setBusy(false);
         }
@@ -259,6 +289,42 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
                     </button>
                 </form>
             )}
+            {o.staffetta && (
+                <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+                    <p className="text-sm font-semibold text-slate-800">Squadra «{o.staffetta.squadra}»{o.staffetta.categoria ? ` · ${o.staffetta.categoria}` : ''}</p>
+                    <ul className="divide-y divide-slate-100 text-sm">
+                        {o.staffetta.membri.map(m => (
+                            <li key={m.frazione} className="flex items-center justify-between py-1.5">
+                                <span><span className="text-slate-400">Frazione {m.frazione}</span> · {m.cognome} {m.nome}{m.frazione === 1 ? ' (capitano)' : ''}</span>
+                                {o.staffetta!.modificabile && m.frazione > 1 && (
+                                    <button type="button" onClick={() => { setCambio(m.frazione); setFzMsg(''); }} className="text-xs font-semibold text-brand-700 hover:underline">Cambia</button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                    {o.staffetta.chiuso && <p className="text-xs text-slate-500">{o.staffetta.chiuso}: per cambiare un frazionista scrivi alla segreteria.</p>}
+                    {cambio != null && (
+                        <form onSubmit={salvaFrazionista} className="space-y-2 pt-1">
+                            <p className="text-sm text-slate-600">Nuovo frazionista per la frazione {cambio}:</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input className={inputCls} required placeholder="Nome" value={fz.nome} onChange={e => setFz({ ...fz, nome: e.target.value })} />
+                                <input className={inputCls} required placeholder="Cognome" value={fz.cognome} onChange={e => setFz({ ...fz, cognome: e.target.value })} />
+                                <input className={inputCls} required type="date" aria-label="Data di nascita" value={fz.dataNascita} onChange={e => setFz({ ...fz, dataNascita: e.target.value })} />
+                                <select className={inputCls} required aria-label="Sesso" value={fz.sesso} onChange={e => setFz({ ...fz, sesso: e.target.value })}>
+                                    <option value="">Sesso</option><option value="M">Uomo</option><option value="F">Donna</option>
+                                </select>
+                                <input className={inputCls} placeholder="Tessera FIDAL / Runcard (se tesserato)" value={fz.tessera} onChange={e => setFz({ ...fz, tessera: e.target.value })} />
+                                <input className={inputCls} type="email" placeholder="Email (facoltativa)" value={fz.email} onChange={e => setFz({ ...fz, email: e.target.value })} />
+                            </div>
+                            <div className="flex gap-2">
+                                <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50">Salva</button>
+                                <button type="button" onClick={() => setCambio(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm">Annulla</button>
+                            </div>
+                        </form>
+                    )}
+                    {fzMsg && <p className="text-sm text-slate-700">{fzMsg}</p>}
+                </div>
+            )}
             {o.ritiro && (
                 <div className="border-t border-slate-200 pt-4 space-y-2">
                     <p className="text-sm font-semibold text-slate-800">Non puoi più partecipare?</p>
@@ -270,7 +336,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
                     {error && !tab && <p className="text-sm text-red-600">{error}</p>}
                     <button type="button" onClick={ritira} disabled={busy}
                         className="w-full px-4 py-2.5 rounded-lg border border-red-300 text-red-700 text-sm font-semibold hover:bg-red-50 disabled:opacity-50">
-                        {busy ? 'Attendi…' : 'Annulla iscrizione'}
+                        {busy ? 'Attendi…' : o.staffetta ? 'Annulla l\'iscrizione della squadra' : 'Annulla iscrizione'}
                     </button>
                 </div>
             )}

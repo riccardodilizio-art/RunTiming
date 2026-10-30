@@ -265,6 +265,8 @@ export interface Race {
     pettoraleDa?: number | null;
     /** Minorenni: chiede la dichiarazione del genitore (nome, cognome, consenso). */
     dichiarazioneMinori?: boolean;
+    /** Staffetta: numero di frazioni (null = gara individuale). */
+    staffetta?: number | null;
     /** Testo della dichiarazione (vuoto = testo standard). */
     testoMinori?: string | null;
     formSchema?: FormField[];

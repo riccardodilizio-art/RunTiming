@@ -248,6 +248,12 @@ export default function RaceEditor({
                             onChange={e => set('maxPerSocieta', parseInt(e.target.value) || 0)} className={inputCls} />
                         <p className="text-xs text-slate-400 mt-1">Vale per le iscrizioni fatte dall'area società.</p>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Staffetta: numero di frazioni</label>
+                        <input type="number" min={2} max={10} value={race.staffetta ?? ''} placeholder="Gara individuale"
+                            onChange={e => { const n = parseInt(e.target.value); onChange({ ...race, staffetta: n >= 2 && n <= 10 ? n : null }); }} className={inputCls} />
+                        <p className="text-xs text-slate-400 mt-1">Il capitano iscrive la squadra con una quota unica (il prezzo della gara è per squadra). Pettorali 101-1, 101-2…</p>
+                    </div>
                     <MinoriEditor race={race} onChange={patch => onChange({ ...race, ...patch })} />
                     <CategoryEditor
                         categories={race.categories ?? []}
