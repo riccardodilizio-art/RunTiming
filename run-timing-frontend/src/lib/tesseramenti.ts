@@ -2,10 +2,10 @@ import type { Race } from '../types';
 
 // Tesseramenti ammessi per gara: stessa regola del server (backend/src/registrations/rules.ts).
 
-export type Tesseramento = 'fidal' | 'runcard' | 'eps' | 'libero';
-export const TESSERAMENTI: Tesseramento[] = ['fidal', 'runcard', 'eps', 'libero'];
+export type Tesseramento = 'fidal' | 'runcard' | 'estero' | 'eps' | 'libero';
+export const TESSERAMENTI: Tesseramento[] = ['fidal', 'runcard', 'estero', 'eps', 'libero'];
 export const TESSERAMENTO_LABEL: Record<Tesseramento, string> = {
-    fidal: 'FIDAL', runcard: 'Runcard', eps: 'EPS e altri enti', libero: 'Non tesserati',
+    fidal: 'FIDAL', runcard: 'Runcard', estero: 'Federazioni estere', eps: 'EPS e altri enti', libero: 'Non tesserati',
 };
 
 /** Tesseramenti ammessi (vuoto = tutti). Vecchie gare con ente FIDAL = FIDAL o Runcard. */
@@ -18,13 +18,15 @@ export function ammessiGara(race: Pick<Race, 'ammessi' | 'ente'> | undefined | n
 export function tesseramentoDaEnte(ente: string | undefined, societaNome?: string): Tesseramento {
     if (ente === 'fidal') return 'fidal';
     if (ente === 'runcard' || /run\s*card/i.test(societaNome ?? '')) return 'runcard';
+    if (ente === 'estero') return 'estero';
     if (!ente || ente === 'non_competitiva') return 'libero';
     return 'eps';
 }
 
 export function ammesso(race: Pick<Race, 'ammessi' | 'ente'> | undefined | null, t: Tesseramento): boolean {
     const a = ammessiGara(race);
-    return !a.length || a.includes(t);
+    // Come da norme FIDAL: dove è ammessa la Runcard, anche gli stranieri tesserati nel loro paese
+    return !a.length || a.includes(t) || (t === 'estero' && a.includes('runcard'));
 }
 
 /** Frase per l'atleta, es. "Gara riservata ai tesserati FIDAL dai 35 anni". Null se aperta a tutti. */

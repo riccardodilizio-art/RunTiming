@@ -6,6 +6,7 @@ import type { Affiliation, RaceEnte } from '../../types';
 const ENTI: { value: RaceEnte; label: string }[] = [
     { value: 'fidal',    label: 'FIDAL' },
     { value: 'runcard',  label: 'Runcard' },
+    { value: 'estero',   label: 'Federazione estera' },
     { value: 'uisp',     label: 'UISP' },
     { value: 'csi',      label: 'CSI' },
     { value: 'acsi',     label: 'ACSI' },
@@ -97,8 +98,8 @@ export default function AffiliationsEditor({
                                     </select>
                                 </div>
                                 <div className="sm:col-span-4">
-                                    <label className="block text-xs text-slate-500 mb-1">Società</label>
-                                    <input type="text" value={aff.societaNome} placeholder="es. ASD Runners"
+                                    <label className="block text-xs text-slate-500 mb-1">{aff.ente === 'estero' ? 'Club' : 'Società'}</label>
+                                    <input type="text" value={aff.societaNome} placeholder={aff.ente === 'estero' ? 'es. AC Paris' : 'es. ASD Runners'}
                                         onChange={e => update(aff.id, { societaNome: e.target.value })} className={inputCls} />
                                 </div>
                                 <div className="sm:col-span-2">
@@ -117,6 +118,19 @@ export default function AffiliationsEditor({
                                     </button>
                                 </div>
                             </div>
+                            {aff.ente === 'estero' && (
+                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                                    <div className="sm:col-span-4">
+                                        <label className="block text-xs text-slate-500 mb-1">Federazione (sigla)</label>
+                                        <input type="text" value={aff.codiceSocieta ?? ''} placeholder="es. FFA, DLV, RFEA" maxLength={20}
+                                            onChange={e => update(aff.id, { codiceSocieta: e.target.value.toUpperCase() })} className={inputCls} />
+                                    </div>
+                                    <p className="sm:col-span-8 text-xs text-slate-500">
+                                        Atleti stranieri tesserati con la federazione del loro paese: serve anche il certificato medico,
+                                        che verifica la segreteria.
+                                    </p>
+                                </div>
+                            )}
                             {onFidalFill && aff.ente === 'fidal' && (
                                 <button type="button" onClick={() => fillFromFidal(aff)} disabled={!aff.numeroTessera?.trim() || busy === aff.id}
                                     className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 disabled:opacity-40">

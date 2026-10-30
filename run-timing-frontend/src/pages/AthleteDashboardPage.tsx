@@ -18,6 +18,7 @@ import AffiliationsEditor from '../components/athlete/AffiliationsEditor';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import CertificatePrintModal from '../components/certificate/CertificatePrintModal';
 import type { RegistrationSubmission, Event as EventType, Result, CertificateTemplate, CertFieldKey } from '../types';
+import { NAZIONI } from '../data/nazioni';
 
 type RaceInfo = ReturnType<typeof buildRaceLookup>[string];
 type CertData = { template: CertificateTemplate; values: Partial<Record<CertFieldKey, string>> };
@@ -155,6 +156,7 @@ export default function AthleteDashboardPage() {
         surname:        currentAthlete?.surname ?? '',
         phone:          currentAthlete?.phone ?? '',
         club:           currentAthlete?.club ?? '',
+        nazionalita:    currentAthlete?.nazionalita ?? 'ITA',
         affiliations:   currentAthlete?.affiliations
             ?? affiliationsFromLegacy(currentAthlete?.fidalTessera, currentAthlete?.runcardTessera, currentAthlete?.club),
     }));
@@ -294,6 +296,7 @@ export default function AthleteDashboardPage() {
             surname:        editForm.surname.trim(),
             phone:          editForm.phone.trim() || undefined,
             club:           editForm.club.trim() || undefined,
+            nazionalita:    editForm.nazionalita,
             affiliations:   editForm.affiliations,
         });
         if (err) { setSaveError(err); return; }
@@ -309,6 +312,7 @@ export default function AthleteDashboardPage() {
             surname:        currentAthlete.surname,
             phone:          currentAthlete.phone ?? '',
             club:           currentAthlete.club ?? '',
+            nazionalita:    currentAthlete.nazionalita ?? 'ITA',
             affiliations:   currentAthlete.affiliations
                 ?? affiliationsFromLegacy(currentAthlete.fidalTessera, currentAthlete.runcardTessera, currentAthlete.club),
         });
@@ -619,6 +623,12 @@ export default function AthleteDashboardPage() {
                                         <input type="text" value={editForm.club} onChange={setField('club')}
                                             className={inputCls} />
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nazionalità</label>
+                                    <select value={editForm.nazionalita} onChange={e => setEditForm(f => ({ ...f, nazionalita: e.target.value }))} className={inputCls}>
+                                            {NAZIONI.map(n => <option key={n.code} value={n.code}>{n.label}</option>)}
+                                        </select>
                                 </div>
                                 <hr className="border-slate-100" />
                                 <AffiliationsEditor

@@ -25,7 +25,7 @@ import { ETA_MIN_ACCOUNT, TESTO_MINORI_STANDARD, assignCategory, etaAnagrafica }
 // Catalog keys che provengono dal PROFILO atleta: auto-compilati e nascosti
 // quando l'atleta è loggato (form gara = solo campi extra + consensi).
 const PROFILE_CATALOG_KEYS = new Set<CatalogKey>([
-    'nome', 'cognome', 'data_nascita', 'anno_nascita', 'sesso', 'email', 'telefono', 'codice_fiscale',
+    'nome', 'cognome', 'data_nascita', 'anno_nascita', 'sesso', 'email', 'telefono', 'codice_fiscale', 'nazionalita',
     'societa', 'codice_societa',
     'tessera_fidal', 'tessera_runcard', 'tessera_fci', 'tessera_csi', 'tessera_uisp', 'tessera_fitri', 'tessera_fin',
     'tipo_certificato', 'num_certificato', 'scadenza_certificato', 'gruppo_sanguigno',
@@ -897,6 +897,7 @@ export default function RegisterPage() {
             if (f.catalogKey === 'anno_nascita' && birthYear)   updates[f.id] = String(birthYear);
             if (f.catalogKey === 'data_nascita' && currentAthlete.birthDate)    updates[f.id] = currentAthlete.birthDate;
             if (f.catalogKey === 'sesso')           updates[f.id] = currentAthlete.gender;
+            if (f.catalogKey === 'nazionalita')     updates[f.id] = currentAthlete.nazionalita || 'ITA';
             const affs = currentAthlete.affiliations ?? [];
             const fidalT = affs.find(a => a.ente === 'fidal')?.numeroTessera ?? currentAthlete.fidalTessera;
             const otherT = affs.find(a => a.ente !== 'fidal' && a.numeroTessera)?.numeroTessera ?? currentAthlete.runcardTessera;
@@ -1093,6 +1094,7 @@ export default function RegisterPage() {
                     codiceSocieta: byCatalog('codice_societa') || chosenAff?.codiceSocieta || undefined,
                     tessera: byCatalog('tessera_fidal') || byCatalog('tessera_runcard') || chosenAff?.numeroTessera || undefined,
                     email: byCatalog('email') || currentAthlete?.email || undefined,
+                    nazionalita: byCatalog('nazionalita') || undefined,
                 },
                 // Iscrizione senza account: verifica anti-bot (se attiva)
                 captchaToken: tokenRole() ? undefined : takeCaptchaToken(),
@@ -1261,15 +1263,18 @@ export default function RegisterPage() {
                                                         Inserisci il numero tessera o cerca per nome — il sistema caricherà automaticamente i tuoi dati e il certificato medico.
                                                     </p>
                                                 </button>
-                                                {(ammesso(selectedRace, 'libero') || ammesso(selectedRace, 'eps')) && (
+                                                {(ammesso(selectedRace, 'libero') || ammesso(selectedRace, 'eps') || ammesso(selectedRace, 'estero')) && (
                                                 <button type="button" onClick={() => setIsFidal(false)}
                                                     className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition-all">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <User className="h-5 w-5 text-slate-500" />
-                                                        <span className="font-semibold text-slate-800">Non sono tesserato FIDAL</span>
+                                                        <span className="font-semibold text-slate-800">
+                                                            {ammesso(selectedRace, 'libero') || ammesso(selectedRace, 'eps') ? 'Non sono tesserato FIDAL' : 'Sono tesserato con una federazione estera'}
+                                                        </span>
                                                     </div>
                                                     <p className="text-xs text-slate-500">
                                                         Ti chiediamo di registrarti sulla piattaforma per inserire i tuoi dati e il certificato medico una volta sola.
+                                                        {ammesso(selectedRace, 'estero') && ' Atleti stranieri: indica la federazione del tuo paese e il numero di tessera.'}
                                                     </p>
                                                 </button>
                                                 )}

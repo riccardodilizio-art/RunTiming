@@ -83,6 +83,7 @@ export interface ApiRegistration {
     dataNascita?: string | null;
     societa?: string | null;
     codiceSocieta?: string | null;
+    nazionalita?: string | null;
     tessera?: string | null;
     email?: string | null;
     formData: Record<string, string | boolean>;
@@ -198,6 +199,7 @@ export function toRegistration(r: ApiRegistration): RegistrationSubmission {
         addedByOrganizer: r.addedByOrganizer,
         athleteAccountId: opt(r.athleteId),
         athleteName: `${r.cognome} ${r.nome}`.trim() || undefined,
+        nazionalita: r.nazionalita ?? undefined,
         societyId: opt(r.societyId),
         pettorale: r.pettorale ?? undefined,
         certStatus: r.certStatus ? CERT[r.certStatus] : undefined,

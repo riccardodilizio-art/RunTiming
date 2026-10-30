@@ -33,7 +33,7 @@ import {
     quote,
     sportAge,
     todayRome,
-    TESTO_MINORI_STANDARD, etaAnagrafica, minoreProblem,
+    TESTO_MINORI_STANDARD, etaAnagrafica, minoreProblem, nazionalita, tesseramentoAmmesso,
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
@@ -42,7 +42,7 @@ import { siteName } from '../common/brand';
 
 /** Chiavi di catalogo che vengono dal profilo atleta, non dal modulo extra. */
 const PROFILE_KEYS = new Set([
-    'nome', 'cognome', 'data_nascita', 'anno_nascita', 'sesso', 'email', 'telefono', 'codice_fiscale',
+    'nome', 'cognome', 'data_nascita', 'anno_nascita', 'sesso', 'email', 'telefono', 'codice_fiscale', 'nazionalita',
     'societa', 'codice_societa', 'tessera_fidal', 'tessera_runcard', 'tessera_fci', 'tessera_csi',
     'tessera_uisp', 'tessera_fitri', 'tessera_fin', 'tipo_certificato', 'num_certificato',
     'scadenza_certificato', 'gruppo_sanguigno', 'upload_cert_medico', 'upload_tessera',
@@ -79,6 +79,8 @@ export interface AthleteSnapshot {
     certValid: boolean;
     /** Tesseramento con cui si iscrive. */
     tesseramento: Tesseramento;
+    /** Nazionalità (3 lettere, ITA di default). */
+    nazionalita: string;
     /** Tessera trovata a FIDAL con lo stesso cognome e data di nascita (anche con certificato scaduto). */
     fidalTrovato: boolean;
 }
@@ -123,6 +125,7 @@ export function snapshotData(race: { id: string; day: { event: { id: string } } 
         codiceSocieta: a.codiceSocieta,
         tessera: a.tessera,
         tesseramento: a.tesseramento,
+        nazionalita: a.nazionalita,
         email: a.email,
         formData: p.formData as Prisma.InputJsonValue,
         assignedCategory: p.category?.name,
@@ -176,6 +179,13 @@ export function guessTesseramento(
     if (schema.some(f => f.catalogKey?.startsWith('tessera_') && String(formData?.[f.id] ?? '').trim() !== '')) return 'eps';
     if (societyEnte) return tesseramentoDaEnte(societyEnte);
     return haTessera ? 'fidal' : 'libero';
+}
+
+/** Valore di un campo del modulo per chiave di catalogo (es. nazionalita). */
+export function valoreCatalogo(formData: Record<string, unknown> | undefined, schema: { id: string; catalogKey?: string }[], key: string): string | undefined {
+    const f = schema.find(x => x.catalogKey === key);
+    const v = f ? formData?.[f.id] : undefined;
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
 
 /** Tiene solo i campi del modulo della gara; testi tagliati a 500 caratteri. */
@@ -584,7 +594,7 @@ export class RegistrationsService {
                 Number(tesseramentoDaEnte(b.ente) === 'fidal') - Number(tesseramentoDaEnte(a.ente) === 'fidal'));
             const aff = dto.affiliationId
                 ? p.affiliations.find(a => a.id === dto.affiliationId)
-                : ordered.find(a => !ammessi.length || ammessi.includes(tesseramentoDaEnte(a.ente, a.societaNome)));
+                : ordered.find(a => tesseramentoAmmesso(tesseramentoDaEnte(a.ente, a.societaNome), ammessi));
             if (dto.affiliationId && !aff) throw new BadRequestException('Tesseramento non trovato nel tuo profilo');
             const tesseramento: Tesseramento = aff ? tesseramentoDaEnte(aff.ente, aff.societaNome) : 'libero';
             const raceDay = race.day.date;
@@ -608,6 +618,7 @@ export class RegistrationsService {
                 certValid: p.certStatus === CertStatus.VERIFICATO && !!p.certExpiry && p.certExpiry >= raceDay,
                 tesseramento,
                 fidalTrovato,
+                nazionalita: nazionalita(p.nazionalita),
             };
             return { athlete, athleteId: p.id, societyId: undefined };
         }
@@ -630,7 +641,7 @@ export class RegistrationsService {
         const isStaffUser = user?.role === Role.ADMIN || user?.role === Role.ORGANIZER;
         // Tessera verificata DAL SERVER (WISE/dump): stesso cognome e data di nascita,
         // certificato (se noto) valido alla data gara. Il browser non può dichiararlo.
-        const check = a.tessera ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : { ok: false, found: false } as { ok: boolean; found: boolean; societa?: string; codiceSocieta?: string };
+        const check = a.tessera && a.tesseramento !== 'estero' ? await this.fidalCheck(a.tessera, a.cognome, a.dataNascita, race.day.date) : { ok: false, found: false } as { ok: boolean; found: boolean; societa?: string; codiceSocieta?: string };
         const verified = check.ok;
         const tesseramento = guessTesseramento(a.tesseramento as Tesseramento | undefined, check.found,
             dto.formData, json<FormFieldDef[]>(race.formSchema) ?? [], !!a.tessera, societyEnte);
@@ -645,7 +656,8 @@ export class RegistrationsService {
             sesso: a.sesso,
             dataNascita: dateOnly(a.dataNascita),
             societa,
-            codiceSocieta,
+            // Straniero tesserato nel suo paese: al posto del codice società la federazione (es. FFA)
+            codiceSocieta: tesseramento === 'estero' ? a.federazione?.trim() || codiceSocieta : codiceSocieta,
             tessera: a.tessera,
             email: a.email,
             // Verifica del server, oppure dichiarazione dello staff (es. controllo manuale)
@@ -654,6 +666,8 @@ export class RegistrationsService {
             tesseramento,
             // Lo staff può confermare la tessera dopo un controllo manuale
             fidalTrovato: check.found || (!!a.fidalVerified && isStaffUser),
+            // Dichiarata, oppure dal campo Nazionalità del modulo
+            nazionalita: nazionalita(a.nazionalita ?? valoreCatalogo(dto.formData, json<FormFieldDef[]>(race.formSchema) ?? [], 'nazionalita')),
         };
         return { athlete, athleteId: undefined, societyId };
     }
