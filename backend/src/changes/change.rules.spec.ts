@@ -1,4 +1,4 @@
-import { codiceCredito, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
+import { codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
 
 describe('cambi dopo l\'iscrizione', () => {
     it('impostazioni dell\'evento', () => {
@@ -17,5 +17,14 @@ describe('cambi dopo l\'iscrizione', () => {
 
     it('codice credito', () => {
         expect(codiceCredito('RT-7KQ4M9XP')).toBe('TR-7KQ4M9XP');
+    });
+
+    it('credito solo per quote davvero pagate', () => {
+        const base = { paymentStatus: 'CONFIRMED', paymentMethod: 'bank', basePrice: 18, discountAmount: 0, pricePaid: 19 };
+        expect(creditoTrasferimento(base)).toBe(18);
+        expect(creditoTrasferimento({ ...base, paymentStatus: 'PENDING' })).toBe(0);
+        expect(creditoTrasferimento({ ...base, paymentMethod: 'free', pricePaid: 0 })).toBe(0);
+        expect(creditoTrasferimento({ ...base, omaggio: true })).toBe(0);
+        expect(creditoTrasferimento({ ...base, discountAmount: 5 })).toBe(13);
     });
 });

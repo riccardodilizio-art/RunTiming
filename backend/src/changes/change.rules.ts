@@ -49,7 +49,18 @@ export function differenzaGara(nuovaQuota: number, pagato: number): number {
     return round2(Math.max(0, nuovaQuota - pagato));
 }
 
-/** Codice del credito per l'anno dopo, es. "TR-7KQ4M9XP". */
-export function codiceCredito(ref: string): string {
-    return `TR-${ref.replace(/^RT-/, '')}`;
+/** Codice del credito per l'anno dopo, es. "TR-7KQ4M9XP" (casuale, non derivato da altri codici). */
+export function codiceCredito(random: string): string {
+    return `TR-${random.replace(/^RT-/, '')}`;
+}
+
+/**
+ * Credito per il trasferimento: solo la quota davvero incassata. Iscrizione non
+ * pagata, gratuita, omaggio o pagata "a mano" senza importo → nessun credito.
+ */
+export function creditoTrasferimento(r: {
+    paymentStatus: string; paymentMethod: string | null; basePrice: number; discountAmount: number; pricePaid: number; omaggio?: boolean;
+}): number {
+    if (r.paymentStatus !== 'CONFIRMED' || r.omaggio || r.paymentMethod === 'free' || r.pricePaid <= 0) return 0;
+    return quotaPagata(r);
 }

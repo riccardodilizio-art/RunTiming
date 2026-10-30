@@ -22,10 +22,17 @@ import { AuthGuard, Roles, ThrottlePerIp } from '../common/auth';
 export const normCode = (c: string) => c.trim().toUpperCase();
 
 /** Motivo per cui un codice non è utilizzabile, oppure null se valido. */
-export function discountProblem(d: DiscountCode | null, now = new Date(), eventId?: string): string | null {
+export function discountProblem(
+    d: DiscountCode | null, now = new Date(), eventId?: string, edizionePrecedenteId?: string | null,
+): string | null {
     if (!d || !d.isActive) return 'Codice sconto non valido';
     // Codice di un altro evento: stesso messaggio (non si rivela che esiste)
     if (d.eventId && d.eventId !== eventId) return 'Codice sconto non valido';
+    // Credito da trasferimento: solo sull'edizione successiva dell'evento da cui viene
+    // (se l'admin assegna il codice a un evento preciso, vale quello)
+    if (!d.eventId && d.creditoDaEventoId && (!edizionePrecedenteId || edizionePrecedenteId !== d.creditoDaEventoId)) {
+        return 'Codice valido solo per la prossima edizione della gara da cui proviene';
+    }
     if (d.expiresAt && d.expiresAt < now) return 'Codice sconto scaduto';
     if (d.maxUses != null && d.usedCount >= d.maxUses) return 'Codice sconto esaurito';
     return null;
@@ -98,13 +105,17 @@ export class DiscountsService {
     async check(code: string, raceId?: string) {
         const d = await this.prisma.discountCode.findUnique({ where: { code: normCode(code) } });
         let eventId: string | undefined;
-        if (d?.eventId && raceId) {
-            const race = await this.prisma.race.findUnique({ where: { id: raceId }, select: { day: { select: { eventId: true } } } });
+        let prev: string | null | undefined;
+        if ((d?.eventId || d?.creditoDaEventoId) && raceId) {
+            const race = await this.prisma.race.findUnique({
+                where: { id: raceId }, select: { day: { select: { eventId: true, event: { select: { edizionePrecedenteId: true } } } } },
+            });
             eventId = race?.day.eventId;
+            prev = race?.day.event.edizionePrecedenteId;
         }
-        const problem = discountProblem(d, new Date(), eventId);
+        const problem = discountProblem(d, new Date(), eventId, prev);
         if (problem) return { valid: false, message: problem };
-        return { valid: true, code: d!.code, type: d!.type, value: d!.value, description: d!.description };
+        return { valid: true, code: d!.code, type: d!.type, value: d!.value }; // descrizione solo per l'admin (può contenere nomi)
     }
 
     private async get(id: string) {

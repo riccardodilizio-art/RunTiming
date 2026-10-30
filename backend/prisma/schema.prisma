@@ -151,6 +151,8 @@ model Event {
   combinate     Json?
   /// Cambi dopo l'iscrizione: { cambioGara, cessione (€ o null = no), trasferimento (€ o null = no) }
   quoteCambi    Json?
+  /// Edizione precedente (evento copiato): per i crediti da trasferimento
+  edizionePrecedenteId String?
   createdBy     Account?   @relation("OrganizerEvents", fields: [createdById], references: [id])
   createdById   String?
   days          EventDay[]
@@ -217,6 +219,8 @@ model DiscountCode {
   isActive    Boolean   @default(true)
   /// Evento su cui vale il codice (vuoto = tutti gli eventi)
   eventId     String?
+  /// Credito da trasferimento: vale solo sull'edizione successiva di questo evento
+  creditoDaEventoId String?
 }
 
 model Registration {
@@ -278,6 +282,8 @@ model Registration {
   pettorale        Int?
   /// Codice segreto del link "gestisci iscrizione" (anche senza account)
   manageToken      String?         @unique
+  /// Trasferita all'edizione dopo (credito emesso): non si riattiva
+  trasferitoAt     DateTime?
   changes          RegChange[]
 
   @@index([raceId, cognome])

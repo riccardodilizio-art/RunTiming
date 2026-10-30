@@ -24,6 +24,11 @@ export const categoryOptions: { value: SportCategory; label: string }[] = [
 
 // ─── CSV export ─────────────────────────────────────────────────────────────────
 
+/** Testo che Excel eseguirebbe come formula (=, +, -, @…): si apre con un apice e resta testo. */
+function csvSafe(v: string): string {
+    return /^[=+\-@\t\r]/.test(v) && !/^-?\d+([.,]\d+)?$/.test(v) ? `'${v}` : v;
+}
+
 export function downloadCSV(race: Race, regs: RegistrationSubmission[]) {
     const fields = (race.formSchema ?? []).filter(f => !f.readOnly && f.type !== 'file');
     const headers = ['N°', ...fields.map(f => f.label), 'Quota (€)', 'Pagamento', 'Categoria', 'Data iscrizione'];
@@ -39,7 +44,7 @@ export function downloadCSV(race: Race, regs: RegistrationSubmission[]) {
         new Date(reg.submittedAt).toLocaleDateString('it-IT'),
     ]);
     const csv = [headers, ...rows]
-        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .map(row => row.map(cell => `"${csvSafe(String(cell)).replace(/"/g, '""')}"`).join(','))
         .join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);

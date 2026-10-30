@@ -6,9 +6,9 @@ import { MailService } from '../mail/mail.service';
 import { changeAppliedMail, changeCededMail } from '../mail/templates';
 import { AuthUser } from '../common/auth';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
-import { RegistrationsService, findDuplicate } from '../registrations/registrations.service';
+import { RegistrationsService, assertSocietyLimit, findDuplicate } from '../registrations/registrations.service';
 import { PayMethod, activePrice, allowedMethods, chiusuraProblem, normName, paymentFee, todayRome } from '../registrations/rules';
-import { TipoCambio, codiceCredito, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
+import { TipoCambio, codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
 import { ChangeDto } from './changes.dto';
 
 type RegFull = Prisma.RegistrationGetPayload<{ include: { race: { include: { day: { include: { event: true } } } } } }>;
@@ -23,6 +23,8 @@ export interface Actor {
 /** Dati salvati nel cambio, applicati quando arriva il pagamento. */
 interface DatiCambio {
     raceId?: string;
+    /** Cambio gara di un'iscrizione non ancora pagata (si paga sul posto): nuova quota, niente differenza. */
+    riprezza?: { basePrice: number; commissionAmount: number; pricePaid: number };
     raceName?: string;
     categoria?: string | null;
     certStatus?: CertStatus | null;
@@ -94,6 +96,15 @@ export class ChangesService {
         return chiusuraProblem(reg.race.chiusuraIscrizioni);
     }
 
+    /**
+     * Cambio gara ammesso? Pagata: sì (si paga la differenza). Non pagata: solo se si
+     * paga sul posto anche nella nuova gara (cambia la quota da saldare, niente soldi in gioco).
+     */
+    private garaOk(reg: RegFull, target: { paymentMode: string | null }, admin: boolean): boolean {
+        if (admin || reg.paymentStatus === PaymentStatus.CONFIRMED) return true;
+        return reg.paymentMethod === 'onsite' && !reg.discountCode && allowedMethods(target.paymentMode).includes('onsite');
+    }
+
     private methods(paymentMode: string | null): PayMethod[] {
         return allowedMethods(paymentMode).filter(m => m === 'paypal' || m === 'bank');
     }
@@ -118,6 +129,7 @@ export class ChangesService {
             });
             gare = races
                 .filter(r => this.isAdmin(actor) || (r.isOpen && !chiusuraProblem(r.chiusuraIscrizioni)))
+                .filter(r => this.garaOk(reg, r, this.isAdmin(actor)))
                 .map(r => {
                     const quota = activePrice(r.price, r.priceSteps as never, todayRome()).price;
                     return {
@@ -134,10 +146,14 @@ export class ChangesService {
                 pettorale: reg.pettorale, categoria: reg.assignedCategory,
             },
             chiuso: closed,
+            nonPagata: reg.paymentStatus !== PaymentStatus.CONFIRMED,
             chiusura: reg.race.chiusuraIscrizioni,
             cambioGara: cfg.cambioGara ? gare : null,
             cessione: cfg.cessione,
-            trasferimento: cfg.trasferimento == null ? null : { quota: cfg.trasferimento, credito: pagato },
+            // Solo per iscrizioni pagate (il credito è la quota davvero incassata) e con quota pagabile online
+            trasferimento: cfg.trasferimento == null || creditoTrasferimento(reg) <= 0
+                || (cfg.trasferimento > 0 && !this.methods(reg.race.paymentMode).length && !this.isAdmin(actor))
+                ? null : { quota: cfg.trasferimento, credito: creditoTrasferimento(reg) },
             metodi: this.methods(reg.race.paymentMode),
             inAttesa: pending && {
                 id: pending.id, tipo: pending.tipo, descrizione: pending.descrizione, totale: pending.totale,
@@ -155,10 +171,6 @@ export class ChangesService {
         const ev = reg.race.day.event;
         const cfg = quoteCambi(ev.quoteCambi);
         const admin = this.isAdmin(actor);
-        const pending = await this.prisma.regChange.count({
-            where: { registrationId: reg.id, appliedAt: null, paymentStatus: PaymentStatus.PENDING },
-        });
-        if (pending) throw new ConflictException('C\'è già un cambio in attesa di pagamento per questa iscrizione');
 
         let tipo: TipoCambio = dto.tipo;
         // Modalità di pagamento: quella della gara di arrivo per il cambio gara
@@ -172,6 +184,9 @@ export class ChangesService {
             if (!dto.raceId || dto.raceId === reg.raceId) throw new BadRequestException('Scegli la nuova gara');
             const target = await this.regs.getRace(dto.raceId);
             if (target.day.event.id !== ev.id) throw new BadRequestException('Gara non valida');
+            if (!this.garaOk(reg, target, admin)) {
+                throw new BadRequestException('Prima completa il pagamento dell\'iscrizione: poi potrai cambiare gara (o scrivi alla segreteria)');
+            }
             if (!admin) {
                 if (!target.isOpen) throw new BadRequestException(`${target.name}: iscrizioni chiuse`);
                 const ch = chiusuraProblem(target.chiusuraIscrizioni);
@@ -179,7 +194,14 @@ export class ChangesService {
             }
             // Stessi controlli dell'iscrizione per la nuova gara (età, tesseramento, modulo)
             const prep = await this.prepareFor(actor, reg, target, this.snapshotAthlete(reg), reg.formData as Record<string, string | boolean>);
-            importo = differenzaGara(activePrice(target.price, target.priceSteps as never, todayRome()).price, quotaPagata(reg));
+            const nuovaQuota = activePrice(target.price, target.priceSteps as never, todayRome()).price;
+            if (reg.paymentStatus === PaymentStatus.CONFIRMED) {
+                importo = differenzaGara(nuovaQuota, quotaPagata(reg));
+            } else {
+                // Non ancora pagata: nessuna differenza, cambia la quota da pagare sul posto
+                const q = await this.regs.quote(target.id, undefined, 'onsite');
+                dati.riprezza = { basePrice: q.price, commissionAmount: q.commission, pricePaid: q.total };
+            }
             paymentMode = target.paymentMode;
             dati.raceId = target.id;
             dati.raceName = target.name;
@@ -206,8 +228,13 @@ export class ChangesService {
         } else {
             tipo = 'trasferimento';
             if (cfg.trasferimento == null && !admin) throw new BadRequestException("Il trasferimento all'anno prossimo non è previsto per questo evento");
+            const credito = creditoTrasferimento(reg);
+            if (credito <= 0) throw new BadRequestException('Il trasferimento è possibile solo per iscrizioni già pagate');
             importo = cfg.trasferimento ?? 0;
-            descrizione = `Trasferimento all'edizione successiva (credito ${quotaPagata(reg).toFixed(2)} €)`;
+            if (importo > 0 && !admin && !this.methods(reg.race.paymentMode).length) {
+                throw new BadRequestException('Per questa gara il trasferimento si chiede alla segreteria');
+            }
+            descrizione = `Trasferimento all'edizione successiva (credito ${credito.toFixed(2)} €)`;
         }
 
         // Pagamento: online se la gara lo prevede; se si paga solo sul posto il
@@ -223,7 +250,14 @@ export class ChangesService {
         }
         const fee = method === 'paypal' || method === 'bank' ? paymentFee(method, importo, await this.settings.payments()) : 0;
         const aspetta = method === 'paypal' || method === 'bank';
-        const change = await this.prisma.regChange.create({
+        // Un cambio alla volta per iscrizione (anche con richieste contemporanee)
+        const change = await this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${'cambio:' + reg.id}))::text`;
+            const pending = await tx.regChange.count({
+                where: { registrationId: reg.id, appliedAt: null, paymentStatus: PaymentStatus.PENDING },
+            });
+            if (pending) throw new ConflictException('C\'è già un cambio in attesa di pagamento per questa iscrizione');
+            return tx.regChange.create({
             data: {
                 registrationId: reg.id, eventId: ev.id, tipo, dati: dati as Prisma.InputJsonValue, descrizione,
                 importo, paymentFee: fee, totale: round2(importo + fee), paymentMethod: method,
@@ -232,9 +266,17 @@ export class ChangesService {
                 paymentRef: aspetta ? newPaymentRef() : null,
                 createdById: actor.user?.sub,
             },
+            });
         });
         if (aspetta) return { applicato: false, paymentRef: change.paymentRef, totale: change.totale, descrizione };
-        const done = await this.apply(change.id);
+        let done: Awaited<ReturnType<ChangesService['apply']>>;
+        try {
+            done = await this.apply(change.id);
+        } catch (e) {
+            // Cambio non fatto: niente richiesta "confermata" rimasta a metà
+            await this.prisma.regChange.delete({ where: { id: change.id } }).catch(() => undefined);
+            throw e;
+        }
         return { applicato: true, descrizione, ...done };
     }
 
@@ -307,11 +349,15 @@ export class ChangesService {
                     if (n >= target.maxParticipants) throw new ConflictException(`${target.name}: gara al completo`);
                 }
                 if (await findDuplicate(tx, target.id, cur)) throw new ConflictException(`Atleta già iscritto a ${target.name}`);
+                await assertSocietyLimit(tx, target, cur.societyId, 1);
                 await tx.registration.update({
                     where: { id: reg.id },
                     data: {
                         raceId: target.id, assignedCategory: dati.categoria, certStatus: dati.certStatus ?? undefined,
-                        pettorale: null, basePrice: round2(cur.basePrice + c.importo),
+                        pettorale: null,
+                        ...(dati.riprezza && cur.paymentStatus !== PaymentStatus.CONFIRMED
+                            ? { ...dati.riprezza, discountAmount: 0, paymentFee: 0 }
+                            : { basePrice: round2(cur.basePrice + c.importo) }),
                     },
                 });
             } else if (c.tipo === 'cessione') {
@@ -331,16 +377,21 @@ export class ChangesService {
                     },
                 });
             } else {
-                const importo = quotaPagata(cur);
+                // Solo la quota davvero incassata (ricontrollata adesso)
+                const importo = creditoTrasferimento(cur);
+                if (importo <= 0) throw new ConflictException('Iscrizione non pagata: nessun credito da trasferire');
                 const scadenza = new Date(Date.now() + 540 * 86_400_000); // circa 18 mesi: copre l'edizione dopo
-                const codice = codiceCredito(c.paymentRef ?? newPaymentRef());
+                const codice = codiceCredito(newPaymentRef()); // casuale, non derivato dalla causale
                 await tx.discountCode.create({
                     data: {
                         code: codice, type: 'fixed', value: importo, maxUses: 1, expiresAt: scadenza, isActive: true,
+                        creditoDaEventoId: reg.race.day.event.id,
                         description: `Trasferimento da ${reg.race.day.event.title}: ${cur.cognome} ${cur.nome}`,
                     },
                 });
-                await tx.registration.update({ where: { id: reg.id }, data: { paymentStatus: PaymentStatus.REJECTED, pettorale: null } });
+                await tx.registration.update({
+                    where: { id: reg.id }, data: { paymentStatus: PaymentStatus.REJECTED, pettorale: null, trasferitoAt: new Date() },
+                });
                 credito = { codice, importo, scadenza };
             }
             await tx.regChange.update({ where: { id: c.id }, data: { appliedAt: new Date(), esito: credito?.codice } });
@@ -393,12 +444,14 @@ export class ChangesService {
         if (paymentStatus === PaymentStatus.REJECTED && c.appliedAt) {
             throw new ConflictException('Cambio già fatto: non si può annullare da qui');
         }
+        // Prima si fa il cambio (se non è più possibile, es. iscrizione annullata, si ferma
+        // qui e il pagamento resta da sistemare a mano), poi si segna come incassato
+        if (paymentStatus === PaymentStatus.CONFIRMED && !c.appliedAt) await this.apply(id);
         const r = await this.prisma.regChange.updateMany({
             where: { id, paymentStatus: c.paymentStatus },
             data: { paymentStatus, paidAt: paymentStatus === PaymentStatus.CONFIRMED ? c.paidAt ?? new Date() : null },
         });
         if (r.count === 0) throw new ConflictException('Il cambio è cambiato nel frattempo: ricarica la pagina');
-        if (paymentStatus === PaymentStatus.CONFIRMED && !c.appliedAt) await this.apply(id);
         return { ok: true };
     }
 }

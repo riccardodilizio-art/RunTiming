@@ -84,6 +84,16 @@ export interface AthleteSnapshot {
 
 const json = <T>(v: Prisma.JsonValue | null | undefined): T | undefined => (v ?? undefined) as unknown as T;
 
+/**
+ * Il codice del link "gestisci iscrizione" non esce mai dalle API: chi lo ha
+ * (anche lo staff) potrebbe cedere o trasferire l'iscrizione al posto dell'atleta.
+ */
+export function senzaToken<T extends { manageToken?: string | null }>(r: T): Omit<T, 'manageToken'> {
+    const { manageToken: _t, ...rest } = r;
+    void _t;
+    return rest;
+}
+
 /** Dati preparati da RegistrationsService.prepare (senza importi). */
 export interface PreparedRegistration {
     athlete: AthleteSnapshot;
@@ -213,7 +223,7 @@ export class RegistrationsService {
         let discountMessage: string | undefined;
         if (code?.trim()) {
             const d = await this.prisma.discountCode.findUnique({ where: { code: normCode(code) } });
-            discountMessage = discountProblem(d, new Date(), race.day.event.id) ?? undefined;
+            discountMessage = discountProblem(d, new Date(), race.day.event.id, race.day.event.edizionePrecedenteId) ?? undefined;
             if (!discountMessage) discount = d;
         }
         const q = quote({
@@ -294,10 +304,26 @@ export class RegistrationsService {
                         raceId: p.race.id, cognome: p.athlete.cognome, nome: p.athlete.nome, dataNascita: p.athlete.dataNascita,
                         paymentStatus: { not: PaymentStatus.REJECTED },
                     },
-                    select: { id: true, basePrice: true, discountAmount: true, combinataId: true },
+                    select: {
+                        id: true, basePrice: true, discountAmount: true, combinataId: true, paymentStatus: true,
+                        athleteId: true, societyId: true, groupId: true,
+                    },
                 });
                 if (d?.combinataId === combo.id) throw new ConflictException('Atleta già iscritto a questa combinata');
-                if (d) existing.set(p.race.id, d);
+                if (d) {
+                    // Si aggiunge la combinata solo alla propria iscrizione (stesso account
+                    // atleta o stessa società), già pagata: niente sconti su quote non incassate
+                    const mine = isStaff
+                        || (!!p.athleteId && d.athleteId === p.athleteId)
+                        || (!!p.societyId && d.societyId === p.societyId);
+                    if (!mine) {
+                        throw new ConflictException(`Risulti già iscritto a ${p.race.name}: per aggiungere la combinata accedi con il tuo account o scrivi alla segreteria`);
+                    }
+                    if (d.paymentStatus !== PaymentStatus.CONFIRMED || d.groupId) {
+                        throw new ConflictException(`Iscrizione a ${p.race.name} non ancora pagata (o di gruppo): completa prima il pagamento o scrivi alla segreteria`);
+                    }
+                    existing.set(p.race.id, d);
+                }
             }
             const nuove = prep.filter(p => !existing.has(p.race.id));
             if (!nuove.length) throw new ConflictException('Atleta già iscritto a tutte le gare della combinata');
@@ -347,7 +373,7 @@ export class RegistrationsService {
                 await tx.registration.updateMany({ where: { id: { in: [...existing.values()].map(r => r.id) } }, data: { combinataId: combo.id } });
             }
             return {
-                registration: parent, quote: q,
+                registration: senzaToken(parent), quote: q,
                 combinata: { id: combo.id, nome: combo.nome, gare: nuove.map(p => p.race.name), giaIscritto: existing.size > 0 },
                 ageWarning: prep.map(p => p.ageProblem).find(Boolean) ?? undefined,
                 tesseramentoWarning: prep.map(p => p.tessProblem).find(Boolean) ?? undefined,
@@ -499,7 +525,7 @@ export class RegistrationsService {
                 },
             });
             return {
-                registration: reg, quote: q,
+                registration: senzaToken(reg), quote: q,
                 ageWarning: ageProblem ?? undefined,
                 tesseramentoWarning: tessProblem ?? undefined,
             };
@@ -655,7 +681,7 @@ export class RegistrationsService {
         const schema = json<FormFieldDef[]>(race.formSchema) ?? [];
         const fields = race.publicFields.filter(f => {
             const def = schema.find(x => x.id === f);
-            return def && def.type !== 'file' && !(def.catalogKey && NEVER_PUBLIC.has(def.catalogKey));
+            return def && !['file', 'email', 'tel', 'date'].includes(def.type) && !(def.catalogKey && NEVER_PUBLIC.has(def.catalogKey));
         });
         return {
             total,
@@ -693,7 +719,7 @@ export class RegistrationsService {
                 take: pageSize,
             }),
         ]);
-        return { total, page, pageSize, items };
+        return { total, page, pageSize, items: items.map(senzaToken) };
     }
 
     /** Tutte le iscrizioni attive della gara (per l'export). */
@@ -719,11 +745,12 @@ export class RegistrationsService {
         } else {
             where = { createdById: user.sub };
         }
-        return this.prisma.registration.findMany({
+        const rows = await this.prisma.registration.findMany({
             where,
             orderBy: { submittedAt: 'desc' },
             include: { race: { select: { name: true, distance: true, day: { select: { date: true, event: { select: { title: true, slug: true } } } } } } },
         });
+        return rows.map(senzaToken);
     }
 
     // ─── Verifica pubblica ─────────────────────────────────────────────────
@@ -778,6 +805,9 @@ export class RegistrationsService {
         if (reg.groupId) {
             throw new ConflictException('Iscrizione di un pagamento di gruppo della società: confermala o annullala dal gruppo (Pagamenti → Gruppi società)');
         }
+        if (reg.trasferitoAt && paymentStatus !== PaymentStatus.REJECTED) {
+            throw new ConflictException('Iscrizione trasferita all\'edizione dopo (credito già emesso): non si può riattivare');
+        }
         if (reg.combinataParentId) {
             throw new ConflictException('Iscrizione compresa in una combinata: si gestisce dall\'iscrizione principale della combinata');
         }
@@ -797,7 +827,7 @@ export class RegistrationsService {
                 );
             }
         }
-        if (reg.paymentStatus === paymentStatus) return reg;
+        if (reg.paymentStatus === paymentStatus) return senzaToken(reg);
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? reg.paidAt ?? new Date() : null;
         const updated = await this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;
@@ -833,11 +863,11 @@ export class RegistrationsService {
         });
         if (paymentStatus === PaymentStatus.CONFIRMED) await this.mailer.paymentReceived(id);
         if (paymentStatus === PaymentStatus.REJECTED) await this.mailer.cancelled(id, 'organizzazione');
-        return updated;
+        return senzaToken(updated);
     }
 
     async setCert(user: AuthUser, id: string, certStatus: CertStatus) {
         await this.regForStaff(user, id);
-        return this.prisma.registration.update({ where: { id }, data: { certStatus } });
+        return senzaToken(await this.prisma.registration.update({ where: { id }, data: { certStatus } }));
     }
 }

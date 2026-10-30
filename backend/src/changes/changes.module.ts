@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Module, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Module, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PaymentStatus, Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard, AuthUser, CurrentUser, Roles, ThrottlePerIp } from '../common/auth';
@@ -13,6 +13,7 @@ export class ChangesController {
     // ─── Con il link personale dell'email (anche senza account) ──────────
 
     @Get('manage/:token')
+    @Header('Cache-Control', 'no-store')
     @ThrottlePerIp()
     @Throttle({ default: { limit: 30, ttl: 60_000 } })
     byToken(@Param('token') token: string) {

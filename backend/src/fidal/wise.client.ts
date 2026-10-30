@@ -88,6 +88,7 @@ export class WiseClient {
         const getRes = await fetch(loginUrl, {
             headers: { Cookie: this.cookieHeader() },
             redirect: 'manual',
+            signal: AbortSignal.timeout(8000), // FIDAL lento: non si bloccano le richieste
         });
         this.storeSetCookies(getRes);
         const token = this.extractAntiforgeryToken(await getRes.text());
@@ -107,6 +108,7 @@ export class WiseClient {
             },
             body: body.toString(),
             redirect: 'manual',
+            signal: AbortSignal.timeout(8000), // FIDAL lento: non si bloccano le richieste
         });
         this.storeSetCookies(postRes);
 
@@ -148,6 +150,7 @@ export class WiseClient {
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 redirect: 'manual',
+            signal: AbortSignal.timeout(8000), // FIDAL lento: non si bloccano le richieste
             });
         };
 

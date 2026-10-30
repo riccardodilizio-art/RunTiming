@@ -43,10 +43,14 @@ export class GroupsService {
         return s;
     }
 
-    /** Iscritti attivi della società alla gara (per contare gli omaggi). */
+    /**
+     * Iscritti della società alla gara che contano per gli omaggi: solo quelli
+     * già pagati (con iscrizioni non pagate e poi lasciate annullare si
+     * otterrebbero omaggi gratis).
+     */
     private activeOfSociety(db: Prisma.TransactionClient | PrismaService, raceId: string, societyId: string) {
         return db.registration.count({
-            where: { raceId, societyId, paymentStatus: { not: PaymentStatus.REJECTED } },
+            where: { raceId, societyId, paymentStatus: PaymentStatus.CONFIRMED },
         });
     }
 
@@ -87,6 +91,8 @@ export class GroupsService {
         const prepared: (PreparedRegistration | null)[] = new Array(dto.athletes.length).fill(null);
         const errori: string[] = [];
         for (let i = 0; i < dto.athletes.length; i += 5) {
+            // Troppi errori: inutile continuare (e niente centinaia di verifiche FIDAL a vuoto)
+            if (errori.length >= 20) { errori.push('… (controllo interrotto: correggi questi e riprova)'); break; }
             await Promise.all(dto.athletes.slice(i, i + 5).map(async (a, k) => {
                 const who = `${a.athlete.cognome} ${a.athlete.nome}`.toUpperCase();
                 try {
@@ -270,13 +276,25 @@ export class GroupsService {
         const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? g.paidAt ?? new Date() : null;
         await this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${g.raceId}))::text`;
-            if (g.paymentStatus === PaymentStatus.REJECTED && g.race.maxParticipants > 0) {
-                const count = await tx.registration.count({ where: { raceId: g.raceId, paymentStatus: { not: PaymentStatus.REJECTED } } });
-                if (count + g.iscritti > g.race.maxParticipants) throw new ConflictException('Gara al completo: impossibile riattivare il gruppo');
+            // Iscrizioni del gruppo che seguono il gruppo: non quelle trasferite all'anno
+            // dopo (credito già emesso) né quelle già cambiate per conto loro
+            const members = await tx.registration.findMany({
+                where: { groupId: id, paymentStatus: g.paymentStatus, trasferitoAt: null },
+                select: { id: true, cognome: true, nome: true, dataNascita: true, raceId: true },
+            });
+            if (g.paymentStatus === PaymentStatus.REJECTED) {
+                if (g.race.maxParticipants > 0) {
+                    const count = await tx.registration.count({ where: { raceId: g.raceId, paymentStatus: { not: PaymentStatus.REJECTED } } });
+                    if (count + members.length > g.race.maxParticipants) throw new ConflictException('Gara al completo: impossibile riattivare il gruppo');
+                }
+                await assertSocietyLimit(tx, g.race, g.societyId, members.filter(m => m.raceId === g.raceId).length);
+                const dups: string[] = [];
+                for (const m of members) if (await findDuplicate(tx, m.raceId, m)) dups.push(`${m.cognome} ${m.nome}`);
+                if (dups.length) throw new ConflictException({ message: 'Impossibile riattivare: atleti già iscritti di nuovo', errori: dups });
             }
             const r = await tx.paymentGroup.updateMany({ where: { id, paymentStatus: g.paymentStatus }, data: { paymentStatus, paidAt } });
             if (r.count === 0) throw new ConflictException('Il gruppo è cambiato nel frattempo: ricarica la pagina e riprova');
-            await tx.registration.updateMany({ where: { groupId: id }, data: { paymentStatus, paidAt } });
+            await tx.registration.updateMany({ where: { id: { in: members.map(m => m.id) } }, data: { paymentStatus, paidAt } });
         });
         const full = await this.full(id);
         if (paymentStatus === PaymentStatus.CONFIRMED) await this.sendMail(full, 'pagamento');
