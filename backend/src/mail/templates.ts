@@ -58,6 +58,8 @@ export interface RegMailData {
     gara: string;
     data: Date | string;
     categoria?: string | null;
+    /** Staffetta: nome della squadra. */
+    squadra?: string | null;
     importo: number;
     metodo: string | null;        // paypal | bank | onsite | manual | free
     stato: 'PENDING' | 'CONFIRMED' | 'REJECTED';
@@ -77,6 +79,7 @@ function regSummary(d: RegMailData): [string, string][] {
         ['Atleta', title(`${d.nome} ${d.cognome}`)],
         ['Evento', d.evento],
         ['Gara', d.gara],
+        ...(d.squadra ? [['Squadra', d.squadra] as [string, string]] : []),
         ['Data', giorno(d.data)],
         ...(d.categoria ? [['Categoria', d.categoria] as [string, string]] : []),
         ['Quota', euro(d.importo)],

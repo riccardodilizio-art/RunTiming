@@ -8,6 +8,7 @@ import { RegistrationsService } from './registrations.service';
 import { PayMethod } from './rules';
 import {
     CreateRegistrationDto,
+    CreateStaffettaDto,
     ListQueryDto,
     UpdateCertDto,
     UpdatePaymentDto,
@@ -54,6 +55,15 @@ export class RegistrationsController {
     async create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateRegistrationDto, @Ip() ip: string) {
         if (!user) await assertHuman(dto.captchaToken, ip); // ospiti: verifica anti-robot
         return this.regs.create(user, dto);
+    }
+
+    /** Staffetta: il capitano iscrive tutta la squadra (un solo pagamento). */
+    @Post('registrations/staffetta')
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
+    @UseGuards(OptionalAuthGuard)
+    async createStaffetta(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateStaffettaDto, @Ip() ip: string) {
+        if (!user) await assertHuman(dto.captchaToken, ip);
+        return this.regs.createStaffetta(user, dto);
     }
 
     @Get('registrations/me')

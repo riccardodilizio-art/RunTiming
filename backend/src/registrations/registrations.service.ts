@@ -35,10 +35,11 @@ import {
     todayRome,
     TESTO_MINORI_STANDARD, etaAnagrafica, minoreProblem, nazionalita, tesseramentoAmmesso,
 } from './rules';
-import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
+import { AthleteDataDto, CreateRegistrationDto, CreateStaffettaDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
 import { METODO_COMBINATA, allineaCombinata, combinateEvento, prezzoAggiunta } from './combinata';
 import { siteName } from '../common/brand';
+import { METODO_STAFFETTA, categoriaStaffetta, frazioniGara, staffettaProblem } from './staffetta';
 
 /** Chiavi di catalogo che vengono dal profilo atleta, non dal modulo extra. */
 const PROFILE_KEYS = new Set([
@@ -285,6 +286,7 @@ export class RegistrationsService {
         if (!combo || !combo.raceIds.includes(race.id)) throw new BadRequestException('Combinata non trovata per questa gara');
         if (dto.discountCode?.trim()) throw new BadRequestException('I codici sconto non valgono sulla combinata');
         const races = await Promise.all(combo.raceIds.map(id => this.race(id)));
+        if (races.some(r => frazioniGara(r.staffetta))) throw new BadRequestException('Una gara della combinata è a staffetta: iscrivi la squadra a parte');
         if (races.some(r => r.day.event.id !== event.id)) throw new BadRequestException('Combinata non valida');
         for (const r of races) await this.assertCanRegister(user, r);
 
@@ -491,6 +493,7 @@ export class RegistrationsService {
         const race = await this.race(dto.raceId);
         const event = race.day.event;
         const isStaff = await this.assertCanRegister(user, race);
+        if (frazioniGara(race.staffetta)) throw new BadRequestException('Gara a staffetta: il capitano iscrive tutta la squadra');
         if (dto.combinataId) return this.createCombinata(user, dto, race, isStaff);
         const { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus, genitore } =
             await this.prepare(user, race, dto, isStaff);
@@ -561,6 +564,124 @@ export class RegistrationsService {
         // Email di conferma con i dati per pagare (in coda: non rallenta né blocca l'iscrizione)
         await this.mailer.confirmation(created.registration.id);
         return created;
+    }
+
+    /**
+     * Staffetta: il capitano iscrive tutta la squadra (frazione 1 = capitano) con
+     * un solo pagamento, quota per squadra. Le altre frazioni seguono il capitano.
+     */
+    async createStaffetta(user: AuthUser | undefined, dto: CreateStaffettaDto) {
+        const race = await this.race(dto.raceId);
+        const frazioni = frazioniGara(race.staffetta);
+        if (!frazioni) throw new BadRequestException('Questa gara non è una staffetta');
+        const isStaff = await this.assertCanRegister(user, race);
+        const problem = staffettaProblem(frazioni, dto.squadra, dto.frazionisti);
+        if (problem) throw new BadRequestException(problem);
+        // L'atleta con account iscrive anche altre persone: si usano i dati del modulo
+        const asUser = user?.role === Role.ATHLETE ? undefined : user;
+        const capitanoEmail = dto.frazionisti[0].email ?? (user?.role === Role.ATHLETE ? user.email : undefined);
+        if (!capitanoEmail && !asUser) throw new BadRequestException("Indica l'email del capitano (frazione 1) per ricevere la conferma");
+        const prep: Awaited<ReturnType<RegistrationsService['prepare']>>[] = [];
+        for (const [i, a] of dto.frazionisti.entries()) {
+            const atleta = { ...a, email: a.email ?? capitanoEmail };
+            prep.push(await this.prepare(asUser, race, { raceId: race.id, athlete: atleta, formData: dto.formData, genitore: dto.genitore }, isStaff)
+                .catch(e => {
+                    if (e instanceof BadRequestException) throw new BadRequestException(`Frazione ${i + 1}: ${e.message}`);
+                    throw e;
+                }));
+        }
+        const categoria = categoriaStaffetta(prep.map(p => p.athlete.sesso));
+        const squadra = dto.squadra.trim().replace(/\s+/g, ' ').slice(0, 60);
+        const method = this.chooseMethod(race, isStaff, dto.paymentMethod);
+        const q = await this.quote(race.id, dto.discountCode, method);
+        if (dto.discountCode?.trim() && q.discountMessage) throw new BadRequestException(q.discountMessage);
+        let paymentStatus: PaymentStatus = PaymentStatus.PENDING;
+        let paymentMethod: string = method;
+        if (q.total === 0) { paymentStatus = PaymentStatus.CONFIRMED; paymentMethod = 'free'; }
+        else if (isStaff && dto.markPaid) paymentStatus = PaymentStatus.CONFIRMED;
+        const needsRef = paymentStatus === PaymentStatus.PENDING && paymentMethod !== 'manual';
+        const paidAt = paymentStatus === PaymentStatus.CONFIRMED ? new Date() : null;
+
+        const created = await this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${race.id}))::text`;
+            if (race.maxParticipants > 0) {
+                const count = await tx.registration.count({ where: { raceId: race.id, paymentStatus: { not: PaymentStatus.REJECTED } } });
+                if (count + frazioni > race.maxParticipants) throw new ConflictException('Gara al completo');
+            }
+            for (const p of prep) {
+                if (await findDuplicate(tx, race.id, p.athlete)) throw new ConflictException(`${p.athlete.cognome} ${p.athlete.nome} risulta già iscritto a questa gara`);
+            }
+            await assertSocietyLimit(tx, race, prep[0].societyId, frazioni);
+            if (q.discountCode) {
+                const d = await tx.discountCode.findUniqueOrThrow({ where: { code: q.discountCode } });
+                const ok = await tx.discountCode.updateMany({
+                    where: { id: d.id, isActive: true, ...(d.maxUses != null ? { usedCount: { lt: d.maxUses } } : {}) },
+                    data: { usedCount: { increment: 1 } },
+                });
+                if (ok.count === 0) throw new ConflictException('Codice sconto esaurito');
+            }
+            const capo = await tx.registration.create({
+                data: {
+                    ...snapshotData(race, { ...prep[0], category: null }),
+                    assignedCategory: categoria, squadra, frazione: 1,
+                    basePrice: q.price, discountAmount: q.discount, commissionAmount: q.commission,
+                    paymentFee: q.paymentFee, pricePaid: q.total,
+                    paymentRef: needsRef ? newPaymentRef() : null, paidAt,
+                    discountCode: q.discountCode, paymentMethod, paymentStatus,
+                    addedByOrganizer: isStaff, createdById: user?.sub,
+                },
+            });
+            for (const [i, p] of prep.slice(1).entries()) {
+                await tx.registration.create({
+                    data: {
+                        ...snapshotData(race, { ...p, category: null }),
+                        manageToken: null, // si gestisce dal link del capitano
+                        assignedCategory: categoria, squadra, frazione: i + 2, staffettaCapoId: capo.id,
+                        basePrice: 0, discountAmount: 0, commissionAmount: 0, paymentFee: 0, pricePaid: 0,
+                        paymentMethod: paymentMethod === 'free' ? 'free' : METODO_STAFFETTA,
+                        paymentStatus, paidAt, addedByOrganizer: isStaff, createdById: user?.sub,
+                    },
+                });
+            }
+            return { registration: senzaToken(capo), quote: q, squadra, categoria };
+        });
+        await this.mailer.confirmation(created.registration.id);
+        return created;
+    }
+
+    /**
+     * Staffetta: il capitano cambia un frazionista (non sé stesso) fino alla chiusura
+     * delle iscrizioni. Valgono gli stessi controlli dell'iscrizione.
+     */
+    async cambiaFrazionista(user: AuthUser | undefined, capo: { id: string; raceId: string }, frazione: number, a: AthleteDataDto, isStaff: boolean) {
+        const race = await this.race(capo.raceId);
+        const frazioni = frazioniGara(race.staffetta);
+        if (!frazioni || frazione < 2 || frazione > frazioni) throw new BadRequestException('Frazione non valida');
+        const vecchio = await this.prisma.registration.findFirst({ where: { staffettaCapoId: capo.id, frazione } });
+        if (!vecchio) throw new NotFoundException('Frazionista non trovato');
+        const p = await this.prepare(isStaff ? user : undefined, race,
+            { raceId: race.id, athlete: { ...a, email: a.email ?? vecchio.email ?? undefined }, formData: vecchio.formData as Record<string, string | boolean> }, isStaff)
+            .catch(e => { if (e instanceof BadRequestException) throw new BadRequestException(`Frazione ${frazione}: ${e.message}`); throw e; });
+        return this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${race.id}))::text`;
+            const dup = await findDuplicate(tx, race.id, p.athlete);
+            if (dup && dup.id !== vecchio.id) throw new ConflictException(`${p.athlete.cognome} ${p.athlete.nome} risulta già iscritto a questa gara`);
+            const membri = await tx.registration.findMany({ where: { OR: [{ id: capo.id }, { staffettaCapoId: capo.id }] }, select: { id: true, sesso: true } });
+            const categoria = categoriaStaffetta(membri.map(m => (m.id === vecchio.id ? p.athlete.sesso : m.sesso)));
+            const a2 = p.athlete;
+            await tx.registration.update({
+                where: { id: vecchio.id },
+                data: {
+                    nome: a2.nome, cognome: a2.cognome, sesso: a2.sesso, dataNascita: a2.dataNascita,
+                    societa: a2.societa ?? null, codiceSocieta: a2.codiceSocieta ?? null, tessera: a2.tessera ?? null,
+                    tesseramento: a2.tesseramento, email: a2.email ?? null, fidalVerified: a2.fidalVerified,
+                    nazionalita: a2.nazionalita, certStatus: p.certStatus, athleteId: null,
+                    genitore: p.genitore ? (p.genitore as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+                },
+            });
+            await tx.registration.updateMany({ where: { OR: [{ id: capo.id }, { staffettaCapoId: capo.id }] }, data: { assignedCategory: categoria } });
+            return { frazione, cognome: a2.cognome, nome: a2.nome, categoria };
+        });
     }
 
     /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */
@@ -839,6 +960,9 @@ export class RegistrationsService {
         }
         if (reg.trasferitoAt && paymentStatus !== PaymentStatus.REJECTED) {
             throw new ConflictException('Iscrizione trasferita all\'edizione dopo (credito già emesso): non si può riattivare');
+        }
+        if (reg.staffettaCapoId) {
+            throw new ConflictException('Frazionista di una staffetta: il pagamento è della squadra (iscrizione del capitano, frazione 1)');
         }
         if (reg.combinataParentId) {
             throw new ConflictException('Iscrizione compresa in una combinata: si gestisce dall\'iscrizione principale della combinata');
