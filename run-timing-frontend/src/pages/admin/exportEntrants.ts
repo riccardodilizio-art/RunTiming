@@ -26,6 +26,7 @@ export function exportEntrantsXlsx(race: Race, regs: RegistrationSubmission[]) {
             || (dn ? String(new Date(dn).getFullYear()) : '');
         const sesso = byCatalog(race, reg, 'sesso').toLowerCase();
         const licenza = byCatalog(race, reg, 'tessera_fidal') || byCatalog(race, reg, 'tessera_runcard');
+        const naz = (reg.nazionalita || byCatalog(race, reg, 'nazionalita') || 'ITA').toUpperCase();
         return [
             reg.pettorale ?? '',                  // Pettorale (se già assegnato dalla segreteria)
             '',                                   // Titolo
@@ -34,8 +35,8 @@ export function exportEntrantsXlsx(race: Race, regs: RegistrationSubmission[]) {
             anno,                                 // AnnoDiNascita
             dnDate,                               // DataDiNascita (Date → seriale Excel)
             sesso === 'm' || sesso === 'f' ? sesso : '',
-            'ITA',                                // Nazione
-            '', '', '', '', 'Italia',            // Via, Regione, CAP, Città, Paese
+            naz,                                  // Nazione
+            '', '', '', '', naz === 'ITA' ? 'Italia' : '', // Via, Regione, CAP, Città, Paese
             '',                                   // Gara (definita nel portale di cronometraggio)
             byCatalog(race, reg, 'societa'),
             licenza,                              // Licenza

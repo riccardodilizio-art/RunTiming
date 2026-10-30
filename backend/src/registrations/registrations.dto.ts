@@ -8,6 +8,7 @@ import {
     IsObject,
     IsOptional,
     IsString,
+    Matches,
     Max,
     MaxLength,
     Min,
@@ -26,7 +27,11 @@ export class AthleteDataDto {
     @IsOptional() @IsString() @MaxLength(30) tessera?: string;
     @IsOptional() @IsEmail() email?: string;
     /** Con quale tesseramento si iscrive (se assente lo ricava il server). */
-    @IsOptional() @IsIn(['fidal', 'runcard', 'eps', 'libero']) tesseramento?: string;
+    @IsOptional() @IsIn(['fidal', 'runcard', 'estero', 'eps', 'libero']) tesseramento?: string;
+    /** Nazionalità, codice a 3 lettere (default ITA). */
+    @IsOptional() @Matches(/^[A-Za-z]{3}$/) nazionalita?: string;
+    /** Straniero tesserato nel suo paese: la federazione (es. FFA). */
+    @IsOptional() @IsString() @MaxLength(60) federazione?: string;
     /** Tesserato verificato su FIDAL/WISE (certificato valido in automatico). */
     @IsOptional() @IsBoolean() fidalVerified?: boolean;
 }

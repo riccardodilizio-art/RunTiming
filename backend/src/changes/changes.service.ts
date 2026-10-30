@@ -33,7 +33,7 @@ interface DatiCambio {
     athlete?: {
         nome: string; cognome: string; sesso: string; dataNascita: string;
         societa?: string | null; codiceSocieta?: string | null; tessera?: string | null; tesseramento?: string;
-        email?: string | null; fidalVerified: boolean;
+        email?: string | null; fidalVerified: boolean; nazionalita?: string;
     };
     formData?: Record<string, string | boolean>;
     /** Cessione a un minorenne: dichiarazione del genitore. */
@@ -230,7 +230,7 @@ export class ChangesService {
             dati.athlete = {
                 nome: a.nome, cognome: a.cognome, sesso: a.sesso, dataNascita: a.dataNascita.toISOString().slice(0, 10),
                 societa: a.societa, codiceSocieta: a.codiceSocieta, tessera: a.tessera, tesseramento: a.tesseramento,
-                email: a.email, fidalVerified: a.fidalVerified,
+                email: a.email, fidalVerified: a.fidalVerified, nazionalita: a.nazionalita,
             };
             dati.formData = prep.formData;
             dati.genitore = prep.genitore ?? null;
@@ -298,7 +298,8 @@ export class ChangesService {
             nome: reg.nome, cognome: reg.cognome, sesso: reg.sesso as 'M' | 'F',
             dataNascita: reg.dataNascita?.toISOString().slice(0, 10) ?? '',
             societa: reg.societa ?? undefined, codiceSocieta: reg.codiceSocieta ?? undefined, tessera: reg.tessera ?? undefined,
-            email: reg.email ?? undefined, tesseramento: reg.tesseramento ?? undefined,
+            email: reg.email ?? undefined, tesseramento: reg.tesseramento ?? undefined, nazionalita: reg.nazionalita,
+            federazione: reg.tesseramento === 'estero' ? reg.codiceSocieta ?? undefined : undefined,
         };
     }
 
@@ -386,6 +387,7 @@ export class ChangesService {
                         nome: nuovo.nome, cognome: nuovo.cognome, sesso: a.sesso, dataNascita: dn,
                         societa: a.societa ?? null, codiceSocieta: a.codiceSocieta ?? null, tessera: a.tessera ?? null,
                         tesseramento: a.tesseramento ?? null, email: a.email ?? null, fidalVerified: a.fidalVerified,
+                        nazionalita: a.nazionalita ?? 'ITA',
                         formData: (dati.formData ?? {}) as Prisma.InputJsonValue, assignedCategory: dati.categoria,
                         certStatus: dati.certStatus ?? undefined, athleteId: null, manageToken: newManageToken(),
                         genitore: dati.genitore ? (dati.genitore as unknown as Prisma.InputJsonValue) : Prisma.DbNull,

@@ -192,12 +192,23 @@ export function limiteSocietaProblem(max: number, giaIscritti: number, nuovi: nu
 
 // ─── Tesseramenti ammessi ───────────────────────────────────────────────────
 
-/** Come si è tesserato l'atleta: FIDAL, Runcard, EPS o altro ente, non tesserato. */
-export type Tesseramento = 'fidal' | 'runcard' | 'eps' | 'libero';
-export const TESSERAMENTI: Tesseramento[] = ['fidal', 'runcard', 'eps', 'libero'];
+/**
+ * Come si è tesserato l'atleta: FIDAL, Runcard, federazione estera (atleta
+ * straniero tesserato nel suo paese), EPS o altro ente, non tesserato.
+ */
+export type Tesseramento = 'fidal' | 'runcard' | 'estero' | 'eps' | 'libero';
+export const TESSERAMENTI: Tesseramento[] = ['fidal', 'runcard', 'estero', 'eps', 'libero'];
 export const TESSERAMENTO_LABEL: Record<Tesseramento, string> = {
-    fidal: 'FIDAL', runcard: 'Runcard', eps: 'EPS e altri enti', libero: 'non tesserati',
+    fidal: 'FIDAL', runcard: 'Runcard', estero: 'federazioni estere', eps: 'EPS e altri enti', libero: 'non tesserati',
 };
+
+/**
+ * Ammesso? Come da norme FIDAL, dove è ammessa la Runcard sono ammessi anche gli
+ * stranieri tesserati con la federazione del loro paese (con certificato).
+ */
+export function tesseramentoAmmesso(tipo: Tesseramento, ammessi: Tesseramento[]): boolean {
+    return !ammessi.length || ammessi.includes(tipo) || (tipo === 'estero' && ammessi.includes('runcard'));
+}
 
 /**
  * Tesseramenti ammessi dalla gara; lista vuota = tutti.
@@ -214,13 +225,14 @@ export function tesseramentoDaEnte(ente: string | null | undefined, societaNome?
     const e = (ente ?? '').toLowerCase();
     if (e === 'fidal') return 'fidal';
     if (e === 'runcard' || /run\s*card/i.test(societaNome ?? '')) return 'runcard';
+    if (e === 'estero') return 'estero';
     if (!e || e === 'non_competitiva') return 'libero';
     return 'eps';
 }
 
 /** Messaggio d'errore se il tesseramento non è ammesso, altrimenti null. */
 export function checkTesseramento(tipo: Tesseramento, ammessi: Tesseramento[]): string | null {
-    if (!ammessi.length || ammessi.includes(tipo)) return null;
+    if (tesseramentoAmmesso(tipo, ammessi)) return null;
     const list = ammessi.map(t => TESSERAMENTO_LABEL[t]);
     const who = ammessi.every(t => t === 'fidal' || t === 'runcard')
         ? `ai tesserati ${list.join(' e ')}`
@@ -275,3 +287,20 @@ export function minoreProblem(p: {
     if (g.consenso !== true) return 'Atleta minorenne: serve la dichiarazione del genitore o tutore';
     return null;
 }
+
+// ─── Stranieri ──────────────────────────────────────────────────────────────
+//
+// Decisioni della segreteria:
+// - lo straniero si riconosce dalla nazionalità (codice a 3 lettere, ITA di default);
+// - tesserato con la federazione del suo paese: federazione e numero di tessera,
+//   più il certificato medico che verifica la segreteria;
+// - tesserato FIDAL (es. residente in Italia): iscrizione FIDAL normale, ma segnato
+//   straniero, per la classifica a parte se la gara la prevede.
+
+/** Nazionalità normalizzata: 3 lettere maiuscole (es. FRA); altrimenti ITA. */
+export function nazionalita(v: unknown): string {
+    const s = typeof v === 'string' ? v.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(s) ? s : 'ITA';
+}
+
+export const isStraniero = (naz: string | null | undefined) => nazionalita(naz) !== 'ITA';

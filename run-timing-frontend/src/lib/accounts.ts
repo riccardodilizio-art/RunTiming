@@ -26,6 +26,7 @@ interface ApiAthleteProfile {
     codFiscale?: string | null;
     phone?: string | null;
     club?: string | null;
+    nazionalita?: string | null;
     certType?: string | null;
     certExpiry?: string | null;
     certStatus?: 'NON_RICHIESTO' | 'IN_ATTESA' | 'VERIFICATO' | 'RIFIUTATO' | null;
@@ -67,6 +68,7 @@ export function toAthlete(me: ApiMe, p: ApiAthleteProfile | null): AthleteAccoun
         gender: (p?.sesso as 'M' | 'F') ?? 'M',
         phone: p?.phone ?? undefined,
         club: p?.club ?? undefined,
+        nazionalita: p?.nazionalita ?? 'ITA',
         codFiscale: p?.codFiscale ?? undefined,
         affiliations: (p?.affiliations ?? []).map(a => ({
             id: a.id,
@@ -94,6 +96,7 @@ function profileBody(a: AthleteAccount) {
         codFiscale: a.codFiscale || undefined,
         phone: a.phone || undefined,
         club: a.club || undefined,
+        nazionalita: a.nazionalita || undefined,
         certType: a.certType || undefined,
         certExpiry: a.certType ? a.certExpiry || undefined : undefined,
         affiliations: affs.map(x => ({

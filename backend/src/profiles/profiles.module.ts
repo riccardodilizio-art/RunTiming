@@ -112,6 +112,7 @@ export class ProfilesService {
             codFiscale: dto.codFiscale?.toUpperCase() ?? null,
             phone: dto.phone ?? null,
             club: dto.club ?? null,
+            nazionalita: (dto.nazionalita ?? prev?.nazionalita ?? 'ITA').toUpperCase(),
             certType: dto.certType ?? null,
             certExpiry,
             certStatus,
