@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRightLeft, CalendarClock, CheckCircle2, UserRoundPen, XCircle } from 'lucide-react';
 import { api } from '../lib/api';
+import { etaAnagrafica } from '../types';
 
 // Cambi dopo l'iscrizione: cambio gara (differenza, mai rimborso), cessione del
 // pettorale e trasferimento all'anno dopo (con quota di segreteria). Usato
@@ -15,6 +16,8 @@ interface Options {
     chiusura: string | null;
     cambioGara: { id: string; name: string; distance: string; quota: number; differenza: number; completa: boolean }[] | null;
     cessione: number | null;
+    /** La gara chiede la dichiarazione del genitore per i minorenni. */
+    minori?: { testo: string } | null;
     trasferimento: { quota: number; credito: number } | null;
     /** L'atleta può annullare da solo (non pagata o gratuita, prima della chiusura). */
     ritiro?: boolean;
@@ -45,6 +48,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     const [raceId, setRaceId] = useState('');
     const [method, setMethod] = useState<'paypal' | 'bank' | ''>('');
     const [a, setA] = useState({ nome: '', cognome: '', sesso: 'M', dataNascita: '', email: '', tessera: '', societa: '' });
+    const [gen, setGen] = useState({ nome: '', cognome: '', consenso: false });
     const [busy, setBusy] = useState(false);
     const [done, setDone] = useState<Result | null>(null);
     const [annullata, setAnnullata] = useState(false);
@@ -74,6 +78,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
                     nome: a.nome.trim(), cognome: a.cognome.trim(), sesso: a.sesso, dataNascita: a.dataNascita,
                     email: a.email.trim() || undefined, tessera: a.tessera.trim() || undefined, societa: a.societa.trim() || undefined,
                 };
+                if (minore) body.genitore = { nome: gen.nome.trim(), cognome: gen.cognome.trim(), consenso: gen.consenso };
             }
             const r = await api.post<Result>(post, body);
             if (!r.applicato && r.paymentRef) { navigate(`/pagamento/${r.paymentRef}`); return; }
@@ -102,6 +107,8 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     }
 
     const i = o.iscrizione;
+    // Cessione a un minorenne (alla data della gara) in una gara che chiede la dichiarazione del genitore
+    const minore = !!o.minori && !!a.dataNascita && etaAnagrafica(a.dataNascita, i.data) < 18;
     const head = (
         <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm">
             <p className="font-semibold text-slate-800">{i.cognome} {i.nome}</p>
@@ -209,6 +216,19 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
                                 <input className={inputCls} placeholder="Tessera FIDAL / Runcard (se tesserato)" value={a.tessera} onChange={e => setA({ ...a, tessera: e.target.value })} />
                                 <input className={`${inputCls} sm:col-span-2`} placeholder="Società (se tesserato)" value={a.societa} onChange={e => setA({ ...a, societa: e.target.value })} />
                             </div>
+                            {minore && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                                    <p className="text-sm font-semibold text-amber-900">Nuovo atleta minorenne: dichiarazione del genitore</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <input className={`${inputCls} bg-white`} required placeholder="Nome del genitore" value={gen.nome} onChange={e => setGen({ ...gen, nome: e.target.value })} />
+                                        <input className={`${inputCls} bg-white`} required placeholder="Cognome del genitore" value={gen.cognome} onChange={e => setGen({ ...gen, cognome: e.target.value })} />
+                                    </div>
+                                    <label className="flex items-start gap-2 text-sm text-slate-700">
+                                        <input type="checkbox" required className="accent-brand-600 h-4 w-4 mt-0.5" checked={gen.consenso} onChange={e => setGen({ ...gen, consenso: e.target.checked })} />
+                                        <span>{o.minori!.testo}</span>
+                                    </label>
+                                </div>
+                            )}
                         </div>
                     )}
 

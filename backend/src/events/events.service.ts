@@ -64,6 +64,8 @@ function raceData(r: RaceDto) {
         chiusuraIscrizioni: r.chiusuraIscrizioni ? new Date(r.chiusuraIscrizioni) : null,
         maxPerSocieta: r.maxPerSocieta ?? 0,
         pettoraleDa: r.pettoraleDa ?? null,
+        dichiarazioneMinori: r.dichiarazioneMinori ?? false,
+        testoMinori: r.testoMinori?.trim() || null,
         formSchema: J(r.formSchema ?? null),
         priceSteps: J(r.priceSteps ?? null),
         publicFields: r.publicFields ?? [],

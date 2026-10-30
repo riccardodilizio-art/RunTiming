@@ -48,6 +48,9 @@ export class RaceDto {
     @IsOptional() @ValidateIf((_, v) => v !== null) @IsDateString() chiusuraIscrizioni?: string | null;
     @IsOptional() @IsInt() @Min(0) @Max(10000) maxPerSocieta?: number;
     @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(1) @Max(999_999) pettoraleDa?: number | null;
+    /** Minorenni: chiedere la dichiarazione del genitore. */
+    @IsOptional() @IsBoolean() dichiarazioneMinori?: boolean;
+    @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(2000) testoMinori?: string | null;
     @IsOptional() @IsArray() formSchema?: unknown[];
     @IsOptional() @IsArray() priceSteps?: unknown[];
     @IsOptional() @IsArray() @IsString({ each: true }) publicFields?: string[];

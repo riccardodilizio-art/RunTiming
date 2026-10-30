@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
-import { AthleteDataDto } from '../registrations/registrations.dto';
+import { AthleteDataDto, GenitoreDto } from '../registrations/registrations.dto';
 
 export class ChangeDto {
     @IsIn(['gara', 'cessione', 'trasferimento']) tipo!: 'gara' | 'cessione' | 'trasferimento';
@@ -8,6 +8,8 @@ export class ChangeDto {
     @IsOptional() @IsString() @MaxLength(40) raceId?: string;
     /** Cessione: il nuovo atleta. */
     @IsOptional() @ValidateNested() @Type(() => AthleteDataDto) athlete?: AthleteDataDto;
+    /** Cessione a un minorenne, se la gara chiede la dichiarazione del genitore. */
+    @IsOptional() @ValidateNested() @Type(() => GenitoreDto) genitore?: GenitoreDto;
     @IsOptional() @IsObject() formData?: Record<string, string | boolean>;
     @IsOptional() @IsIn(['paypal', 'bank']) paymentMethod?: 'paypal' | 'bank';
 }
