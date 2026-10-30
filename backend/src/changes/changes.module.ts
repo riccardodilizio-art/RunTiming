@@ -27,6 +27,13 @@ export class ChangesController {
         return this.changes.request({ token }, dto);
     }
 
+    @Post('manage/:token/ritiro')
+    @ThrottlePerIp()
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
+    ritiroByToken(@Param('token') token: string) {
+        return this.changes.ritiro({ token });
+    }
+
     // ─── Atleta, società, admin ──────────────────────────────────────────
 
     @Get('registrations/:id/changes')
@@ -41,6 +48,13 @@ export class ChangesController {
     @Roles(Role.ATHLETE, Role.SOCIETY, Role.ADMIN)
     request(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ChangeDto) {
         return this.changes.request({ user }, dto, id);
+    }
+
+    @Post('registrations/:id/ritiro')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ATHLETE, Role.SOCIETY, Role.ADMIN)
+    ritiro(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+        return this.changes.ritiro({ user }, id);
     }
 
     // ─── Segreteria ──────────────────────────────────────────────────────

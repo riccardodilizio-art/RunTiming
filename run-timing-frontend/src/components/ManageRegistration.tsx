@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, CalendarClock, CheckCircle2, UserRoundPen } from 'lucide-react';
+import { ArrowRightLeft, CalendarClock, CheckCircle2, UserRoundPen, XCircle } from 'lucide-react';
 import { api } from '../lib/api';
 
 // Cambi dopo l'iscrizione: cambio gara (differenza, mai rimborso), cessione del
 // pettorale e trasferimento all'anno dopo (con quota di segreteria). Usato
 // dall'area atleta, dall'area società, dall'admin e dal link personale nell'email.
+// In più il ritiro: un'iscrizione non ancora pagata (o gratuita) si può annullare da soli.
 
 interface Options {
     iscrizione: { id: string; cognome: string; nome: string; gara: string; evento: string; data: string; pagato: number; pettorale: number | null };
@@ -15,6 +16,8 @@ interface Options {
     cambioGara: { id: string; name: string; distance: string; quota: number; differenza: number; completa: boolean }[] | null;
     cessione: number | null;
     trasferimento: { quota: number; credito: number } | null;
+    /** L'atleta può annullare da solo (non pagata o gratuita, prima della chiusura). */
+    ritiro?: boolean;
     metodi: ('paypal' | 'bank')[];
     inAttesa: { descrizione: string; totale: number; paymentRef: string | null } | null;
 }
@@ -35,6 +38,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     const navigate = useNavigate();
     const base = token ? `/manage/${encodeURIComponent(token)}` : `/registrations/${regId}/changes`;
     const post = token ? `/manage/${encodeURIComponent(token)}/changes` : `/registrations/${regId}/changes`;
+    const ritiroUrl = token ? `/manage/${encodeURIComponent(token)}/ritiro` : `/registrations/${regId}/ritiro`;
     const [o, setO] = useState<Options | null>(null);
     const [error, setError] = useState('');
     const [tab, setTab] = useState<Tab | null>(null);
@@ -43,6 +47,7 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
     const [a, setA] = useState({ nome: '', cognome: '', sesso: 'M', dataNascita: '', email: '', tessera: '', societa: '' });
     const [busy, setBusy] = useState(false);
     const [done, setDone] = useState<Result | null>(null);
+    const [annullata, setAnnullata] = useState(false);
 
     useEffect(() => {
         api.get<Options>(base).then(x => {
@@ -81,14 +86,41 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
         }
     }
 
+    async function ritira() {
+        if (!confirm("Vuoi davvero annullare l'iscrizione? Il posto e il pettorale verranno liberati e non si potrà tornare indietro.")) return;
+        setBusy(true);
+        setError('');
+        try {
+            await api.post(ritiroUrl, {});
+            setAnnullata(true);
+            onDone?.();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Annullamento non riuscito');
+        } finally {
+            setBusy(false);
+        }
+    }
+
     const i = o.iscrizione;
     const head = (
         <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm">
             <p className="font-semibold text-slate-800">{i.cognome} {i.nome}</p>
             <p className="text-slate-500">{i.evento} · {i.gara}{i.pettorale ? ` · pettorale ${i.pettorale}` : ''}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Quota pagata: {euro(i.pagato)}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{o.nonPagata ? `Quota da pagare: ${euro(i.pagato)}` : `Quota pagata: ${euro(i.pagato)}`}</p>
         </div>
     );
+
+    if (annullata) {
+        return (
+            <div className="space-y-3">
+                {head}
+                <div className="flex gap-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <XCircle className="h-5 w-5 shrink-0 text-slate-500" />
+                    <p><strong>Iscrizione annullata.</strong> Ti abbiamo mandato la conferma per email.</p>
+                </div>
+            </div>
+        );
+    }
 
     if (done) {
         return (
@@ -206,6 +238,24 @@ export default function ManageRegistration({ regId, token, onDone }: { regId?: s
                         {busy ? 'Attendi…' : amount > 0 && o.metodi.length ? `Conferma e paga ${euro(amount)}` : 'Conferma'}
                     </button>
                 </form>
+            )}
+            {o.ritiro && (
+                <div className="border-t border-slate-200 pt-4 space-y-2">
+                    <p className="text-sm font-semibold text-slate-800">Non puoi più partecipare?</p>
+                    <p className="text-sm text-slate-600">
+                        {o.nonPagata
+                            ? "L'iscrizione non è ancora pagata: puoi annullarla qui, così il posto torna libero. Se hai già pagato (per esempio con un bonifico appena fatto), non annullare: scrivi alla segreteria."
+                            : "La gara è gratuita: puoi annullare l'iscrizione qui, così il posto torna libero."}
+                    </p>
+                    {error && !tab && <p className="text-sm text-red-600">{error}</p>}
+                    <button type="button" onClick={ritira} disabled={busy}
+                        className="w-full px-4 py-2.5 rounded-lg border border-red-300 text-red-700 text-sm font-semibold hover:bg-red-50 disabled:opacity-50">
+                        {busy ? 'Attendi…' : 'Annulla iscrizione'}
+                    </button>
+                </div>
+            )}
+            {!o.ritiro && !o.nonPagata && !o.chiuso && (
+                <p className="text-xs text-slate-400">Le quote già pagate non si rimborsano: puoi cedere il pettorale o rinviare all'anno prossimo, se previsti.</p>
             )}
         </div>
     );

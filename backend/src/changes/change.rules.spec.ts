@@ -1,4 +1,4 @@
-import { codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
+import { codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi, ritiroProblem } from './change.rules';
 
 describe('cambi dopo l\'iscrizione', () => {
     it('impostazioni dell\'evento', () => {
@@ -26,5 +26,23 @@ describe('cambi dopo l\'iscrizione', () => {
         expect(creditoTrasferimento({ ...base, paymentMethod: 'free', pricePaid: 0 })).toBe(0);
         expect(creditoTrasferimento({ ...base, omaggio: true })).toBe(0);
         expect(creditoTrasferimento({ ...base, discountAmount: 5 })).toBe(13);
+    });
+});
+
+describe('ritiro dell\'atleta', () => {
+    const base = { paymentStatus: 'PENDING', paymentMethod: 'bank', groupId: null, combinataParentId: null, trasferitoAt: null };
+    it('non pagata: si può', () => expect(ritiroProblem(base)).toBeNull());
+    it('sul posto non ancora pagata: si può', () => expect(ritiroProblem({ ...base, paymentMethod: 'onsite' })).toBeNull());
+    it('gratuita confermata: si può (nessun soldo in gioco)', () =>
+        expect(ritiroProblem({ ...base, paymentStatus: 'CONFIRMED', paymentMethod: 'free' })).toBeNull());
+    it('pagata: no, nessun rimborso', () =>
+        expect(ritiroProblem({ ...base, paymentStatus: 'CONFIRMED', paymentMethod: 'paypal' })).toMatch(/rimborso/));
+    it('già annullata o rinviata: no', () => {
+        expect(ritiroProblem({ ...base, paymentStatus: 'REJECTED' })).toMatch(/annullata/);
+        expect(ritiroProblem({ ...base, trasferitoAt: new Date() })).toMatch(/rinviata/);
+    });
+    it('gruppo società o gara di una combinata: no', () => {
+        expect(ritiroProblem({ ...base, groupId: 'g1' })).toMatch(/società/);
+        expect(ritiroProblem({ ...base, paymentStatus: 'CONFIRMED', paymentMethod: 'combinata', combinataParentId: 'p' })).toMatch(/combinata/);
     });
 });

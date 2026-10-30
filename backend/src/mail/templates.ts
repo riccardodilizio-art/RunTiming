@@ -127,7 +127,7 @@ ${button(payUrl(d), 'Paga ora')}`;
     const certText = d.certificatoMancante ? '\n\nPer questa gara serve il certificato medico: non risulta ancora verificato.' : '';
     const manage = d.manageToken ? `${d.siteUrl}/iscrizione/${encodeURIComponent(d.manageToken)}` : '';
     const manageHtml = manage
-        ? `<p style="color:#64748b;font-size:13px">Devi cambiare gara, cedere il pettorale o rinviare all'anno prossimo? <a href="${esc(manage)}">Gestisci la tua iscrizione</a> (non inoltrare questa email: il link è personale).</p>`
+        ? `<p style="color:#64748b;font-size:13px">Devi cambiare gara, cedere il pettorale, rinviare all'anno prossimo o annullare un'iscrizione non ancora pagata? <a href="${esc(manage)}">Gestisci la tua iscrizione</a> (non inoltrare questa email: il link è personale).</p>`
         : '';
     const manageText = manage ? `\n\nGestisci la tua iscrizione (link personale): ${manage}` : '';
 
@@ -167,11 +167,13 @@ Questa gara prevede il <strong>pagamento anticipato</strong>: senza pagamento l'
 }
 
 /** Iscrizione annullata (mancato pagamento anticipato o decisione dell'organizzazione). */
-export function cancelledMail(d: RegMailData, motivo: 'mancato_pagamento' | 'organizzazione'): MailContent {
+export function cancelledMail(d: RegMailData, motivo: 'mancato_pagamento' | 'organizzazione' | 'ritiro'): MailContent {
     const subject = oneLine(`Iscrizione annullata – ${d.evento}`);
     const why = motivo === 'mancato_pagamento'
         ? 'non abbiamo ricevuto il pagamento entro il termine previsto per questa gara (pagamento anticipato)'
-        : "l'organizzazione ha annullato la tua iscrizione";
+        : motivo === 'ritiro'
+            ? 'ci hai chiesto di annullarla dal tuo link personale'
+            : "l'organizzazione ha annullato la tua iscrizione";
     return {
         subject,
         html: layout(subject, `<p>Ciao ${esc(title(d.nome))},</p><p>ti informiamo che la tua iscrizione è stata <strong>annullata</strong> perché ${esc(why)}.</p>${rows(regSummary(d))}
