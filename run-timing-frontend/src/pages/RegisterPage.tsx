@@ -20,7 +20,7 @@ import { verifyTessera, searchByName, FIDAL_SEARCH_ROLES } from '../data/fidalLo
 import { certExpiresBeforeEvent } from '../utils/cert';
 import type { FidalAthlete } from '../data/mockFidal';
 import type { Race, FormField, PriceStep, DiscountCode, RaceCategory, CatalogKey, Combinata } from '../types';
-import { assignCategory } from '../types';
+import { ETA_MIN_ACCOUNT, TESTO_MINORI_STANDARD, assignCategory, etaAnagrafica } from '../types';
 
 // Catalog keys che provengono dal PROFILO atleta: auto-compilati e nascosti
 // quando l'atleta è loggato (form gara = solo campi extra + consensi).
@@ -813,6 +813,23 @@ export default function RegisterPage() {
         [eventRaces, selectedRaceId]
     );
     const combinate = useMemo(() => openCombinate(event, eventRaces), [event, eventRaces]);
+
+    // ── Minorenni: dichiarazione del genitore, se la gara la chiede ──
+    // (non per lo staff: chi iscrive dall'organizzazione raccoglie i documenti a parte)
+    const [genitore, setGenitore] = useState({ nome: '', cognome: '', consenso: false });
+    const raceDay = event?.days?.find(d => d.races.some(r => r.id === selectedRace?.id))?.date;
+    const nascita = (() => {
+        const f = (key: CatalogKey) => {
+            const ff = (selectedRace?.formSchema ?? []).find(x => x.catalogKey === key);
+            const v = ff ? formData[ff.id] : undefined;
+            return typeof v === 'string' ? v.trim() : '';
+        };
+        const anno = f('anno_nascita');
+        return f('data_nascita') || currentAthlete?.birthDate || (anno ? `${anno}-01-01` : '');
+    })();
+    const etaGara = nascita && raceDay ? etaAnagrafica(nascita, raceDay) : NaN;
+    const staffRole = ['ADMIN', 'ORGANIZER'].includes(tokenRole() ?? '');
+    const serveGenitore = USE_API && !!selectedRace?.dichiarazioneMinori && !staffRole && etaGara < 18;
     const combo = useMemo(() => combinate.find(c => c.id === comboId), [combinate, comboId]);
 
     // ── Requisito tesseramento per ente gara ──
@@ -1024,6 +1041,9 @@ export default function RegisterPage() {
 
     function validateForm(): boolean {
         const newErrors: Record<string, string> = {};
+        if (serveGenitore && (!genitore.nome.trim() || !genitore.cognome.trim() || !genitore.consenso)) {
+            newErrors.__genitore = 'Indica nome e cognome del genitore e spunta la dichiarazione';
+        }
         for (const field of visibleFields) {
             if (!field.required || field.readOnly) continue;
             const val = formData[field.id];
@@ -1059,6 +1079,7 @@ export default function RegisterPage() {
                 raceId: selectedRace.id,
                 combinataId: combo?.id,
                 formData,
+                genitore: serveGenitore ? { nome: genitore.nome.trim(), cognome: genitore.cognome.trim(), consenso: genitore.consenso } : undefined,
                 discountCode: combo ? undefined : appliedDiscount?.code,
                 paymentMethod: isFree ? undefined : paymentMethod,
                 // Atleta con account: anagrafica e tesseramento li prende il server dal profilo
@@ -1084,7 +1105,7 @@ export default function RegisterPage() {
             }
             setSubmissionId(r.registration.id);
             setStep(s => s + 1);
-            if (isFidal && !currentAthlete) setTimeout(() => setShowAccountModal(true), 600);
+            if (isFidal && !currentAthlete && !(etaAnagrafica(nascita, new Date().toISOString()) < ETA_MIN_ACCOUNT)) setTimeout(() => setShowAccountModal(true), 600);
         } catch (e) {
             window.alert(e instanceof Error ? e.message : 'Iscrizione non riuscita');
         } finally {
@@ -1398,6 +1419,24 @@ export default function RegisterPage() {
                                         <DynamicForm fields={visibleFields} data={formData} onChange={handleFormChange} errors={errors} />
                                     )}
                                 </>
+                            )}
+
+                            {serveGenitore && (
+                                <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                                    <p className="text-sm font-semibold text-amber-900">Atleta minorenne: dichiarazione del genitore</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" placeholder="Nome del genitore o tutore"
+                                            value={genitore.nome} onChange={e => setGenitore({ ...genitore, nome: e.target.value })} />
+                                        <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" placeholder="Cognome del genitore o tutore"
+                                            value={genitore.cognome} onChange={e => setGenitore({ ...genitore, cognome: e.target.value })} />
+                                    </div>
+                                    <label className="flex items-start gap-2 text-sm text-slate-700">
+                                        <input type="checkbox" className="accent-brand-600 h-4 w-4 mt-0.5" checked={genitore.consenso}
+                                            onChange={e => setGenitore({ ...genitore, consenso: e.target.checked })} />
+                                        <span>{selectedRace.testoMinori?.trim() || TESTO_MINORI_STANDARD}</span>
+                                    </label>
+                                    {errors.__genitore && <p className="text-xs text-red-600">{errors.__genitore}</p>}
+                                </div>
                             )}
                         </div>
                     )}

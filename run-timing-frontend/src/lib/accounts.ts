@@ -2,6 +2,7 @@
 // Usato dai context AthleteAuth / SocietyAuth quando USE_API è attivo.
 
 import type { Affiliation, AppUser, AthleteAccount, CertStatus, RaceEnte, RosterAthlete, SocietyAccount } from '../types';
+import { ETA_MIN_ACCOUNT, etaAnagrafica } from '../types';
 import { affiliationsFromLegacy } from '../components/athlete/affiliations';
 import { ApiError, api, setAuthToken } from './api';
 import { takeCaptchaToken } from './captcha';
@@ -125,6 +126,10 @@ export async function loginAthleteApi(email: string, password: string): Promise<
 }
 
 export async function registerAthleteApi(data: Omit<AthleteAccount, 'id' | 'createdAt'>): Promise<AthleteAccount> {
+    // Account personale dai 14 anni (prima di creare l'account, così non resta a metà)
+    if (data.birthDate && etaAnagrafica(data.birthDate, new Date().toISOString()) < ETA_MIN_ACCOUNT) {
+        throw new Error(`L'account atleta si può creare dai ${ETA_MIN_ACCOUNT} anni: sotto, l'iscrizione la fa un genitore (dal suo account o senza account).`);
+    }
     const r = await api.post<{ accessToken: string }>('/auth/register', {
         email: data.email,
         password: data.password,

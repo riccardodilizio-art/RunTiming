@@ -23,6 +23,7 @@ import { PRESET_AMMESSI, TESSERAMENTI, TESSERAMENTO_LABEL, ammessiGara, type Tes
 import type {
     Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, PublicColumn,
 } from '../../types';
+import { TESTO_MINORI_STANDARD } from '../../types';
 
 type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati' | 'attestato';
 
@@ -247,6 +248,7 @@ export default function RaceEditor({
                             onChange={e => set('maxPerSocieta', parseInt(e.target.value) || 0)} className={inputCls} />
                         <p className="text-xs text-slate-400 mt-1">Vale per le iscrizioni fatte dall'area società.</p>
                     </div>
+                    <MinoriEditor race={race} onChange={patch => onChange({ ...race, ...patch })} />
                     <CategoryEditor
                         categories={race.categories ?? []}
                         onChange={cats => set('categories', cats)}
@@ -1013,5 +1015,26 @@ function BibInput({ reg }: { reg: RegistrationSubmission }) {
             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             disabled={reg.paymentStatus === 'rejected'}
             className="w-16 rounded border border-slate-200 px-1.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-40" />
+    );
+}
+
+/** Minorenni: dichiarazione del genitore, solo se l'organizzazione la chiede. */
+function MinoriEditor({ race, onChange }: { race: Race; onChange: (patch: Partial<Race>) => void }) {
+    return (
+        <div className="sm:col-span-2 rounded-xl border border-slate-200 p-3 space-y-2">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" className="accent-brand-600 h-4 w-4" checked={!!race.dichiarazioneMinori}
+                    onChange={e => onChange({ dichiarazioneMinori: e.target.checked })} />
+                Minorenni: chiedi la dichiarazione del genitore
+            </label>
+            <p className="text-xs text-slate-400">
+                Per chi ha meno di 18 anni il giorno della gara: nome e cognome del genitore e una casella di consenso.
+                Non serve se l'atleta lo iscrive la sua società. Di norma (gare ragazzi, non competitive) lasciala spenta.
+            </p>
+            {race.dichiarazioneMinori && (
+                <textarea rows={3} maxLength={2000} className={inputCls} placeholder={TESTO_MINORI_STANDARD}
+                    value={race.testoMinori ?? ''} onChange={e => onChange({ testoMinori: e.target.value || null })} />
+            )}
+        </div>
     );
 }

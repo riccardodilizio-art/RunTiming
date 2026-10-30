@@ -193,6 +193,10 @@ model Race {
   maxPerSocieta       Int            @default(0)
   /// Primo pettorale della gara (assegnazione per società, poi cognome e nome)
   pettoraleDa         Int?
+  /// Minorenni: chiedere la dichiarazione del genitore (nome, cognome, consenso)
+  dichiarazioneMinori Boolean        @default(false)
+  /// Testo della dichiarazione scelto dall'organizzazione (null = testo standard)
+  testoMinori         String?
   formSchema          Json?
   priceSteps          Json?
   publicFields        String[]
@@ -284,6 +288,8 @@ model Registration {
   manageToken      String?         @unique
   /// Trasferita all'edizione dopo (credito emesso): non si riattiva
   trasferitoAt     DateTime?
+  /// Minorenne: dichiarazione del genitore { nome, cognome, testo, at }
+  genitore         Json?
   changes          RegChange[]
 
   @@index([raceId, cognome])

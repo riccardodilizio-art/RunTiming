@@ -22,7 +22,7 @@ import { dateOnly } from '../common/validators';
 import { AuthService } from '../auth/auth.service';
 import { FidalModule } from '../fidal/fidal.module';
 import { FidalService } from '../fidal/fidal.service';
-import { normName } from '../registrations/rules';
+import { ETA_MIN_ACCOUNT, etaAnagrafica, normName } from '../registrations/rules';
 import { AuthGuard, AuthUser, CurrentUser, Roles } from '../common/auth';
 import {
     AthleteProfileDto,
@@ -93,6 +93,10 @@ export class ProfilesService {
      * per tutte le gare fino alla scadenza).
      */
     async saveAthlete(accountId: string, dto: AthleteProfileDto) {
+        // Account personale dai 14 anni: sotto lo iscrive un genitore (dal suo account o senza account)
+        if (etaAnagrafica(dto.dataNascita, new Date()) < ETA_MIN_ACCOUNT) {
+            throw new BadRequestException(`L'account atleta si può creare dai ${ETA_MIN_ACCOUNT} anni: sotto, l'iscrizione la fa un genitore`);
+        }
         const prev = await this.prisma.athleteProfile.findUnique({ where: { accountId } });
         const certExpiry = dto.certExpiry ? new Date(dto.certExpiry) : null;
         const certChanged =

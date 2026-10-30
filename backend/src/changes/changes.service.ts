@@ -9,7 +9,7 @@ import { changeAppliedMail, changeCededMail } from '../mail/templates';
 import { AuthUser } from '../common/auth';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
 import { RegistrationsService, assertSocietyLimit, findDuplicate } from '../registrations/registrations.service';
-import { PayMethod, activePrice, allowedMethods, chiusuraProblem, normName, paymentFee, todayRome } from '../registrations/rules';
+import { PayMethod, TESTO_MINORI_STANDARD, activePrice, allowedMethods, chiusuraProblem, normName, paymentFee, todayRome } from '../registrations/rules';
 import { TipoCambio, codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi, ritiroProblem } from './change.rules';
 import { ChangeDto } from './changes.dto';
 
@@ -36,6 +36,8 @@ interface DatiCambio {
         email?: string | null; fidalVerified: boolean;
     };
     formData?: Record<string, string | boolean>;
+    /** Cessione a un minorenne: dichiarazione del genitore. */
+    genitore?: { nome: string; cognome: string; testo: string; at: string } | null;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -153,6 +155,8 @@ export class ChangesService {
             chiusura: reg.race.chiusuraIscrizioni,
             cambioGara: cfg.cambioGara ? gare : null,
             cessione: cfg.cessione,
+            // Cessione a un minorenne: la gara può chiedere la dichiarazione del genitore
+            minori: reg.race.dichiarazioneMinori ? { testo: reg.race.testoMinori?.trim() || TESTO_MINORI_STANDARD } : null,
             // Solo per iscrizioni pagate (il credito è la quota davvero incassata) e con quota pagabile online
             trasferimento: cfg.trasferimento == null || creditoTrasferimento(reg) <= 0
                 || (cfg.trasferimento > 0 && !this.methods(reg.race.paymentMode).length && !this.isAdmin(actor))
@@ -198,7 +202,10 @@ export class ChangesService {
                 if (ch) throw new BadRequestException(`${target.name}: ${ch}`);
             }
             // Stessi controlli dell'iscrizione per la nuova gara (età, tesseramento, modulo)
-            const prep = await this.prepareFor(actor, reg, target, this.snapshotAthlete(reg), reg.formData as Record<string, string | boolean>);
+            // Stesso atleta: la dichiarazione del genitore già data vale anche per la nuova gara
+            const gia = reg.genitore as { nome?: string; cognome?: string } | null;
+            const prep = await this.prepareFor(actor, reg, target, this.snapshotAthlete(reg), reg.formData as Record<string, string | boolean>, false,
+                gia?.nome && gia?.cognome ? { nome: gia.nome, cognome: gia.cognome, consenso: true } : undefined);
             const nuovaQuota = activePrice(target.price, target.priceSteps as never, todayRome()).price;
             if (reg.paymentStatus === PaymentStatus.CONFIRMED) {
                 importo = differenzaGara(nuovaQuota, quotaPagata(reg));
@@ -218,7 +225,7 @@ export class ChangesService {
             if (!dto.athlete) throw new BadRequestException('Dati del nuovo atleta mancanti');
             if (!dto.athlete.email && !admin && actor.user?.role !== Role.SOCIETY) throw new BadRequestException("Indica l'email del nuovo atleta");
             const formData = this.formDataFor(reg, dto.athlete, dto.formData);
-            const prep = await this.prepareFor(actor, reg, await this.regs.getRace(reg.raceId), dto.athlete, formData, true);
+            const prep = await this.prepareFor(actor, reg, await this.regs.getRace(reg.raceId), dto.athlete, formData, true, dto.genitore);
             const a = prep.athlete;
             dati.athlete = {
                 nome: a.nome, cognome: a.cognome, sesso: a.sesso, dataNascita: a.dataNascita.toISOString().slice(0, 10),
@@ -226,6 +233,7 @@ export class ChangesService {
                 email: a.email, fidalVerified: a.fidalVerified,
             };
             dati.formData = prep.formData;
+            dati.genitore = prep.genitore ?? null;
             dati.categoria = prep.category?.name ?? null;
             dati.certStatus = prep.certStatus;
             importo = cfg.cessione ?? 0;
@@ -316,12 +324,13 @@ export class ChangesService {
     private prepareFor(
         actor: Actor, reg: RegFull, race: Awaited<ReturnType<RegistrationsService['getRace']>>,
         athlete: NonNullable<ChangeDto['athlete']>, formData: Record<string, string | boolean>, nuovoAtleta = false,
+        genitore?: ChangeDto['genitore'],
     ) {
         const u = actor.user;
         const admin = u?.role === Role.ADMIN;
         const asUser = admin || u?.role === Role.SOCIETY || (u?.role === Role.ATHLETE && !nuovoAtleta) ? u : undefined;
         const isStaff = admin;
-        return this.regs.prepare(asUser, race, { raceId: race.id, athlete, formData }, isStaff, {
+        return this.regs.prepare(asUser, race, { raceId: race.id, athlete, formData, genitore }, isStaff, {
             consensiSocieta: u?.role === Role.SOCIETY || admin,
         }).catch(e => {
             if (e instanceof BadRequestException) throw new BadRequestException(`${race.name}: ${e.message}`);
@@ -379,6 +388,7 @@ export class ChangesService {
                         tesseramento: a.tesseramento ?? null, email: a.email ?? null, fidalVerified: a.fidalVerified,
                         formData: (dati.formData ?? {}) as Prisma.InputJsonValue, assignedCategory: dati.categoria,
                         certStatus: dati.certStatus ?? undefined, athleteId: null, manageToken: newManageToken(),
+                        genitore: dati.genitore ? (dati.genitore as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
                     },
                 });
             } else {

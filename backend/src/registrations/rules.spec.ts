@@ -1,4 +1,5 @@
 import {
+    etaAnagrafica, minoreProblem,
     activePrice,
     allowedMethods,
     paymentFee,
@@ -98,5 +99,25 @@ describe('maggiorazioni metodo di pagamento', () => {
     it('quote con bonifico: quota + sconto + 1 €', () => {
         const q = quote({ basePrice: 20, today: '2026-01-01', commissions: {}, discount: { type: 'fixed', value: 2 }, method: 'bank', fees });
         expect(q).toMatchObject({ afterDiscount: 18, subtotal: 18, paymentFee: 1, total: 19 });
+    });
+});
+
+describe('minorenni', () => {
+    it('età anagrafica al giorno della gara', () => {
+        expect(etaAnagrafica('2008-06-10', '2026-06-09')).toBe(17);
+        expect(etaAnagrafica('2008-06-10', '2026-06-10')).toBe(18);
+        expect(etaAnagrafica('2012-01-01', '2026-10-30')).toBe(14);
+    });
+    const ok = { nome: 'Maria', cognome: 'Rossi', consenso: true };
+    it('di norma non serve nulla', () => expect(minoreProblem({ eta: 12, richiesta: false, viaSocieta: false, staff: false })).toBeNull());
+    it('maggiorenne: non serve', () => expect(minoreProblem({ eta: 18, richiesta: true, viaSocieta: false, staff: false })).toBeNull());
+    it('iscritto dalla società o dallo staff: non serve', () => {
+        expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: true, staff: false })).toBeNull();
+        expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: true })).toBeNull();
+    });
+    it('richiesta: servono nome, cognome e consenso del genitore', () => {
+        expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false })).toMatch(/nome e cognome/);
+        expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false, genitore: { ...ok, consenso: false } })).toMatch(/dichiarazione/);
+        expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false, genitore: ok })).toBeNull();
     });
 });

@@ -232,3 +232,46 @@ export function checkTesseramento(tipo: Tesseramento, ammessi: Tesseramento[]): 
 export function richiedeFidalVerificato(ammessi: Tesseramento[]): boolean {
     return ammessi.includes('fidal') && !ammessi.includes('runcard');
 }
+
+// ─── Minorenni ──────────────────────────────────────────────────────────────
+//
+// Decisioni della segreteria:
+// - di norma per i minori non serve nulla (gare ragazzi, non competitive);
+// - se l'organizzazione lo chiede (opzione della gara), per chi ha meno di 18
+//   anni il giorno della gara serve la dichiarazione del genitore: nome, cognome
+//   e consenso, salvati con l'iscrizione;
+// - se lo iscrive la sua società (o lo staff) non serve: garantisce la società;
+// - l'account atleta personale si può creare dai 14 anni.
+
+/** Età minima per un account atleta personale (sotto lo iscrive un genitore). */
+export const ETA_MIN_ACCOUNT = 14;
+
+/** Testo standard della dichiarazione del genitore (l'organizzazione può cambiarlo). */
+export const TESTO_MINORI_STANDARD =
+    'Dichiaro di essere il genitore o il tutore legale dell\'atleta minorenne, di autorizzarne la partecipazione '
+    + 'alla gara e di aver letto il regolamento.';
+
+/** Età anagrafica (compiuta) in una certa data. */
+export function etaAnagrafica(dataNascita: Date | string, giorno: Date | string): number {
+    const n = new Date(dataNascita), g = new Date(giorno);
+    let eta = g.getUTCFullYear() - n.getUTCFullYear();
+    const prima = g.getUTCMonth() < n.getUTCMonth() || (g.getUTCMonth() === n.getUTCMonth() && g.getUTCDate() < n.getUTCDate());
+    if (prima) eta--;
+    return eta;
+}
+
+export interface DichiarazioneGenitore { nome?: string; cognome?: string; consenso?: boolean }
+
+/**
+ * Serve la dichiarazione del genitore e manca? Restituisce il messaggio d'errore
+ * (null = va bene, oppure non serve).
+ */
+export function minoreProblem(p: {
+    eta: number; richiesta: boolean; viaSocieta: boolean; staff: boolean; genitore?: DichiarazioneGenitore | null;
+}): string | null {
+    if (!p.richiesta || p.eta >= 18 || p.viaSocieta || p.staff) return null;
+    const g = p.genitore;
+    if (!g?.nome?.trim() || !g?.cognome?.trim()) return 'Atleta minorenne: indica nome e cognome del genitore o tutore';
+    if (g.consenso !== true) return 'Atleta minorenne: serve la dichiarazione del genitore o tutore';
+    return null;
+}

@@ -31,6 +31,13 @@ export class AthleteDataDto {
     @IsOptional() @IsBoolean() fidalVerified?: boolean;
 }
 
+/** Minorenne, se la gara la chiede: dichiarazione del genitore o tutore. */
+export class GenitoreDto {
+    @IsString() @MinLength(1) @MaxLength(80) nome!: string;
+    @IsString() @MinLength(1) @MaxLength(80) cognome!: string;
+    @IsBoolean() consenso!: boolean;
+}
+
 export class CreateRegistrationDto {
     @IsString() raceId!: string;
     /** Campi extra del modulo gara (chiave = id campo del formSchema). */
@@ -44,6 +51,8 @@ export class CreateRegistrationDto {
     @IsOptional() @ValidateNested() @Type(() => AthleteDataDto) athlete?: AthleteDataDto;
     /** Iscrizione a una combinata dell'evento (raceId = una delle sue gare). */
     @IsOptional() @IsString() @MaxLength(40) combinataId?: string;
+    /** Atleta minorenne in una gara che chiede la dichiarazione del genitore. */
+    @IsOptional() @ValidateNested() @Type(() => GenitoreDto) genitore?: GenitoreDto;
     /** Solo admin / organizzatore: segna subito come pagata (es. contanti). */
     @IsOptional() @IsBoolean() markPaid?: boolean;
     /** Token anti-robot (Turnstile) per le iscrizioni da ospite, se configurato. */
