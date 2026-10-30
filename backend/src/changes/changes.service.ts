@@ -3,12 +3,14 @@ import { CertStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.module';
 import { MailService } from '../mail/mail.service';
+import { RegistrationMailer } from '../mail/registration-mailer';
+import { allineaCombinata } from '../registrations/combinata';
 import { changeAppliedMail, changeCededMail } from '../mail/templates';
 import { AuthUser } from '../common/auth';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
 import { RegistrationsService, assertSocietyLimit, findDuplicate } from '../registrations/registrations.service';
 import { PayMethod, activePrice, allowedMethods, chiusuraProblem, normName, paymentFee, todayRome } from '../registrations/rules';
-import { TipoCambio, codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi } from './change.rules';
+import { TipoCambio, codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi, ritiroProblem } from './change.rules';
 import { ChangeDto } from './changes.dto';
 
 type RegFull = Prisma.RegistrationGetPayload<{ include: { race: { include: { day: { include: { event: true } } } } } }>;
@@ -58,6 +60,7 @@ export class ChangesService {
         private readonly regs: RegistrationsService,
         private readonly settings: SettingsService,
         private readonly mail: MailService,
+        private readonly mailer: RegistrationMailer,
     ) {}
 
     // ─── Chi può fare cosa ──────────────────────────────────────────────────
@@ -154,6 +157,8 @@ export class ChangesService {
             trasferimento: cfg.trasferimento == null || creditoTrasferimento(reg) <= 0
                 || (cfg.trasferimento > 0 && !this.methods(reg.race.paymentMode).length && !this.isAdmin(actor))
                 ? null : { quota: cfg.trasferimento, credito: creditoTrasferimento(reg) },
+            // Ritiro (annullamento da solo): solo non pagate o gratuite, fino alla chiusura
+            ritiro: !closed && !ritiroProblem(reg),
             metodi: this.methods(reg.race.paymentMode),
             inAttesa: pending && {
                 id: pending.id, tipo: pending.tipo, descrizione: pending.descrizione, totale: pending.totale,
@@ -416,6 +421,43 @@ export class ChangesService {
         } catch (e) {
             this.log.warn(`Email cambio iscrizione ${regId} non messa in coda: ${e instanceof Error ? e.message : e}`);
         }
+    }
+
+    // ─── Ritiro dell'atleta ─────────────────────────────────────────────────
+
+    /**
+     * L'atleta annulla da solo un'iscrizione non ancora pagata (o gratuita), fino
+     * alla chiusura delle iscrizioni. Libera il posto e il pettorale, restituisce
+     * l'uso del codice sconto, annulla le gare comprese nella combinata e gli
+     * eventuali cambi in attesa di pagamento. Le quote pagate non si rimborsano.
+     */
+    async ritiro(actor: Actor, id?: string) {
+        const reg = await this.load(actor, id);
+        const problem = this.closedReason(reg, actor) ?? ritiroProblem(reg);
+        if (problem) throw new BadRequestException(problem);
+        await this.prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;
+            // Solo se è ancora com'era (es. non pagata nel frattempo con PayPal)
+            const r = await tx.registration.updateMany({
+                where: { id: reg.id, paymentStatus: reg.paymentStatus, paymentMethod: reg.paymentMethod, trasferitoAt: null },
+                data: { paymentStatus: PaymentStatus.REJECTED, paidAt: null, pettorale: null },
+            });
+            if (r.count === 0) throw new ConflictException('L\'iscrizione è cambiata nel frattempo: ricarica la pagina');
+            if (reg.discountCode) {
+                await tx.discountCode.updateMany({
+                    where: { code: reg.discountCode, usedCount: { gt: 0 } },
+                    data: { usedCount: { decrement: 1 } },
+                });
+            }
+            await allineaCombinata(tx, [reg.id], PaymentStatus.REJECTED, null);
+            await tx.registration.updateMany({ where: { combinataParentId: reg.id }, data: { pettorale: null } });
+            await tx.regChange.updateMany({
+                where: { registrationId: reg.id, appliedAt: null, paymentStatus: PaymentStatus.PENDING },
+                data: { paymentStatus: PaymentStatus.REJECTED },
+            });
+        });
+        await this.mailer.cancelled(reg.id, 'ritiro');
+        return { annullata: true };
     }
 
     // ─── Segreteria ─────────────────────────────────────────────────────────

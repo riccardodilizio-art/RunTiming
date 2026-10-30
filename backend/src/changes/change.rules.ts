@@ -64,3 +64,23 @@ export function creditoTrasferimento(r: {
     if (r.paymentStatus !== 'CONFIRMED' || r.omaggio || r.paymentMethod === 'free' || r.pricePaid <= 0) return 0;
     return quotaPagata(r);
 }
+
+/**
+ * Ritiro dell'atleta (annullamento dell'iscrizione da solo). Solo iscrizioni NON
+ * ancora pagate (o gratuite): una quota pagata non si rimborsa, si può solo cedere il pettorale
+ * o rinviare all'anno dopo. Il termine (chiusura iscrizioni) lo controlla chi chiama.
+ * Restituisce il motivo per cui non si può (null = si può).
+ */
+export function ritiroProblem(r: {
+    paymentStatus: string; paymentMethod: string | null; groupId?: string | null; combinataParentId?: string | null; trasferitoAt?: Date | null;
+}): string | null {
+    if (r.paymentStatus === 'REJECTED') return 'Iscrizione già annullata';
+    if (r.trasferitoAt) return 'Iscrizione già rinviata all\'anno prossimo';
+    if (r.combinataParentId) return 'Gara compresa in una combinata: si annulla dall\'iscrizione principale';
+    if (r.groupId) return 'Iscrizione nel pagamento di gruppo della società: chiedi alla tua società';
+    // Gara gratuita: nessun soldo in gioco, si può liberare il posto
+    if (r.paymentStatus === 'CONFIRMED' && r.paymentMethod !== 'free') {
+        return 'Quota già pagata: non è previsto il rimborso (puoi cedere il pettorale o rinviare all\'anno prossimo, se previsti)';
+    }
+    return null;
+}

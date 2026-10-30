@@ -99,7 +99,7 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
     }
 
     /** Iscrizione annullata. La chiave include la data: se viene riattivata e riannullata si avvisa di nuovo. */
-    cancelled(id: string, motivo: 'mancato_pagamento' | 'organizzazione') {
+    cancelled(id: string, motivo: 'mancato_pagamento' | 'organizzazione' | 'ritiro') {
         return this.safely('annullamento', async () => {
             const reg = await this.load(id);
             if (!reg?.email || reg.paymentStatus !== PaymentStatus.REJECTED || (reg.societyId && !reg.athleteId)) return;
