@@ -10,8 +10,16 @@ const TIMING_HEADERS = [
     'Nazione', 'Via', 'Regione', 'CAP', 'Città', 'Paese', 'Gara', 'Società', 'Licenza',
     'Stato', 'Commento', 'Email', 'Telefono', 'Cellulare', 'AccountNum', 'FilialeNum',
     'IBAN', 'BIC', 'MandatoSEPA', 'Banca', 'ProprietarioAccount', 'Transponder1', 'Transponder2',
-    'CodiceSocietà', 'Categoria', 'Pagamento', 'Certificato', 'IdIscrizione',
+    'CodiceSocietà', 'Categoria', 'Pagamento', 'Certificato', 'IdIscrizione', 'Genitore (minorenne)',
 ];
+
+/** Dichiarazione del genitore di un minorenne: "COGNOME NOME (dichiarazione del 30/10/2026)". */
+function genitore(g: unknown): string {
+    const x = g as { nome?: string; cognome?: string; at?: string } | null;
+    if (!x?.cognome) return '';
+    const quando = x.at ? new Date(x.at).toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' }) : '';
+    return `${x.cognome} ${x.nome ?? ''}`.trim() + (quando ? ` (dichiarazione del ${quando})` : '');
+}
 
 export async function entrantsXlsx(raceName: string, rows: Registration[]): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
@@ -37,6 +45,7 @@ export async function entrantsXlsx(raceName: string, rows: Registration[]): Prom
             r.paymentStatus,
             r.certStatus ?? '',
             r.id,
+            genitore(r.genitore),
         ]);
     }
     ws.getColumn(6).numFmt = 'dd/mm/yyyy';

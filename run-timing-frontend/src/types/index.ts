@@ -258,6 +258,10 @@ export interface Race {
     maxPerSocieta?: number;
     /** Primo pettorale della gara. */
     pettoraleDa?: number | null;
+    /** Minorenni: chiede la dichiarazione del genitore (nome, cognome, consenso). */
+    dichiarazioneMinori?: boolean;
+    /** Testo della dichiarazione (vuoto = testo standard). */
+    testoMinori?: string | null;
     formSchema?: FormField[];
     priceSteps?: PriceStep[];
     publicFields?: string[];
@@ -417,3 +421,20 @@ export interface Combinata {
     raceIds: string[];
     prezzo: number;
 }
+
+/** Testo standard della dichiarazione del genitore (come nel backend). */
+export const TESTO_MINORI_STANDARD =
+    "Dichiaro di essere il genitore o il tutore legale dell'atleta minorenne, di autorizzarne la partecipazione "
+    + 'alla gara e di aver letto il regolamento.';
+
+/** Età anagrafica (compiuta) in una certa data (date ISO). */
+export function etaAnagrafica(dataNascita: string, giorno: string): number {
+    const n = new Date(dataNascita), g = new Date(giorno);
+    if (isNaN(n.getTime()) || isNaN(g.getTime())) return NaN;
+    let eta = g.getUTCFullYear() - n.getUTCFullYear();
+    if (g.getUTCMonth() < n.getUTCMonth() || (g.getUTCMonth() === n.getUTCMonth() && g.getUTCDate() < n.getUTCDate())) eta--;
+    return eta;
+}
+
+/** Età minima per un account atleta personale. */
+export const ETA_MIN_ACCOUNT = 14;
