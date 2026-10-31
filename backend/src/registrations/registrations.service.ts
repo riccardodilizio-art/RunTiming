@@ -33,6 +33,7 @@ import {
     quote,
     sportAge,
     todayRome,
+    TESTO_MINORI_STANDARD, etaAnagrafica, minoreProblem,
 } from './rules';
 import { CreateRegistrationDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
@@ -102,6 +103,8 @@ export interface PreparedRegistration {
     category: RaceCategory | null;
     formData: Record<string, string | boolean>;
     certStatus: CertStatus;
+    /** Minorenne: dichiarazione del genitore (se la gara la chiede). */
+    genitore?: { nome: string; cognome: string; testo: string; at: string } | null;
 }
 
 /** Anagrafica "fotografata" di un'iscrizione (gli importi li aggiunge chi crea). */
@@ -125,6 +128,7 @@ export function snapshotData(race: { id: string; day: { event: { id: string } } 
         assignedCategory: p.category?.name,
         fidalVerified: a.fidalVerified,
         certStatus: p.certStatus,
+        genitore: p.genitore ? (p.genitore as unknown as Prisma.InputJsonValue) : undefined,
         manageToken: newManageToken(),
     };
 }
@@ -438,6 +442,20 @@ export class RegistrationsService {
         if (tessProblem && !isStaff) throw new BadRequestException(tessProblem);
         const category = assignCategory(json<RaceCategory[]>(race.categories), age, athlete.sesso);
 
+        // Minorenni: dichiarazione del genitore, se la gara la chiede (non se iscrive la società o lo staff)
+        const minore = etaAnagrafica(athlete.dataNascita, race.day.date) < 18;
+        const minProblem = minoreProblem({
+            eta: etaAnagrafica(athlete.dataNascita, race.day.date), richiesta: race.dichiarazioneMinori,
+            viaSocieta: !!societyId, staff: isStaff, genitore: dto.genitore,
+        });
+        if (minProblem) throw new BadRequestException(minProblem);
+        const genitore = minore && race.dichiarazioneMinori && dto.genitore && !societyId && !isStaff
+            ? {
+                nome: dto.genitore.nome.trim(), cognome: dto.genitore.cognome.trim(),
+                testo: race.testoMinori?.trim() || TESTO_MINORI_STANDARD, at: new Date().toISOString(),
+            }
+            : null;
+
         // Modulo: si tengono SOLO i campi previsti dalla gara, con lunghezze limitate
         // (niente dati arbitrari o enormi nel database)
         const formData = sanitizeFormData(dto.formData, json<FormFieldDef[]>(race.formSchema) ?? []);
@@ -456,7 +474,7 @@ export class RegistrationsService {
             certStatus = athlete.fidalVerified || athlete.certValid ? CertStatus.VERIFICATO : CertStatus.IN_ATTESA;
         }
 
-        return { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus };
+        return { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus, genitore };
     }
 
     async create(user: AuthUser | undefined, dto: CreateRegistrationDto) {
@@ -464,7 +482,7 @@ export class RegistrationsService {
         const event = race.day.event;
         const isStaff = await this.assertCanRegister(user, race);
         if (dto.combinataId) return this.createCombinata(user, dto, race, isStaff);
-        const { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus } =
+        const { athlete, athleteId, societyId, ageProblem, tessProblem, category, formData, certStatus, genitore } =
             await this.prepare(user, race, dto, isStaff);
         const method = this.chooseMethod(race, isStaff, dto.paymentMethod);
 
@@ -509,7 +527,7 @@ export class RegistrationsService {
 
             const reg = await tx.registration.create({
                 data: {
-                    ...snapshotData(race, { athlete, athleteId, societyId, category, formData, certStatus }),
+                    ...snapshotData(race, { athlete, athleteId, societyId, category, formData, certStatus, genitore }),
                     basePrice: q.price,
                     discountAmount: q.discount,
                     commissionAmount: q.commission,
