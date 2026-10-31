@@ -4,7 +4,7 @@ export type SportCategory = 'running' | 'cycling' | 'triathlon' | 'swimming' | '
 
 export type CatalogKey =
     | 'nome' | 'cognome' | 'data_nascita' | 'anno_nascita' | 'sesso'
-    | 'email' | 'telefono' | 'codice_fiscale'
+    | 'email' | 'telefono' | 'codice_fiscale' | 'nazionalita'
     | 'societa' | 'codice_societa'
     | 'tessera_fidal' | 'tessera_runcard' | 'tessera_fci'
     | 'tessera_csi' | 'tessera_uisp' | 'tessera_fitri' | 'tessera_fin'
@@ -76,6 +76,8 @@ export interface RegistrationSubmission {
     athleteAccountId?: string;   // collegato all'account atleta se loggato
     /** "COGNOME NOME" fornito dal backend (non dipende dai campi del modulo). */
     athleteName?: string;
+    /** Nazionalità (3 lettere); diversa da ITA = straniero. */
+    nazionalita?: string;
     societyId?: string;          // se iscritto da una società (presidente)
     /** Pettorale (assegnato dalla segreteria). */
     pettorale?: number;
@@ -112,6 +114,8 @@ export interface AthleteAccount {
     gender: 'M' | 'F';
     phone?: string;
     club?: string;
+    /** Nazionalità (3 lettere, es. ITA, FRA). */
+    nazionalita?: string;
     codFiscale?: string;
     /** Tesseramenti multipli dell'atleta (canonico). */
     affiliations?: Affiliation[];
@@ -215,6 +219,7 @@ export type RaceType =
 export type RaceEnte =
     | 'fidal'
     | 'runcard'
+    | 'estero'
     | 'uisp' | 'csi' | 'acsi' | 'aics' | 'libertas' | 'altro'
     | 'non_competitiva';
 
@@ -235,7 +240,7 @@ export interface Race {
     /** Ente della gara: se 'fidal' impone il tesseramento FIDAL all'iscrizione. */
     ente?: RaceEnte;
     /** Tesseramenti ammessi: fidal, runcard, eps, libero (vuoto = tutti). Vedi lib/tesseramenti. */
-    ammessi?: ('fidal' | 'runcard' | 'eps' | 'libero')[];
+    ammessi?: ('fidal' | 'runcard' | 'estero' | 'eps' | 'libero')[];
     /** Iscrizioni di gruppo delle società: ogni N iscritti, M gratis (null = nessun omaggio). */
     gruppoOmaggi?: { ogni: number; gratis: number } | null;
     /** Modalità di pagamento (online / in loco / entrambe / nessun pagamento). */

@@ -34,7 +34,7 @@ export class RaceDto {
     @IsIn(['linear', 'laps_fixed', 'laps_timed']) raceType!: string;
     @IsOptional() @IsString() ente?: string;
     /** Tesseramenti ammessi (vuoto = tutti). */
-    @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(['fidal', 'runcard', 'eps', 'libero'], { each: true }) ammessi?: string[];
+    @IsOptional() @IsArray() @ArrayMaxSize(5) @IsIn(['fidal', 'runcard', 'estero', 'eps', 'libero'], { each: true }) ammessi?: string[];
     /** Iscrizioni di gruppo: { ogni: 10, gratis: 1 } oppure null. */
     @IsOptional() @IsObject() gruppoOmaggi?: Record<string, unknown> | null;
     @IsOptional() @IsIn(['none', 'online', 'onsite', 'both']) paymentMode?: string;

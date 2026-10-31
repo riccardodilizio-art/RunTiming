@@ -5,6 +5,7 @@ import { useAthleteAuth } from '../context/useAthleteAuth';
 import { Captcha } from '../components/Captcha';
 import { safeRedirect } from '../lib/safeRedirect';
 import { BrandName } from '../components/BrandName';
+import { NAZIONI } from '../data/nazioni';
 
 const inputCls =
     'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500';
@@ -29,6 +30,7 @@ export default function AthleteRegisterPage() {
         gender:         '' as 'M' | 'F' | '',
         phone:          '',
         club:           '',
+        nazionalita:    'ITA',
         codFiscale:     '',
         fidalTessera:   '',
         runcardTessera: '',
@@ -76,6 +78,7 @@ export default function AthleteRegisterPage() {
                 gender:         form.gender as 'M' | 'F',
                 phone:          form.phone.trim()          || undefined,
                 club:           form.club.trim()           || undefined,
+                nazionalita:    form.nazionalita,
                 codFiscale:     form.codFiscale.trim().toUpperCase() || undefined,
                 fidalTessera:   form.fidalTessera.trim()  || undefined,
                 runcardTessera: form.runcardTessera.trim()|| undefined,
@@ -223,6 +226,15 @@ export default function AthleteRegisterPage() {
                                     <input type="text" value={form.club} onChange={set('club')}
                                         className={inputCls} placeholder="ASD Esempio" />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nazionalità</label>
+                                <select value={form.nazionalita} onChange={e => setForm(f => ({ ...f, nazionalita: e.target.value }))} className={inputCls}>
+                                            {NAZIONI.map(n => <option key={n.code} value={n.code}>{n.label}</option>)}
+                                        </select>
+                                {form.nazionalita !== 'ITA' && (
+                                    <p className="text-xs text-slate-500 mt-1">Se sei tesserato con la federazione del tuo paese, aggiungila dal profilo (Tesseramenti → Federazione estera) insieme al certificato medico.</p>
+                                )}
                             </div>
                         </div>
                     </section>

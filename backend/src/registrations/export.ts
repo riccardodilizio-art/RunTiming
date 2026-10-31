@@ -33,7 +33,7 @@ export async function entrantsXlsx(raceName: string, rows: Registration[]): Prom
             dn ? dn.getUTCFullYear() : '',
             dn ?? '',
             r.sesso.toLowerCase(),
-            'ITA', '', '', '', '', 'Italia',
+            r.nazionalita || 'ITA', '', '', '', '', (r.nazionalita || 'ITA') === 'ITA' ? 'Italia' : '',
             raceName,
             r.societa ?? '',
             r.tessera ?? '',

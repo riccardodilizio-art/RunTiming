@@ -1,4 +1,5 @@
 import {
+    nazionalita, tesseramentoAmmesso, checkTesseramento, tesseramentoDaEnte,
     etaAnagrafica, minoreProblem,
     activePrice,
     allowedMethods,
@@ -119,5 +120,23 @@ describe('minorenni', () => {
         expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false })).toMatch(/nome e cognome/);
         expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false, genitore: { ...ok, consenso: false } })).toMatch(/dichiarazione/);
         expect(minoreProblem({ eta: 15, richiesta: true, viaSocieta: false, staff: false, genitore: ok })).toBeNull();
+    });
+});
+
+describe('stranieri', () => {
+    it('nazionalità: 3 lettere maiuscole, altrimenti ITA', () => {
+        expect(nazionalita('fra')).toBe('FRA');
+        expect(nazionalita(' GER ')).toBe('GER');
+        expect(nazionalita('')).toBe('ITA');
+        expect(nazionalita('Francia')).toBe('ITA');
+        expect(nazionalita(undefined)).toBe('ITA');
+    });
+    it('federazione estera: ammessa dove è ammessa la Runcard', () => {
+        expect(tesseramentoAmmesso('estero', ['fidal', 'runcard'])).toBe(true);
+        expect(tesseramentoAmmesso('estero', [])).toBe(true);
+        expect(tesseramentoAmmesso('estero', ['fidal'])).toBe(false);
+        expect(tesseramentoAmmesso('estero', ['estero'])).toBe(true);
+        expect(checkTesseramento('estero', ['fidal'])).toMatch(/riservata/);
+        expect(tesseramentoDaEnte('estero')).toBe('estero');
     });
 });

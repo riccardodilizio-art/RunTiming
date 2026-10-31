@@ -1,4 +1,5 @@
 import type { FieldType, FieldOption, CatalogKey } from '../types';
+import { NAZIONI_OPTIONS } from './nazioni';
 
 export interface CatalogEntry {
     catalogKey: CatalogKey;
@@ -44,6 +45,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
             { catalogKey: 'sesso',         type: 'select', label: 'Sesso',               defaultRequired: true, options: optSesso },
             { catalogKey: 'email',         type: 'email',  label: 'Email',               defaultRequired: true },
             { catalogKey: 'telefono',      type: 'tel',    label: 'Telefono',            defaultRequired: false },
+            { catalogKey: 'nazionalita',   type: 'select', label: 'Nazionalità',         defaultRequired: false, options: NAZIONI_OPTIONS, helperText: 'Gli stranieri hanno una classifica a parte' },
         ],
     },
     {

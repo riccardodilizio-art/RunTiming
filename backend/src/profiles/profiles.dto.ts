@@ -17,7 +17,7 @@ import {
     ValidateNested,
 } from 'class-validator';
 
-export const ENTI = ['fidal', 'runcard', 'uisp', 'csi', 'acsi', 'aics', 'libertas', 'altro', 'non_competitiva'];
+export const ENTI = ['fidal', 'runcard', 'estero', 'uisp', 'csi', 'acsi', 'aics', 'libertas', 'altro', 'non_competitiva'];
 
 export class AffiliationDto {
     @IsIn(ENTI) ente!: string;
@@ -36,6 +36,8 @@ export class AthleteProfileDto {
     @IsOptional() @Matches(/^[A-Za-z0-9]{16}$/, { message: 'Codice fiscale non valido' }) codFiscale?: string;
     @IsOptional() @IsString() @MaxLength(30) phone?: string;
     @IsOptional() @IsString() @MaxLength(120) club?: string;
+    /** Nazionalità, codice a 3 lettere (es. ITA, FRA). */
+    @IsOptional() @Matches(/^[A-Za-z]{3}$/, { message: 'Nazionalità non valida (3 lettere, es. ITA)' }) nazionalita?: string;
     @IsOptional() @IsIn(['agonistico', 'non_agonistico', 'esenzione']) certType?: string;
     @IsOptional() @IsDateString() certExpiry?: string;
     @IsOptional() @IsArray() @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => AffiliationDto)

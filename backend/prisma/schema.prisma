@@ -95,6 +95,8 @@ model AthleteProfile {
   codFiscale    String?        @unique
   phone         String?
   club          String?
+  /// Nazionalità (codice a 3 lettere, es. ITA, FRA)
+  nazionalita   String         @default("ITA")
   certType      String?
   certExpiry    DateTime?
   certStatus    CertStatus?
@@ -290,6 +292,8 @@ model Registration {
   trasferitoAt     DateTime?
   /// Minorenne: dichiarazione del genitore { nome, cognome, testo, at }
   genitore         Json?
+  /// Nazionalità (codice a 3 lettere): diversa da ITA = straniero (classifica a parte)
+  nazionalita      String          @default("ITA")
   changes          RegChange[]
 
   @@index([raceId, cognome])
