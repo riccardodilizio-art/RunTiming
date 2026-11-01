@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw, Clock,
+    Users, Plus, Trash2, Edit2, X, Check, UserPlus, ClipboardList, RefreshCw, Clock, FileSpreadsheet,
 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/useSocietyAuth';
 import { useAdminStore, saveRegistration, loadMyRegistrationsApi, reportApiError, ensureEventApi } from '../../hooks/useAdminStore';
@@ -20,6 +20,7 @@ import { ammesso, tesseramentoDaEnte } from '../../lib/tesseramenti';
 import GroupDetails, { BankBox, GroupTotals } from '../../components/GroupDetails';
 import { euro, type PaymentGroupView } from '../../lib/gruppi';
 import { ManageRegistrationModal } from '../../components/ManageRegistration';
+import { leggiFile, scaricaModello } from '../../lib/importIscritti';
 
 type SocietySection = 'roster' | 'storico' | 'pagamenti';
 
@@ -114,6 +115,7 @@ export default function SocietyDashboardPage() {
     const [editing, setEditing] = useState<RosterAthlete | null>(null);
     const [showRegModal, setShowRegModal] = useState(false);
     const [reimported, setReimported] = useState(0);
+    const [excelMsg, setExcelMsg] = useState('');
     const [section, setSection] = useState<SocietySection>('roster');
     const [changingRegId, setChangingRegId] = useState<string | null>(null);
 
@@ -183,6 +185,36 @@ export default function SocietyDashboardPage() {
         setTimeout(() => setReimported(0), 3000);
     }
 
+    /** Import del roster da Excel (stesse colonne dell'export per il cronometraggio). */
+    async function importaExcel(file: File | undefined) {
+        if (!file || !currentSociety) return;
+        try {
+            const righe = await leggiFile(file);
+            const key = (a: { nome: string; cognome: string; dataNascita: string }) => `${a.nome}|${a.cognome}|${a.dataNascita}`.toLowerCase();
+            const existing = new Set(roster.map(key));
+            const nuovi: RosterAthlete[] = [];
+            for (const r of righe) {
+                const a = r.atleta;
+                if (!a || existing.has(key(a))) continue;
+                existing.add(key(a));
+                nuovi.push({
+                    id: newRosterId(), nome: a.nome.toUpperCase(), cognome: a.cognome.toUpperCase(), dataNascita: a.dataNascita, sesso: a.sesso,
+                    affiliations: a.tessera ? [{
+                        id: `aff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, ente: currentSociety.ente,
+                        societaNome: a.societa || currentSociety.societaNome, codiceSocieta: a.codiceSocieta || currentSociety.codiceFidal || undefined,
+                        numeroTessera: a.tessera, source: 'manual',
+                    }] : [],
+                    source: 'manual',
+                });
+            }
+            const scartate = righe.filter(r => r.errore);
+            if (nuovi.length) await saveRoster([...roster, ...nuovi]);
+            setExcelMsg(`${nuovi.length} atleti aggiunti dal file${righe.length - nuovi.length - scartate.length ? `, ${righe.length - nuovi.length - scartate.length} già nel roster` : ''}${scartate.length ? `, ${scartate.length} righe da correggere (${scartate.slice(0, 3).map(x => `riga ${x.riga}: ${x.errore}`).join('; ')}${scartate.length > 3 ? '…' : ''})` : ''}.`);
+        } catch (e) {
+            setExcelMsg(e instanceof Error ? e.message : 'File non leggibile');
+        }
+    }
+
     if (!currentSociety) return null;
 
     return (
@@ -217,6 +249,11 @@ export default function SocietyDashboardPage() {
                                 <RefreshCw className="h-4 w-4" /> Reimporta da FIDAL
                             </button>
                         )}
+                        <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-sm hover:bg-emerald-50 transition-colors cursor-pointer"
+                            title="Colonne: Cognome, Nome, DataDiNascita, Genere, Licenza…">
+                            <FileSpreadsheet className="h-4 w-4" /> Importa da Excel
+                            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => { void importaExcel(e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
                         <button onClick={() => setEditing(emptyRosterAthlete())}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand-200 text-brand-700 text-sm hover:bg-brand-50 transition-colors">
                             <UserPlus className="h-4 w-4" /> Aggiungi atleta
@@ -238,6 +275,12 @@ export default function SocietyDashboardPage() {
                     </div>
                 )}
 
+                {excelMsg && (
+                    <div className="mb-4 flex items-start justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5 text-emerald-900 text-sm">
+                        <span>{excelMsg} <button type="button" onClick={scaricaModello} className="underline">Modello Excel</button></span>
+                        <button type="button" onClick={() => setExcelMsg('')} aria-label="Chiudi">×</button>
+                    </div>
+                )}
                 {reimported > 0 && (
                     <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-green-700 text-sm">
                         <Check className="h-4 w-4" /> {reimported} nuovi atleti importati dal DB FIDAL.

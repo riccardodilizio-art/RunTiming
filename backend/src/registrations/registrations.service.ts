@@ -3,6 +3,7 @@ import {
     ConflictException,
     ForbiddenException,
     Injectable,
+    Logger,
     NotFoundException,
 } from '@nestjs/common';
 import { CertStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
@@ -35,7 +36,7 @@ import {
     todayRome,
     TESTO_MINORI_STANDARD, etaAnagrafica, minoreProblem, nazionalita, tesseramentoAmmesso,
 } from './rules';
-import { AthleteDataDto, CreateRegistrationDto, CreateStaffettaDto, ListQueryDto, VerifyDto } from './registrations.dto';
+import { AthleteDataDto, CreateRegistrationDto, CreateStaffettaDto, ImportDto, ListQueryDto, VerifyDto } from './registrations.dto';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
 import { METODO_COMBINATA, allineaCombinata, combinateEvento, prezzoAggiunta } from './combinata';
 import { siteName } from '../common/brand';
@@ -207,6 +208,8 @@ export function sanitizeFormData(
 
 @Injectable()
 export class RegistrationsService {
+    private readonly log = new Logger(RegistrationsService.name);
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly settings: SettingsService,
@@ -428,7 +431,7 @@ export class RegistrationsService {
      */
     async prepare(
         user: AuthUser | undefined, race: RaceWithEvent, dto: CreateRegistrationDto, isStaff: boolean,
-        opts: { consensiSocieta?: boolean } = {},
+        opts: { consensiSocieta?: boolean; ignoraModulo?: boolean } = {},
     ) {
         if (opts.consensiSocieta) {
             const fd: Record<string, string | boolean> = { ...(dto.formData ?? {}) };
@@ -478,7 +481,8 @@ export class RegistrationsService {
                 return v === undefined || v === '' || v === false;
             })
             .map(f => f.label);
-        if (missing.length) throw new BadRequestException(`Campi obbligatori mancanti: ${missing.join(', ')}`);
+        // Import da Excel della segreteria: i campi extra del modulo non ci sono nel file
+        if (missing.length && !opts.ignoraModulo) throw new BadRequestException(`Campi obbligatori mancanti: ${missing.join(', ')}`);
 
         // Certificato: tesserato FIDAL → valido in automatico (vedi LOGICA-SITO §2.1)
         let certStatus: CertStatus = CertStatus.NON_RICHIESTO;
@@ -682,6 +686,74 @@ export class RegistrationsService {
             await tx.registration.updateMany({ where: { OR: [{ id: capo.id }, { staffettaCapoId: capo.id }] }, data: { assignedCategory: categoria } });
             return { frazione, cognome: a2.cognome, nome: a2.nome, categoria };
         });
+    }
+
+    /**
+     * Import da Excel (segreteria / organizzatore): ogni riga passa gli stessi
+     * controlli dell'iscrizione (età, tesseramento, doppioni, posti); le righe con
+     * problemi si saltano e si spiegano. Con `prova` non si scrive nulla (anteprima).
+     * Pagamento scelto a ogni import: già pagati, da pagare sul posto, gratuiti.
+     * Nessuna email agli atleti importati.
+     */
+    async importa(user: AuthUser, raceId: string, dto: ImportDto) {
+        const race = await this.race(raceId);
+        await this.assertCanManage(user, race.day.event.id, race.day.event.createdById);
+        if (frazioniGara(race.staffetta)) throw new BadRequestException('Gara a staffetta: l\'import da Excel non è previsto');
+        const metodo = dto.pagamento === 'gratuito' ? 'free' : dto.pagamento === 'pagato' ? 'manual' : 'onsite';
+        const q = await this.quote(race.id, undefined, 'onsite');
+        const prezzo = dto.pagamento === 'gratuito'
+            ? { price: 0, discount: 0, commission: 0, paymentFee: 0, total: 0 }
+            : { price: q.price, discount: 0, commission: q.commission, paymentFee: 0, total: q.total };
+        const confermata = dto.pagamento !== 'sul_posto';
+        const righe: { riga: number; esito: 'ok' | 'errore'; messaggio?: string; atleta?: string }[] = [];
+        const visti = new Set<string>();
+        let posti = race.maxParticipants > 0
+            ? race.maxParticipants - await this.prisma.registration.count({ where: { raceId: race.id, paymentStatus: { not: PaymentStatus.REJECTED } } })
+            : Infinity;
+        for (const r of dto.righe) {
+            try {
+                const p = await this.prepare(user, race, { raceId: race.id, athlete: r.atleta, formData: {} }, true, { consensiSocieta: true, ignoraModulo: true });
+                // Età e tesseramento: nell'import si saltano (per eccezioni c'è l'iscrizione manuale)
+                if (p.ageProblem) throw new BadRequestException(p.ageProblem);
+                if (p.tessProblem) throw new BadRequestException(p.tessProblem);
+                const nome = `${p.athlete.cognome} ${p.athlete.nome}`;
+                const key = `${nome}|${p.athlete.dataNascita.toISOString().slice(0, 10)}`;
+                if (visti.has(key)) throw new ConflictException('Ripetuto nel file');
+                visti.add(key);
+                if (posti <= 0) throw new ConflictException('Gara al completo');
+                if (dto.prova) {
+                    if (await findDuplicate(this.prisma as unknown as Prisma.TransactionClient, race.id, p.athlete)) throw new ConflictException('Già iscritto a questa gara');
+                } else {
+                    await this.prisma.$transaction(async tx => {
+                        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${race.id}))::text`;
+                        if (race.maxParticipants > 0) {
+                            const count = await tx.registration.count({ where: { raceId: race.id, paymentStatus: { not: PaymentStatus.REJECTED } } });
+                            if (count >= race.maxParticipants) throw new ConflictException('Gara al completo');
+                        }
+                        if (await findDuplicate(tx, race.id, p.athlete)) throw new ConflictException('Già iscritto a questa gara');
+                        await tx.registration.create({
+                            data: {
+                                ...snapshotData(race, p),
+                                basePrice: prezzo.price, discountAmount: 0, commissionAmount: prezzo.commission,
+                                paymentFee: 0, pricePaid: prezzo.total,
+                                paymentMethod: metodo,
+                                paymentStatus: confermata ? PaymentStatus.CONFIRMED : PaymentStatus.PENDING,
+                                paidAt: confermata ? new Date() : null,
+                                addedByOrganizer: true, createdById: user.sub,
+                            },
+                        });
+                    });
+                }
+                posti--;
+                righe.push({ riga: r.riga, esito: 'ok', atleta: nome });
+            } catch (e) {
+                const msg = e instanceof BadRequestException || e instanceof ConflictException ? e.message : 'Errore imprevisto';
+                if (!(e instanceof BadRequestException || e instanceof ConflictException)) this.log.warn(`Import riga ${r.riga}: ${e instanceof Error ? e.message : e}`);
+                righe.push({ riga: r.riga, esito: 'errore', messaggio: msg, atleta: `${r.atleta.cognome} ${r.atleta.nome}`.trim() });
+            }
+        }
+        const ok = righe.filter(r => r.esito === 'ok').length;
+        return { prova: !!dto.prova, importati: dto.prova ? 0 : ok, validi: ok, saltati: righe.length - ok, righe };
     }
 
     /** Tessera confermata su FIDAL per quella persona e certificato valido alla data gara. */

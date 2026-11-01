@@ -111,3 +111,19 @@ export class FrazionistaDto {
     @IsInt() @Min(2) @Max(10) frazione!: number;
     @ValidateNested() @Type(() => AthleteDataDto) atleta!: AthleteDataDto;
 }
+
+/** Import da Excel: una riga del file (numero di riga per spiegare gli errori). */
+export class ImportRigaDto {
+    @IsInt() @Min(1) @Max(100_000) riga!: number;
+    @ValidateNested() @Type(() => AthleteDataDto) atleta!: AthleteDataDto;
+}
+
+/** Import da Excel della segreteria / organizzatore. */
+export class ImportDto {
+    @IsArray() @ArrayMinSize(1) @ArrayMaxSize(2000) @ValidateNested({ each: true }) @Type(() => ImportRigaDto)
+    righe!: ImportRigaDto[];
+    /** pagato = già incassato · sul_posto = da pagare al ritiro · gratuito */
+    @IsIn(['pagato', 'sul_posto', 'gratuito']) pagamento!: 'pagato' | 'sul_posto' | 'gratuito';
+    /** Anteprima: controlla le righe senza scrivere. */
+    @IsOptional() @IsBoolean() prova?: boolean;
+}

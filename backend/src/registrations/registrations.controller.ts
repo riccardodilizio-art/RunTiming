@@ -9,6 +9,7 @@ import { PayMethod } from './rules';
 import {
     CreateRegistrationDto,
     CreateStaffettaDto,
+    ImportDto,
     ListQueryDto,
     UpdateCertDto,
     UpdatePaymentDto,
@@ -79,6 +80,15 @@ export class RegistrationsController {
     @Roles(Role.ADMIN, Role.ORGANIZER)
     staffList(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query() q: ListQueryDto) {
         return this.regs.staffList(user, id, q);
+    }
+
+    /** Import da Excel (tracciato Race Result): anteprima con `prova`, poi import. */
+    @Post('races/:id/import')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ADMIN, Role.ORGANIZER)
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
+    importa(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ImportDto) {
+        return this.regs.importa(user, id, dto);
     }
 
     /** Excel nel tracciato del cronometraggio. */

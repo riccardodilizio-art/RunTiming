@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { Race, RegistrationSubmission, CatalogKey } from '../../types';
+import { valoreCampo } from '../../types';
 
 // Tracciato FISSO richiesto dal software di cronometraggio (foglio "Tabelle1").
 const TIMING_HEADERS = [
@@ -13,7 +14,7 @@ const TIMING_HEADERS = [
 function byCatalog(race: Race, reg: RegistrationSubmission, key: CatalogKey): string {
     const f = (race.formSchema ?? []).find(ff => ff.catalogKey === key);
     if (!f) return '';
-    const v = reg.formData[f.id];
+    const v = valoreCampo(reg, f);
     return typeof v === 'boolean' ? (v ? '1' : '') : String(v ?? '');
 }
 

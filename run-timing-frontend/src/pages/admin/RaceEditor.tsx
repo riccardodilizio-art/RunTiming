@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
     Plus, ChevronLeft, Settings, ClipboardList, Trash2, Edit2, Check,
     Euro, Users, UserCheck, Eye, EyeOff, CheckCircle2, UserPlus, Search,
-    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet, Award, ArrowRightLeft,
+    Download, Trophy, BarChart2, ShieldAlert, X, FileSpreadsheet, Award, ArrowRightLeft, Upload,
 } from 'lucide-react';
 import ImportClassificaModal from './ImportClassificaModal';
 import CertificateEditor from './CertificateEditor';
@@ -19,11 +19,12 @@ import PriceStepEditor from './PriceStepEditor';
 import CategoryEditor from './CategoryEditor';
 import { RaceStatsBar, PaymentBadge, CertBadge } from './RegistrationBadges';
 import ManualRegModal from './ManualRegModal';
+import ImportIscrittiModal from './ImportIscrittiModal';
 import { PRESET_AMMESSI, TESSERAMENTI, TESSERAMENTO_LABEL, ammessiGara, type Tesseramento } from '../../lib/tesseramenti';
 import type {
     Race, FormField, PriceStep, RegistrationSubmission, PaymentStatus, CertStatus, Result, ResultStatus, PublicColumn,
 } from '../../types';
-import { TESTO_MINORI_STANDARD } from '../../types';
+import { TESTO_MINORI_STANDARD, valoreCampo } from '../../types';
 
 type RaceTab = 'info' | 'form' | 'prices' | 'partecipanti' | 'risultati' | 'attestato';
 
@@ -45,6 +46,7 @@ export default function RaceEditor({
 }) {
     const [tab, setTab] = useState<RaceTab>(isAdmin ? 'info' : 'partecipanti');
     const [showManualReg, setShowManualReg] = useState(false);
+    const [showImport, setShowImport] = useState(false);
     const [showImportClassifica, setShowImportClassifica] = useState(false);
     const {
         registrations: allRegs,
@@ -612,6 +614,15 @@ export default function RaceEditor({
                                         <X className="h-3.5 w-3.5" /> Annulla non pagati
                                     </button>
                                 )}
+                                {USE_API && !race.staffetta && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowImport(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-medium hover:bg-emerald-50 transition-colors"
+                                    >
+                                        <Upload className="h-3.5 w-3.5" /> Importa da Excel
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setShowManualReg(true)}
@@ -678,9 +689,9 @@ export default function RaceEditor({
                                                     )}
                                                     {formFields.filter(f => !f.readOnly).map(f => (
                                                         <td key={f.id} className="px-3 py-2 text-slate-700">
-                                                            {typeof reg.formData[f.id] === 'boolean'
-                                                                ? (reg.formData[f.id] ? '✓' : '—')
-                                                                : (reg.formData[f.id] as string) || '—'}
+                                                            {typeof valoreCampo(reg, f) === 'boolean'
+                                                                ? (valoreCampo(reg, f) ? '✓' : '—')
+                                                                : (valoreCampo(reg, f) as string) || '—'}
                                                         </td>
                                                     ))}
                                                     <td className="px-3 py-2 font-medium text-brand-700">{formatPrice(reg.pricePaid)}</td>
@@ -747,6 +758,11 @@ export default function RaceEditor({
                             );
                         })()}
                     </div>
+
+                    {showImport && (
+                        <ImportIscrittiModal race={race} onClose={() => setShowImport(false)}
+                            onDone={() => loadRaceRegistrationsApi(race.id, true).catch(() => undefined)} />
+                    )}
 
                     {showManualReg && (
                         <ManualRegModal

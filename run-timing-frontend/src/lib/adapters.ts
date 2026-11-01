@@ -86,6 +86,7 @@ export interface ApiRegistration {
     codiceSocieta?: string | null;
     nazionalita?: string | null;
     tessera?: string | null;
+    tesseramento?: string | null;
     email?: string | null;
     formData: Record<string, string | boolean>;
     pricePaid: number;
@@ -202,6 +203,13 @@ export function toRegistration(r: ApiRegistration): RegistrationSubmission {
         athleteAccountId: opt(r.athleteId),
         athleteName: `${r.cognome} ${r.nome}`.trim() || undefined,
         nazionalita: r.nazionalita ?? undefined,
+        anagrafica: {
+            nome: r.nome, cognome: r.cognome, sesso: r.sesso,
+            data_nascita: r.dataNascita?.slice(0, 10) ?? '', anno_nascita: r.dataNascita?.slice(0, 4) ?? '',
+            email: r.email ?? '', societa: r.societa ?? '', codice_societa: r.codiceSocieta ?? '',
+            tessera_fidal: r.tesseramento === 'fidal' ? r.tessera ?? '' : '', tessera_runcard: r.tesseramento === 'runcard' ? r.tessera ?? '' : '',
+            nazionalita: r.nazionalita ?? '',
+        },
         societyId: opt(r.societyId),
         pettorale: r.pettorale ?? undefined,
         certStatus: r.certStatus ? CERT[r.certStatus] : undefined,

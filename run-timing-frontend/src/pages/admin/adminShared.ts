@@ -1,4 +1,5 @@
 import type { Race, RegistrationSubmission, SportCategory } from '../../types';
+import { valoreCampo } from '../../types';
 
 // ─── Shared helpers & constants for the admin panel ─────────────────────────────
 
@@ -35,7 +36,7 @@ export function downloadCSV(race: Race, regs: RegistrationSubmission[]) {
     const rows = regs.map((reg, i) => [
         i + 1,
         ...fields.map(f => {
-            const val = reg.formData[f.id];
+            const val = valoreCampo(reg, f);
             return typeof val === 'boolean' ? (val ? 'Sì' : 'No') : String(val ?? '');
         }),
         reg.pricePaid.toFixed(2),

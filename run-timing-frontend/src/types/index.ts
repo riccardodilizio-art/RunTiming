@@ -78,6 +78,8 @@ export interface RegistrationSubmission {
     athleteName?: string;
     /** Nazionalità (3 lettere); diversa da ITA = straniero. */
     nazionalita?: string;
+    /** Anagrafica salvata dal server (per chiave di catalogo): vale se il modulo non ha il campo (import, staffette). */
+    anagrafica?: Partial<Record<CatalogKey, string>>;
     societyId?: string;          // se iscritto da una società (presidente)
     /** Pettorale (assegnato dalla segreteria). */
     pettorale?: number;
@@ -445,3 +447,10 @@ export function etaAnagrafica(dataNascita: string, giorno: string): number {
 
 /** Età minima per un account atleta personale. */
 export const ETA_MIN_ACCOUNT = 14;
+
+/** Valore di un campo per un iscritto: dal modulo, altrimenti dall'anagrafica salvata (import da Excel, staffette). */
+export function valoreCampo(reg: Pick<RegistrationSubmission, 'formData' | 'anagrafica'>, f: Pick<FormField, 'id' | 'catalogKey'>): string | boolean | undefined {
+    const v = reg.formData[f.id];
+    if (v !== undefined && v !== '') return v;
+    return f.catalogKey ? reg.anagrafica?.[f.catalogKey] : undefined;
+}
