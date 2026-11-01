@@ -9,6 +9,7 @@ import { combinateEvento, rimappaCombinate } from '../registrations/combinata';
 import { quoteCambi } from '../changes/change.rules';
 import { daysBetween, nextEditionDate, nextEditionTitle, shiftPriceSteps } from './copy';
 import { DayDto, EventDto, EventInfoDto, EventsQueryDto, RaceDto } from './events.dto';
+import { frazioniGara } from '../registrations/staffetta';
 
 type Tx = Prisma.TransactionClient;
 const J = (v: unknown) => (v === undefined ? undefined : v === null ? Prisma.JsonNull : (v as Prisma.InputJsonValue));
@@ -65,6 +66,7 @@ function raceData(r: RaceDto) {
         maxPerSocieta: r.maxPerSocieta ?? 0,
         pettoraleDa: r.pettoraleDa ?? null,
         dichiarazioneMinori: r.dichiarazioneMinori ?? false,
+        staffetta: frazioniGara(r.staffetta),
         testoMinori: r.testoMinori?.trim() || null,
         formSchema: J(r.formSchema ?? null),
         priceSteps: J(r.priceSteps ?? null),

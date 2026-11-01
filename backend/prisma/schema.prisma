@@ -197,6 +197,8 @@ model Race {
   pettoraleDa         Int?
   /// Minorenni: chiedere la dichiarazione del genitore (nome, cognome, consenso)
   dichiarazioneMinori Boolean        @default(false)
+  /// Staffetta: numero di frazioni (null = gara individuale)
+  staffetta           Int?
   /// Testo della dichiarazione scelto dall'organizzazione (null = testo standard)
   testoMinori         String?
   formSchema          Json?
@@ -284,6 +286,10 @@ model Registration {
   combinataId      String?
   /// Iscrizione principale della combinata: si paga lì, le altre la seguono
   combinataParentId String?
+  /// Staffetta: nome della squadra, frazione (1..n) e iscrizione del capitano (la frazione 1, che paga)
+  squadra          String?
+  frazione         Int?
+  staffettaCapoId  String?
   /// Pettorale (unico nell'evento)
   pettorale        Int?
   /// Codice segreto del link "gestisci iscrizione" (anche senza account)
@@ -302,6 +308,7 @@ model Registration {
   @@index([athleteId])
   @@index([groupId])
   @@index([combinataParentId])
+  @@index([staffettaCapoId])
   @@unique([eventId, pettorale])
 }
 

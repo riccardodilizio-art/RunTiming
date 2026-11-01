@@ -5,6 +5,7 @@ import { SettingsService } from '../settings/settings.module';
 import { MailService } from '../mail/mail.service';
 import { RegistrationMailer } from '../mail/registration-mailer';
 import { allineaCombinata } from '../registrations/combinata';
+import { frazioniGara } from '../registrations/staffetta';
 import { changeAppliedMail, changeCededMail } from '../mail/templates';
 import { AuthUser } from '../common/auth';
 import { newManageToken, newPaymentRef } from '../payments/payment-ref';
@@ -12,6 +13,7 @@ import { RegistrationsService, assertSocietyLimit, findDuplicate } from '../regi
 import { PayMethod, TESTO_MINORI_STANDARD, activePrice, allowedMethods, chiusuraProblem, normName, paymentFee, todayRome } from '../registrations/rules';
 import { TipoCambio, codiceCredito, creditoTrasferimento, differenzaGara, quotaPagata, quoteCambi, ritiroProblem } from './change.rules';
 import { ChangeDto } from './changes.dto';
+import { FrazionistaDto } from '../registrations/registrations.dto';
 
 type RegFull = Prisma.RegistrationGetPayload<{ include: { race: { include: { day: { include: { event: true } } } } } }>;
 const include = { race: { include: { day: { include: { event: true } } } } } as const;
@@ -95,6 +97,13 @@ export class ChangesService {
     private closedReason(reg: RegFull, actor: Actor): string | null {
         if (reg.paymentStatus === PaymentStatus.REJECTED) return 'Iscrizione annullata';
         if (reg.combinataId) return 'Iscrizione in una combinata: per i cambi scrivi alla segreteria';
+        if (reg.frazione) return 'Staffetta: per cambiare un frazionista usa la sezione qui sotto; per altro scrivi alla segreteria';
+        return this.fuoriTempo(reg, actor);
+    }
+
+    /** Termine per l'atleta: gara svolta, iscrizioni chiuse (null = ancora in tempo; l'admin sempre). */
+    private fuoriTempo(reg: RegFull, actor: Actor): string | null {
+        if (reg.paymentStatus === PaymentStatus.REJECTED) return 'Iscrizione annullata';
         if (this.isAdmin(actor)) return null;
         if (reg.race.day.date.toISOString().slice(0, 10) < todayRome()) return 'La gara si è già svolta';
         if (!reg.race.isOpen) return 'Iscrizioni chiuse: per i cambi scrivi alla segreteria';
@@ -133,6 +142,7 @@ export class ChangesService {
                 include: { day: true, _count: { select: { registrations: { where: { paymentStatus: { not: PaymentStatus.REJECTED } } } } } },
             });
             gare = races
+                .filter(r => !frazioniGara(r.staffetta))
                 .filter(r => this.isAdmin(actor) || (r.isOpen && !chiusuraProblem(r.chiusuraIscrizioni)))
                 .filter(r => this.garaOk(reg, r, this.isAdmin(actor)))
                 .map(r => {
@@ -161,8 +171,9 @@ export class ChangesService {
             trasferimento: cfg.trasferimento == null || creditoTrasferimento(reg) <= 0
                 || (cfg.trasferimento > 0 && !this.methods(reg.race.paymentMode).length && !this.isAdmin(actor))
                 ? null : { quota: cfg.trasferimento, credito: creditoTrasferimento(reg) },
+            staffetta: await this.staffettaInfo(reg, actor),
             // Ritiro (annullamento da solo): solo non pagate o gratuite, fino alla chiusura
-            ritiro: !closed && !ritiroProblem(reg),
+            ritiro: !this.fuoriTempo(reg, actor) && !ritiroProblem(reg),
             metodi: this.methods(reg.race.paymentMode),
             inAttesa: pending && {
                 id: pending.id, tipo: pending.tipo, descrizione: pending.descrizione, totale: pending.totale,
@@ -201,6 +212,7 @@ export class ChangesService {
                 const ch = chiusuraProblem(target.chiusuraIscrizioni);
                 if (ch) throw new BadRequestException(`${target.name}: ${ch}`);
             }
+            if (frazioniGara(target.staffetta)) throw new BadRequestException(`${target.name}: è una staffetta, si iscrive la squadra`);
             // Stessi controlli dell'iscrizione per la nuova gara (età, tesseramento, modulo)
             // Stesso atleta: la dichiarazione del genitore già data vale anche per la nuova gara
             const gia = reg.genitore as { nome?: string; cognome?: string } | null;
@@ -435,6 +447,29 @@ export class ChangesService {
         }
     }
 
+    // ─── Staffetta ──────────────────────────────────────────────────────────
+
+    /** Squadra della staffetta (solo per il capitano) e se si possono cambiare i frazionisti. */
+    private async staffettaInfo(reg: RegFull, actor: Actor) {
+        if (reg.frazione !== 1) return null;
+        const membri = await this.prisma.registration.findMany({
+            where: { OR: [{ id: reg.id }, { staffettaCapoId: reg.id }] },
+            select: { frazione: true, cognome: true, nome: true, sesso: true },
+            orderBy: { frazione: 'asc' },
+        });
+        const chiuso = this.fuoriTempo(reg, actor);
+        return { squadra: reg.squadra, categoria: reg.assignedCategory, membri, modificabile: !chiuso, chiuso };
+    }
+
+    /** Il capitano cambia un frazionista (2..n) fino alla chiusura delle iscrizioni. */
+    async cambiaFrazionista(actor: Actor, dto: FrazionistaDto, id?: string) {
+        const reg = await this.load(actor, id);
+        if (reg.frazione !== 1) throw new BadRequestException('Solo il capitano (frazione 1) può cambiare i frazionisti');
+        const info = await this.staffettaInfo(reg, actor);
+        if (info?.chiuso) throw new BadRequestException(info.chiuso);
+        return this.regs.cambiaFrazionista(actor.user, reg, dto.frazione, dto.atleta, this.isAdmin(actor));
+    }
+
     // ─── Ritiro dell'atleta ─────────────────────────────────────────────────
 
     /**
@@ -445,7 +480,8 @@ export class ChangesService {
      */
     async ritiro(actor: Actor, id?: string) {
         const reg = await this.load(actor, id);
-        const problem = this.closedReason(reg, actor) ?? ritiroProblem(reg);
+        // Combinata o staffetta: si annulla dalla principale (capitano) e le altre seguono
+        const problem = this.fuoriTempo(reg, actor) ?? ritiroProblem(reg);
         if (problem) throw new BadRequestException(problem);
         await this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${reg.raceId}))::text`;

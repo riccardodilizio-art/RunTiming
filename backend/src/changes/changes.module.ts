@@ -5,6 +5,7 @@ import { AuthGuard, AuthUser, CurrentUser, Roles, ThrottlePerIp } from '../commo
 import { RegistrationsModule } from '../registrations/registrations.module';
 import { ChangesService } from './changes.service';
 import { ChangeDto, ChangeListDto, ChangePaymentDto } from './changes.dto';
+import { FrazionistaDto } from '../registrations/registrations.dto';
 
 @Controller()
 export class ChangesController {
@@ -34,6 +35,13 @@ export class ChangesController {
         return this.changes.ritiro({ token });
     }
 
+    @Post('manage/:token/frazionista')
+    @ThrottlePerIp()
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    frazionistaByToken(@Param('token') token: string, @Body() dto: FrazionistaDto) {
+        return this.changes.cambiaFrazionista({ token }, dto);
+    }
+
     // ─── Atleta, società, admin ──────────────────────────────────────────
 
     @Get('registrations/:id/changes')
@@ -55,6 +63,13 @@ export class ChangesController {
     @Roles(Role.ATHLETE, Role.SOCIETY, Role.ADMIN)
     ritiro(@CurrentUser() user: AuthUser, @Param('id') id: string) {
         return this.changes.ritiro({ user }, id);
+    }
+
+    @Post('registrations/:id/frazionista')
+    @UseGuards(AuthGuard)
+    @Roles(Role.ATHLETE, Role.SOCIETY, Role.ADMIN)
+    frazionista(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: FrazionistaDto) {
+        return this.changes.cambiaFrazionista({ user }, dto, id);
     }
 
     // ─── Segreteria ──────────────────────────────────────────────────────

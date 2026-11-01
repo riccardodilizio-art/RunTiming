@@ -30,7 +30,8 @@ export class BibsService {
         return this.prisma.$transaction(async tx => {
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${ev.id}))::text`;
             const regs = await tx.registration.findMany({
-                where: { raceId, paymentStatus: { not: PaymentStatus.REJECTED } },
+                // Staffette: il numero è della squadra (sul capitano); le frazioni diventano 101-1, 101-2…
+                where: { raceId, paymentStatus: { not: PaymentStatus.REJECTED }, staffettaCapoId: null },
                 select: { id: true, societa: true, cognome: true, nome: true, pettorale: true },
             });
             const altri = await tx.registration.findMany({

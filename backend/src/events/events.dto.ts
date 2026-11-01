@@ -50,6 +50,8 @@ export class RaceDto {
     @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(1) @Max(999_999) pettoraleDa?: number | null;
     /** Minorenni: chiedere la dichiarazione del genitore. */
     @IsOptional() @IsBoolean() dichiarazioneMinori?: boolean;
+    /** Staffetta: numero di frazioni (2..10); null = gara individuale. */
+    @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(2) @Max(10) staffetta?: number | null;
     @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(2000) testoMinori?: string | null;
     @IsOptional() @IsArray() formSchema?: unknown[];
     @IsOptional() @IsArray() priceSteps?: unknown[];

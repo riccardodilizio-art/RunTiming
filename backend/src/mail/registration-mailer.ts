@@ -50,6 +50,7 @@ export class RegistrationMailer implements OnModuleInit, OnModuleDestroy {
             gara: reg.race.name,
             data: reg.race.day.date,
             categoria: reg.assignedCategory,
+            squadra: reg.squadra,
             importo: reg.pricePaid,
             metodo: reg.paymentMethod,
             stato: reg.paymentStatus,

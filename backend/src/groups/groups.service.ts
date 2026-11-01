@@ -12,6 +12,7 @@ import {
 import { allowedMethods } from '../registrations/rules';
 import { omaggiNelGruppo, regolaOmaggi, riepilogoGruppo } from './group.rules';
 import { CreateGroupDto, GroupPreviewDto } from './groups.dto';
+import { frazioniGara } from '../registrations/staffetta';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -66,6 +67,7 @@ export class GroupsService {
     async preview(user: AuthUser, dto: GroupPreviewDto) {
         const s = await this.society(user);
         const race = await this.regs.getRace(dto.raceId);
+        if (frazioniGara(race.staffetta)) throw new BadRequestException('Gara a staffetta: iscrivi le squadre una alla volta');
         const method = this.method(race.paymentMode, dto.paymentMethod);
         const q = await this.regs.quote(race.id, undefined, method);
         const gia = await this.activeOfSociety(this.prisma, race.id, s.id);
@@ -83,6 +85,7 @@ export class GroupsService {
     async create(user: AuthUser, dto: CreateGroupDto) {
         const s = await this.society(user);
         const race = await this.regs.getRace(dto.raceId);
+        if (frazioniGara(race.staffetta)) throw new BadRequestException('Gara a staffetta: iscrivi le squadre una alla volta');
         await this.regs.assertCanRegister(user, race);
         const method = this.method(race.paymentMode, dto.paymentMethod);
 

@@ -43,10 +43,16 @@ export function prezzoAggiunta(prezzo: number, giaPagato: number): number {
     return Math.max(0, Math.round((prezzo - giaPagato) * 100) / 100);
 }
 
-/** Le iscrizioni figlie seguono lo stato di pagamento della principale. */
+/**
+ * Le iscrizioni figlie seguono lo stato di pagamento della principale: le altre
+ * gare di una combinata e le altre frazioni di una staffetta (il capitano paga per tutti).
+ */
 export function allineaCombinata(
     db: Pick<Prisma.TransactionClient, 'registration'>, parentIds: string[], paymentStatus: PaymentStatus, paidAt: Date | null,
 ) {
     if (!parentIds.length) return Promise.resolve({ count: 0 });
-    return db.registration.updateMany({ where: { combinataParentId: { in: parentIds } }, data: { paymentStatus, paidAt } });
+    return db.registration.updateMany({
+        where: { OR: [{ combinataParentId: { in: parentIds } }, { staffettaCapoId: { in: parentIds } }] },
+        data: { paymentStatus, paidAt },
+    });
 }
